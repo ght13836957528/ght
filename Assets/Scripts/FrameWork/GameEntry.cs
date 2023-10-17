@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using FrameWork.ResourceManager;
 using FrameWork.UI;
 
 public class GameEntry
@@ -31,17 +30,17 @@ public class GameEntry
         get;
     }
     
-    private ResourceManager _resourceManager;
-
-    public ResourceManager ResourceManager
-    {
-        get;
-    }
+    // private ResourceManager _resourceManager;
+    //
+    // public ResourceManager ResourceManager
+    // {
+    //     get;
+    // }
 
     public void Init()
     {
         _uiComponent = new UIComponent(_gameModulesList);
-        _resourceManager = new ResourceManager(_gameModulesList);
+        // _resourceManager = new ResourceManager(_gameModulesList);
         foreach (var item in _gameModulesList)
         {
             item.Init();
