@@ -1,0 +1,10 @@
+---@class GuideStepInfosShootGameStart:GuideStepBaseInfo
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfosShootGameStart = class("GuideStepInfosShootGameStart", base)
+local M = GuideStepInfosShootGameStart
+
+function M:onParse(params)
+   
+end
+
+return M

@@ -1,0 +1,9 @@
+---@class GuideTriggerConditionNumericalShootingArriveLevelFive:GuideTriggerCondition
+local GuideTriggerConditionNumericalShootingArriveLevelFive = class("GuideTriggerConditionNumericalShootingArriveLevelFive", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionNumericalShootingArriveLevelFive
+
+function M:equals(param)
+    return true
+end
+
+return M

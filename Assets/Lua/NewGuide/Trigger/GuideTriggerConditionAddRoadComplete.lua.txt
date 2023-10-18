@@ -1,0 +1,32 @@
+---@class GuideTriggerConditionAddRoadComplete : GuideTriggerCondition
+local GuideTriggerConditionAddRoadComplete = class("GuideTriggerConditionAddRoadComplete", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionAddRoadComplete
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+function M:equals(param)
+   
+    return true
+end
+
+
+function M:ifStepActionComplete(stepInfo)
+    if not stepInfo or not stepInfo.param then
+        print_error("can not judge ,id==="..stepInfo.id)
+    end
+    local roadTable = string.split(stepInfo.triggerParam,"_")
+    local complete = true
+    local resultTable = {}
+    for k,v in pairs(roadTable) do
+        local roadPos = string.split(v,";")
+        local Vector2Int = CS.UnityEngine.Vector2Int
+        resultTable[k] = GameEntry.Data.Building:HasRoad(Vector2Int(tonumber(roadPos[1]),tonumber(roadPos[2])))
+    end
+    for k,v in pairs(resultTable) do
+        if v == false then
+            complete = false
+            break
+        end
+    end
+    return complete
+end
+
+return M

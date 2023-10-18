@@ -1,0 +1,132 @@
+---@class GuideStepBaseAction @引导步骤执行逻辑基类
+local GuideStepBaseAction = class("GuideStepBaseAction")
+local M = GuideStepBaseAction
+
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:ctor(stepInfo) 
+    self.state = NewGuideConst.State.init
+    self:onAddListener()
+    self:init(stepInfo)
+end
+
+function M:onAddListener()
+  
+end
+
+function M:onRemoveListener()
+    
+end
+
+---@param stepInfo GuideStepBaseInfo
+function M:init(stepInfo)
+    self:onInit(stepInfo)
+    if not stepInfo or not stepInfo.id then
+        print_error("stepInfo is wrong ,please check")
+        return
+    end
+    self.stepInfo = stepInfo
+end
+
+function M:enter()
+    self:setIfMoveMap(self.stepInfo.notMoveMap)
+    self:setIfCloseAllPop(self.stepInfo.closeAllPop)
+    self:playDub(self.stepInfo.dub)
+    self:setLag(self.stepInfo.lag)
+    self:onEnter()
+end
+
+function M:execute()
+    self.state = NewGuideConst.State.update
+    self:onExecute()
+end
+
+function M:exit()
+    if GameSceneManager.context.sceneType == SceneType.City then
+        local citySceneView = GameSceneManager.getView(SceneType.City)
+        citySceneView.camera:setCanPinch(true)
+        citySceneView.camera:setCanDrag(true)
+    end
+    self.state = NewGuideConst.State.exit
+    GuideManager.setMaskViewActiveSelf(false)
+    self:onExit()
+    self:stopDub()
+end
+
+function M:dispose()
+    self:onRemoveListener()
+    self:onDispose()
+    if self.lagTimer then
+        self.lagTimer:dispose()
+    end
+    self.stepInfo:dispose()
+end
+
+-- 当前步骤超时处理跳转下一步
+function M:setLag(lag)
+    if not tonumber(lag) or tonumber(lag) <= 0 then
+        return
+    end
+    if self.lagTimer then
+        self.lagTimer:dispose()
+    end
+    
+    GuideManager.setMaskViewActiveSelf(true)
+    self.lagTimer = Timer.new(0 ,tonumber(lag), false, false, function()
+        GuideManager._moveNext()
+        self.lagTimer:dispose()
+    end, self)
+    self.lagTimer:start()
+end
+
+--设置当前步骤是否可以挪动地图，包括拖拽和放大缩小地图
+function M:setIfMoveMap(notMoveMap)
+    notMoveMap = notMoveMap or 0
+    local citySceneView = GameSceneManager.getView(SceneType.City)
+    if citySceneView and citySceneView.camera then
+        citySceneView.camera:setCanPinch(notMoveMap ~= 1)
+        citySceneView.camera:setCanDrag(notMoveMap ~= 1)
+    end
+end
+
+-- 关闭所有面板
+function M:setIfCloseAllPop(closeAllPop)
+    if closeAllPop and tonumber(closeAllPop) == 1 then
+        UIManager.panel:closeLayer(UILayerType.UIResourcePopUp)
+        UIManager.panel:closeLayer(UILayerType.Default)
+    end
+end
+
+-- 音效播放
+function M:playDub(dub)
+    if dub and not string.isNilOrEmpty(dub) then
+        self.serialId = GameEntry.Sound:PlayDub(tostring(dub), "Sound")
+    end
+end
+
+function M:stopDub()
+    if self.serialId and self.serialId > 0 then
+        GameEntry.Sound:StopSound(self.serialId)
+        self.serialId = 0
+    end
+end
+
+---@param stepInfo GuideStepBaseInfo
+function M:onInit(stepInfo) -- 初始化
+end
+
+function M:onEnter() -- 开始执行当前action
+end
+
+function M:onExecute() -- 相当于Update，每秒执行一次
+end
+
+function M:onExit() -- 推出
+end
+
+function M:onDispose() -- 销毁
+end
+
+
+    
+return M

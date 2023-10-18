@@ -1,0 +1,10 @@
+---@class GuideStepInfosCheckUIMainMenuOpen : GuideStepBaseInfo @核对主界面菜单展示状态
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfosCheckUIMainMenuOpen = class("GuideStepInfosCheckUIMainMenuOpen", base)
+local M = GuideStepInfosCheckUIMainMenuOpen
+
+function M:onParse()
+
+end
+
+return M

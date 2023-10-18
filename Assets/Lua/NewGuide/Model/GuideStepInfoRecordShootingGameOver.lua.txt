@@ -1,0 +1,9 @@
+---@class GuideStepInfoRecordShootingGameOver : GuideStepBaseInfo @记录小游戏结束
+local GuideStepInfoRecordShootingGameOver = class("GuideStepInfoRecordShootingGameOver", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoRecordShootingGameOver
+
+function M:onParse(params)
+   
+end
+
+return M

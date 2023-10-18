@@ -1,0 +1,39 @@
+---@class GuideStepBaseInfo @引导步骤基础数据结构
+local GuideStepBaseInfo = class("GuideStepBaseInfo")
+local M = GuideStepBaseInfo
+
+function M:ctor(params)
+    self:parse(params)
+end
+
+function M:parse(params)
+    if not params then 
+        print_error("cur guide step info is nil")
+        return 
+    end
+    
+    if not params.id then
+        print_error("cur guide step info id is nil")
+        return 
+    end
+    self:onParse(params)
+    for k,v in pairs(params) do
+        if tonumber(v) then
+            self[k] = tonumber(v)
+        else
+            self[k] = v
+        end
+    end
+end
+
+function M:onParse(params)
+end
+
+function M:onDispose()
+end
+
+function M:dispose()
+    self:onDispose()
+end
+
+return M

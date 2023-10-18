@@ -1,0 +1,78 @@
+---@class GuideMiniGameControl @引导版本控制对象
+local GuideMiniGameControl = class("GuideMiniGameControl")
+local M = GuideMiniGameControl
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+local guideMiniGameMap ={
+    [NewGuideConst.GuideVersionType.guideType1] = { },
+    [NewGuideConst.GuideVersionType.guideType2] = {miniGameKey = "IfCompleteShootingNumber"},
+    [NewGuideConst.GuideVersionType.guideType3] = {miniGameKey = "IfCompleteTowerDefense"},
+    [NewGuideConst.GuideVersionType.guideType4] = {miniGameKey = "IfCompleteShootingNumber"},
+    [NewGuideConst.GuideVersionType.guideType5] = {miniGameKey = "IfCompleteTowerDefense"},
+}
+
+function M:ctor()
+    self.ifShootOver = false
+    self.ifTowerDefense = false
+end
+
+function M:getAllMiniGameKeys()
+    local keys = {}
+    for k,v in pairs(guideMiniGameMap) do
+        table.insert(keys,v.miniGameKey)
+    end
+    return keys
+end
+
+function M:setMiniGameComplete(miniGameKey,value)
+    if miniGameKey == guideMiniGameMap[NewGuideConst.GuideVersionType.guideType2].miniGameKey or miniGameKey == guideMiniGameMap[NewGuideConst.GuideVersionType.guideType4].miniGameKey  then
+        self:setShootOverByInt(value)
+    end
+    if miniGameKey == guideMiniGameMap[NewGuideConst.GuideVersionType.guideType3].miniGameKey or miniGameKey == guideMiniGameMap[NewGuideConst.GuideVersionType.guideType5].miniGameKey then
+        self:setTowerDefenseOverByInt(value)
+    end
+end
+
+-----------------------------------------------------射击小游戏-----------------------------------------------------------
+function M:setShootOverByInt(ifOver)
+    self.ifShootOver = tonumber(ifOver) == 1
+end
+
+function M:getShootOver()
+    return self.ifShootOver
+end
+
+function M:recordShootOver()
+    self.ifShootOver = true
+    ServerRecorder.record(guideMiniGameMap[NewGuideConst.GuideVersionType.guideType2].miniGameKey, "1", function(errorCode)
+        if not string.isNilOrEmpty(errorCode) then
+            return
+        end
+    end)
+end
+
+-----------------------------------------------------塔防小游戏-----------------------------------------------------------
+function M:setTowerDefenseOverByInt(ifOver)
+    self.ifTowerDefense = tonumber(ifOver) == 1
+end
+
+function M:getTowerDefenseOver()
+    return self.ifTowerDefense
+end
+
+function M:recordTowerDefenseOver()
+    self.ifTowerDefense = true
+    ServerRecorder.record(guideMiniGameMap[NewGuideConst.GuideVersionType.guideType3].miniGameKey, "1", function(errorCode)
+        if not string.isNilOrEmpty(errorCode) then
+            return
+        end
+    end)
+end
+
+function M:clear()
+    self.ifShootOver = false
+    self.ifTowerDefense = false
+end
+
+
+return M

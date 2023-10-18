@@ -1,0 +1,15 @@
+---@class GuideTriggerConditionTaskComplete : GuideTriggerCondition
+local GuideTriggerConditionTaskComplete = class("GuideTriggerConditionTaskComplete", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionTaskComplete
+
+function M:equals(param,args)
+    local complete = false
+    if param  then
+        if tonumber(param) == self.triggerParam then
+            complete = true
+        end
+    end
+    return complete
+end
+
+return M

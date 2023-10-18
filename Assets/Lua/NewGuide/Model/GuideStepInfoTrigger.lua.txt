@@ -1,0 +1,15 @@
+---@class GuideStepInfoTrigger : GuideStepBaseInfo @引导步骤修路操作引导类型数据结构
+---@field public triggerType string trigger事件类型
+---@field public param string trigger 参数
+---@field public jumpId number 跳转的步骤
+local GuideStepInfoTrigger = class("GuideStepInfoTrigger", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoTrigger
+
+function M:onParse(params)
+    self.triggerType = params.triggerType
+    self.triggerParam = params.triggerParam
+    self.jumpId = params.jumpId
+    self.notTriggerOnce = params.notTriggerOnce
+end
+
+return M

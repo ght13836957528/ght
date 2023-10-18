@@ -1,0 +1,14 @@
+---@class GuideStepInfoTowerDefensePause : GuideStepBaseInfo @塔防小游戏暂停与取消暂停
+---@field public isPause number 0 = 取消暂停 1= 暂停
+local GuideStepInfoTowerDefensePause = class("GuideStepInfoTowerDefensePause", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoTowerDefensePause
+
+function M:onParse(params)
+    if not params.isPause or not tonumber(params.isPause) then
+        print_error("isPause cannot be null")
+        return 
+    end
+    self.isPause = params.isPause
+end
+
+return M

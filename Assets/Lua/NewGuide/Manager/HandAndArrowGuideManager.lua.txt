@@ -1,0 +1,38 @@
+
+---@class HandAndArrowGuideManager
+HandAndArrowGuideManager = {}
+local M = HandAndArrowGuideManager
+
+function M.initHandGuideManager()
+    M.curActionNodeList = {}
+end
+
+function M.addNodeToList(name,node)
+    if M.curActionNodeList and not string.isNilOrEmpty(name) then
+        M.curActionNodeList[name] = node
+    end
+end
+
+function M.getNodeByName(name)
+    return M.curActionNodeList[name]
+end
+
+function M.delNodeByName(name)
+    M.curActionNodeList[name] = nil
+end
+
+
+function M.currentStepFinish()
+    BroadcastEvent.dispatch(NewGuideConst.eventType.CurStepActionOver)
+end
+
+function M.clear()
+    M.curActionNodeList = {}
+end
+
+------C#调用----------------
+function CSharpAddNodeToList(name,obj)
+    M.addNodeToList(name,obj)
+end
+
+return M

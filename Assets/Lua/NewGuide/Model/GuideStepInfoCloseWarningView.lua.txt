@@ -1,0 +1,9 @@
+---@class GuideStepInfoCloseWarningView.lua : GuideStepBaseInfo @引导步骤关闭警戒 主UI闪烁红光
+local GuideStepInfoCloseWarningView = class("GuideStepInfoCloseWarningView", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoCloseWarningView
+
+function M:onParse(params)
+    
+end
+
+return M

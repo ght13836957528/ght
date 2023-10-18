@@ -1,0 +1,15 @@
+---@class GuideStepInfoWarning : GuideStepBaseInfo
+local Base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfoWarning = class("GuideStepInfoWarning", Base)
+local M = GuideStepInfoWarning
+
+function M:onParse(params)
+    self.duration = params.duration
+    if params.waringType then
+        self.waringType = tonumber(params.waringType)
+    else
+        self.waringType = 1
+    end
+end
+
+return M

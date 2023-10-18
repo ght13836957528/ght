@@ -1,0 +1,52 @@
+---@class LightRingGuideManager @光圈引导管理器
+local LightRingGuideManager = class("LightRingGuideManager")
+local M = LightRingGuideManager
+
+function M:ctor()
+    self.curActionTargetBtnList = {} --引导的光圈显示目标按钮List
+    self.curActionTargetToggleList = {} --引导的光圈显示目标按钮List
+end
+
+---添加按钮到List中
+---@param name string 按钮名称，与配置中的按钮名字一致
+---@param btn UnityType.UIButton 按钮对象
+function M:addBtnToTargetBtnList(name,btn)
+    self.curActionTargetBtnList[name] = btn
+end
+
+---添加Toggle到List中
+---@param name string 按钮名称，与配置中的按钮名字一致
+---@param target UnityType.Toggle 按钮对象
+function M:addToggleToTargetList(name,target)
+    self.curActionTargetToggleList[name] = target
+end
+
+---通过名字获取按钮
+---@param name string 按钮名称
+---@return UnityType.UIButton 按钮对象
+function M:getBtnByName(name)
+    return self.curActionTargetBtnList[name]
+end
+
+---通过名字获取Toggle
+---@param name string 按钮名称
+---@return UnityType.Toggle Toggle对象
+function M:getToggleByName(name)
+    return self.curActionTargetToggleList[name]
+end
+
+function M:setConfigBtnName(name)
+    self._curConfigBtnName = name
+    print_error("setConfigBtnName==="..name)
+end
+
+function M:getCurConfigName()
+    return self._curConfigBtnName 
+end
+
+function M:clearConfigBtnName()
+    self.curActionTargetBtnList = {}
+    self.curActionTargetToggleList = {} 
+end
+
+return M

@@ -1,0 +1,96 @@
+---@class GuideTriggerType @引导触发类型
+---@field Unknown number 未知类型
+---@field CityBuildingUpgrade number 内城建筑升级
+---@field CityBuildComplete number 内城建筑建造完成
+---@field CityBuildingPutComplete number 内城建筑摆放完成
+---@field CityBuildAddRoadComplete number 修路成功
+---@field TaskComplete number 任务完成
+---@field ExecuteTask number 任务执行
+---@field ChapterGetReward number 章节奖励领取完成
+---@field SundriesRemoveComplete  number 城内杂物移除完成
+---@field TransportComplete number 运输完成
+---@field TroopOperation number 编队的操作
+---@field ChapterAllTaskComplete number 章节任务全部完成
+---@field ChapterAllRewardGet number 章节任务所有奖励领取完成
+---@field TileUnlockComplete number 地块解锁完成
+---@field CloseUIResourceUnlockView number 关闭资源类型介绍界面 
+---@field CloseBiochemicalBeautyStoryView number 关闭生化美女剧情界面
+---@field AgreeKillIAida number 同意杀死艾达 
+---@field AgreeNotKillAida number 不同意杀死艾达
+---@field CampsiteSaveSucceed number 营救难民成功
+---@field GetItem number 获取某种道具
+---@field CloseUpgradeMainCityTips number 关闭大本升级提示页面
+---@field ClickBuildInformationUpGrade number 点击建筑升级按钮
+---@field ReturnToCityWhenFinishRecruit number 招募完成返回城镇
+---@field HelicopterFirstLand number 解锁交易中心之后直升机第一次落地
+---@field FinishTraining number 完成训练士兵
+---@field ClickMessageBall number 点击消息球
+---@field ScienceFinish number 完成科技训练
+---@field ChapterTask number 执行章节任务
+---@field SecondHeroArrival number 先锋官抵达
+---@field NumericalShootingArriveLevelOne number 小游戏中人物在第一关3s前
+---@field NumericalShootingArriveLevelFive number 小游戏中人物在第五关3s前
+---@field NumericalShootingFiveBossComplete number 第五关boss结束
+---@field NumericalShootingSecondGuideOver number 小游戏中第二段引导，闯关结束
+---@field TowerDefenseDragHeroSuccess number 塔防游戏英雄放置成功
+---@field TowerDefenseGoldAccumulateToValue  number 塔防游戏金币累积到数额
+---@field TowerDefenseFightFail number   塔防游戏战斗失败
+---@field TowerDefenseWarningOver number 塔防游戏warning结束
+---@field NumericalShootingStraightFifthLevelSuccess number 连续到第五关且胜利
+---@field NumericalShootingFirstFail number 首次战败
+---@field NumericalShootingFirstBackToLevelView number 首次回到关卡界面
+---@field TowerDefenseSkillCastSuccess number 塔防游戏英雄释放技能成功
+---@field TowerDefenseCloseHeroGive number 关闭送英雄界面
+---@field TowerDefenseCompleteLevel number 塔防完成关卡
+---@field TowerDefenseEnterLevel number 进入塔防关卡
+---@field GetTaskRewardComplete number 领取完成某任务奖励
+---@field BeginIntoNight number 开启入夜
+
+
+GuideTriggerType = {}
+GuideTriggerType.Unknown = -1
+GuideTriggerType.CityBuildingUpgrade = 0
+GuideTriggerType.CityBuildComplete = 1
+GuideTriggerType.CityBuildingPutComplete = 2
+GuideTriggerType.CityBuildAddRoadComplete = 3
+GuideTriggerType.TaskComplete = 4
+GuideTriggerType.ExecuteTask = 5
+GuideTriggerType.ChapterGetReward = 6
+GuideTriggerType.SundriesRemoveComplete = 7
+GuideTriggerType.TransportComplete = 8
+GuideTriggerType.TroopOperation = 9
+GuideTriggerType.ChapterAllTaskComplete = 10
+GuideTriggerType.ChapterAllRewardGet = 11
+GuideTriggerType.TileUnlockComplete = 12
+GuideTriggerType.CloseUIResourceUnlockView = 13
+GuideTriggerType.CloseBiochemicalBeautyStoryView = 14
+GuideTriggerType.AgreeKillIAida = 15
+GuideTriggerType.AgreeNotKillAida = 16
+GuideTriggerType.CampsiteSaveSucceed = 17
+GuideTriggerType.GetItem = 18
+GuideTriggerType.CloseUpgradeMainCityTips = 19
+GuideTriggerType.ClickBuildInformationUpGrade = 20
+GuideTriggerType.ReturnToCityWhenFinishRecruit = 21
+GuideTriggerType.HelicopterFirstLand = 22
+GuideTriggerType.FinishTraining = 23
+GuideTriggerType.ClickMessageBall = 24
+GuideTriggerType.ScienceFinish = 25
+GuideTriggerType.ChapterTask = 26
+GuideTriggerType.SecondHeroArrival = 27
+GuideTriggerType.NumericalShootingArriveLevelOne = 28
+GuideTriggerType.NumericalShootingArriveLevelFive = 29
+GuideTriggerType.NumericalShootingFiveBossComplete = 30
+GuideTriggerType.NumericalShootingSecondGuideOver = 31
+GuideTriggerType.TowerDefenseDragHeroSuccess = 32
+GuideTriggerType.TowerDefenseGoldAccumulateToValue = 33
+GuideTriggerType.TowerDefenseFightFail = 34
+GuideTriggerType.TowerDefenseWarningOver = 35
+GuideTriggerType.NumericalShootingStraightFifthLevelSuccess = 36
+GuideTriggerType.NumericalShootingFirstFail = 37
+GuideTriggerType.NumericalShootingFirstBackToLevelView = 38
+GuideTriggerType.TowerDefenseSkillCastSuccess = 39
+GuideTriggerType.TowerDefenseCloseHeroGive = 40
+GuideTriggerType.TowerDefenseCompleteLevel = 41
+GuideTriggerType.TowerDefenseEnterLevel = 42
+GuideTriggerType.GetTaskRewardComplete = 43
+GuideTriggerType.BeginIntoNight = 44

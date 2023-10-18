@@ -1,0 +1,24 @@
+---@class GuideStepActionZombieAttackWorker : GuideStepBaseAction
+local Base = require("GameLogic.NewGuide.StepAction.GuideStepBaseAction")
+local GuideStepActionZombieAttackWorker = class("GuideStepActionZombieAttackWorker", Base)
+local M = GuideStepActionZombieAttackWorker
+
+function M:onEnter()
+    GuideManager.setMaskViewActiveSelf(true)
+    BroadcastEvent.subscribe(CS.EventId.GuideZombieAttackWorkerOver, self.onAttackOver, self)
+    CS.AttackWorkController.Instance:StartAttackWork()
+end
+
+function M:onExit()
+    BroadcastEvent.unsubscribe(CS.EventId.GuideZombieAttackWorkerOver, self.onAttackOver, self)
+end
+
+function M:onDispose()
+    GuideManager.setMaskViewActiveSelf(false)
+end
+
+function M:onAttackOver()
+    GuideManager._moveNext()
+end
+
+return M

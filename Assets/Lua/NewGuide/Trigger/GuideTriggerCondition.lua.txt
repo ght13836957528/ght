@@ -1,0 +1,43 @@
+---@class GuideTriggerCondition @引导触发器条件
+---@field public id number 引导配置id
+---@field public type GuideTriggerType 引导触发类型
+---@field public jumpId number 跳转ID
+local GuideTriggerCondition = class("GuideTriggerCondition")
+local M = GuideTriggerCondition
+
+function M:ctor()
+    self.id = ""
+    self.type = GuideTriggerType.Unknown
+    self.jumpId = ""
+    self.triggerParam = ""
+    self.isNeedRecord = 0
+end
+
+function M:parse(config)
+    for k,v in pairs(config) do
+        if tonumber(v) then
+            config[k] = tonumber(v)
+        end 
+    end
+    self.id = config.id
+    self.type = config.triggerType
+    self.jumpId = config.jumpId
+    self.triggerParam = config.triggerParam
+    self.isNeedRecord = config.isNeedRecord
+    self.notTriggerOnce = (config.notTriggerOnce == 1)
+end
+
+---@return boolean
+function M:equals(...)
+    return false
+end
+
+---@return boolean
+function M:ifStepActionComplete(stepInfo)
+    return false
+end
+
+function M:dispose()
+end
+
+return M

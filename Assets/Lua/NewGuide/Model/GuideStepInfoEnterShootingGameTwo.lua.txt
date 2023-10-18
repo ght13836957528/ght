@@ -1,0 +1,11 @@
+
+---@class GuideStepInfoEnterShootingGameTwo:GuideStepBaseInfo 进入第二段新手引导射击游戏
+local GuideStepInfoEnterShootingGameTwo = class("GuideStepInfoEnterShootingGameTwo", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoEnterShootingGameTwo
+
+function M:onParse(params)
+
+end
+
+
+return M

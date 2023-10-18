@@ -1,0 +1,18 @@
+---@class GuideTriggerConditionTransportComplete : GuideTriggerCondition
+local GuideTriggerConditionTransportComplete = class("GuideTriggerConditionTransportComplete", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionTransportComplete
+
+function M:equals(param,args)
+    local complete = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return complete
+    end
+    if param  then
+        if string.lower(param)== string.lower(self.triggerParam) then -- 判断运输的是否是当前类型
+            complete = true
+        end
+    end
+    return complete
+end
+
+return M

@@ -1,0 +1,11 @@
+---@class GuideStepInfosExecuteCityBuildGuide : GuideStepBaseInfo @执行建筑相关操作
+---@field buildId number 建筑ID
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfosExecuteCityBuildGuide = class("GuideStepInfosExecuteCityBuildGuide", base)
+local M = GuideStepInfosExecuteCityBuildGuide
+
+function M:onParse(params)
+    self.buildId = tonumber(params.buildId)
+end
+
+return M

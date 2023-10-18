@@ -1,0 +1,15 @@
+---@class GuideTriggerConditionCloseUIResourceUnlockView : GuideTriggerCondition
+local GuideTriggerConditionCloseUIResourceUnlockView = class("GuideTriggerConditionTileUnlockComplete", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionCloseUIResourceUnlockView
+
+function M:equals(param)
+    local complete = false
+    if param  then
+        if string.lower(param) == string.lower(self.triggerParam) then -- 判断是否是配置要求的资源类型
+            complete = true
+        end
+    end
+    return complete
+end
+
+return M

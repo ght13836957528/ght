@@ -1,0 +1,9 @@
+---@class GuideStepInfoCheckNumericalShootingGameLoaded : GuideStepBaseInfo @检查数值小游戏是否完成加载
+local GuideStepInfoCheckNumericalShootingGameLoaded = class("GuideStepInfoCheckNumericalShootingGameLoaded", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoCheckNumericalShootingGameLoaded
+
+function M:onParse(params)
+   
+end
+
+return M

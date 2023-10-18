@@ -1,0 +1,10 @@
+---@class GuideStepInfoBuildingUpGradeNoTouch : GuideStepBaseInfo @设置建筑物在升级状态，不可操作其他步骤数据结构
+---@field public plotId number plotId  
+local GuideStepInfoBuildingUpGradeNoTouch = class("GuideStepInfoBuildingUpGradeNoTouch", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoBuildingUpGradeNoTouch
+
+function M:onParse(params)
+    self.buildID = params.buildID
+end
+
+return M

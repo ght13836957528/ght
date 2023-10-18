@@ -1,0 +1,15 @@
+---@class GuideTriggerConditionScienceFinish : GuideTriggerCondition
+local GuideTriggerConditionScienceFinish = class("GuideTriggerConditionScienceFinish", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionScienceFinish
+
+function M:equals(param)
+    local complete = false
+    if param  then
+        if tonumber(param) == tonumber(self.triggerParam) then -- 判断是否是配置要求的科技Id
+            complete = true
+        end
+    end
+    return complete
+end
+
+return M

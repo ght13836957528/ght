@@ -1,0 +1,19 @@
+
+---@class SkillFastGrowManager 快速生长的管理类
+local SkillFastGrowManager = class("SkillFastGrowManager")
+local M = SkillFastGrowManager
+
+function M:ctor()
+    self.isFastGrow = 0
+end
+
+function M:setSkillFastGrowState(state)
+    self.isFastGrow = state
+end
+
+function M:getSkillFastGrowState()
+    return self.isFastGrow
+end
+
+
+return M

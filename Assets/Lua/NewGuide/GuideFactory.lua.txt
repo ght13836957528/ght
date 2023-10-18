@@ -1,0 +1,467 @@
+---@class GuideFactory 引导工厂类
+GuideFactory = {}
+local M = GuideFactory
+
+---创建数据结构
+---@generic T : GuideStepBaseInfo
+---@param guideInfo table 引导步骤数据
+---@return T
+function M.createStepInfo(guideInfo)
+    local info
+    if guideInfo.type == GuideStepType.wait then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoWait").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.camera then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCamera").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.cartoon then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCartoon").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.lightRing then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoLightRing").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.plot then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoPlot").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.mainCityOperation then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCityOperation").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.soft then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoSoftHandAndArrow").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.addRoad then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoAddRoad").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.trigger then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoTrigger").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.dragBuild then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoDragBuild").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.doTransport then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoTransport").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.buildingArrow then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoBuildingArrow").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.getWorldNearMonsterPoint then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoGetWorldNearMonsterPoint").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.getChapterReward then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoGetChapterReward").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.skillFastGrow then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoSkillFastGrow").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.disperseAreaFog then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoDisperseAreaFog").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.JudgeIFCanGetReward then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoJudgeIFCanGetReward").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.HeroLotteryGuide then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoHeroLotteryGuide").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.GuideOpenTroopsPanel then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoGuideOpenTroopsPanel").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.setTruckTravelTime then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoTruckTravelTimeInfo").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.setBuildingUpGradeNoTouch then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoBuildingUpGradeNoTouch").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showWarningUI then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoWarning").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.zombieAttackWorker then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoZombieAttackWorker").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.unlockWorldMap then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoUnlockWorldMap").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.soldierAttackZombie then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoSoldierAttackZombie").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showWatcherCompleteTrain then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowWatcherCompleteTrain").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.storyBoard then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoStoryBoard").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showBaseMoveBox then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowBaseMoveBox").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showArrowTowerAttackZombie then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowArrowTowerAttackZombie").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.chapterTaskCompleteAni then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoChapterTaskComplete").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.zombieAttackSoldier then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoZombieAttackSoldier").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showBus then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowBus").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.leaveBus then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoLeaveBus").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.secondHeroMarch then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoSecondHeroMarch").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.secondHeroTalk then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoSecondHeroTalk").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.setDayOrNight then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoSetDayOrNight").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.closeWarningUI then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCloseWarningView").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showZombieToMusicTile then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowZombieToMusicTile").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showZombiePat then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowZombiePat").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.cameraJumpToMusic then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCameraJumpToMusic").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showCargoGuide then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowCargoGuide").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showAxeZombieAttackSoldier then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowAxeZombieAttackSoldier").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showGetSoldierView then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowGetSoldierView").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showCargo then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowCargo").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showPanzerShift then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowPanzerShift").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showGetHeroView then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowGetSoldierView").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.getWorldNearResourcePoint then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoGetWorldNearResourcePoint").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.getRadarTask then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoGetRadarTask").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.checkNumericalShootingGameLoaded then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCheckNumericalShootingGameLoaded").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.numericalShootingGamePause then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoNumericalShootingGamePause").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.showLightArea then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowLightArea").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.showShootingGameGuideHand then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShowShootingGameGuideHand").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.backToMainCity then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoBackToMainCity").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.recordShootingGameOver then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoRecordShootingGameOver").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.enterShootingGameTwo then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoEnterShootingGameTwo").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.checkIFAreaUnlocked then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCheckIFAreaUnlocked").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.openBuildingUI then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoOpenBuildingUI").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.ifCompleteRadarTask then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoIfCompleteRadarTask").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.shootingGameCameraMove then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShootingGameCameraMove").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.shootingGameShowMonsters then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoShootingGameShowMonsters").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.checkIfInAlliance then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCheckIfInAlliance").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.openAllianceAddTips then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoOpenAllianceAddTips").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.openAllianceMain then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoOpenAllianceMain").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.towerDefensePause then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoTowerDefensePause").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.towerDefenseShowHeroGuide then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoTowerDefenseShowHeroGuide").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.recordTowerDefenseOver then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoRecordTowerDefenseOver").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.checkIfTowerDefenseLoaded then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCheckIfTowerDefenseLoaded").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.dragBuildFree then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoDragBuildFree").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.checkIFBuildConnectRoad then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoCheckIFBuildConnectRoad").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.showFocusEffect then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosShowFocusEffect").new(guideInfo)
+    elseif guideInfo.type ==  GuideStepType.checkCondition then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosCheckCondition").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.uiBuildingShowSingleBuild then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosUIBuildingShowSingleBuild").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.playVideo then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosPlayVideo").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.moveCityFree then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoMoveCityFree").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.shootGameStart then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosShootGameStart").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.checkIfRadarOver then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosCheckIfRadarOver").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.checkBrokenWallIsOver then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosCheckBrokenWallIsOver").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showWeather then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosShowWeather").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showTrainCompleteView then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosShowTrainCompleteView").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.showBuildingSystemBeginView then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosShowBuildingSystemBeginView").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.coverScene then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosCoverScene").new(guideInfo) 
+    elseif guideInfo.type == GuideStepType.ifSucceedUnlockStage then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoIfSucceedUnlockStage").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.generateTowerZombie then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfoGenerateTowerZombie").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.checkUIMainMenuOpen then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosCheckUIMainMenuOpen").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.dispatchCityEvent then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosDispatchCityEvent").new(guideInfo)
+    elseif guideInfo.type == GuideStepType.executeCityBuildGuide then
+        info = require("GameLogic.NewGuide.Model.GuideStepInfosExecuteCityBuildGuide").new(guideInfo)
+    end
+    
+    return info
+end
+
+---创建执行步骤
+---@generic T : GuideStepBaseAction
+---@param stepInfo GuideStepBaseInfo 引导步骤数据
+---@return T
+function M.createStepAction(stepInfo)
+    local action
+    if stepInfo.type == GuideStepType.wait then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionWait").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.camera then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCamera").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.cartoon then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCartoon").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.lightRing then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionLightRing").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.plot then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionPlot").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.mainCityOperation then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCityOperation").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.soft then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionSoftHandAndArrow").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.addRoad then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionAddRoad").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.trigger then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionTrigger").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.dragBuild then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionDragBuild").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.doTransport then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionTransport").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.buildingArrow then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionBuildingArrow").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.getWorldNearMonsterPoint then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionGetWorldNearMonsterPoint").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.getChapterReward then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionGetChapterReward").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.skillFastGrow then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionSkillFastGrow").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.disperseAreaFog then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionDisperseAreaFog").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.JudgeIFCanGetReward then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionJudgeIFCanGetReward").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.HeroLotteryGuide then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionHeroLotteryGuide").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.GuideOpenTroopsPanel then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionGuideOpenTroopsPanel").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.setTruckTravelTime then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionSetTruckTravelTime").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.setBuildingUpGradeNoTouch then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionSetBuildingUpGradeNoTouch").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showWarningUI then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionWarning").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.zombieAttackWorker then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionZombieAttackWorker").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.unlockWorldMap then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionUnlockWorldMap").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.soldierAttackZombie then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionSoldierAttackZombie").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showWatcherCompleteTrain then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowWatcherCompleteTrain").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.storyBoard then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionStoryBoard").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showBaseMoveBox then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowBaseMoveBox").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showArrowTowerAttackZombie then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowArrowTowerAttackZombie").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.chapterTaskCompleteAni then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionChapterTaskComplete").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.zombieAttackSoldier then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionZombieAttackSoldier").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showBus then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowBus").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.leaveBus then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionLeaveBus").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.secondHeroMarch then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionSecondHeroMarch").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.secondHeroTalk then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionSecondHeroTalk").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.setDayOrNight then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionSetDayOrNight").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.closeWarningUI then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCloseWarningView").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showZombieToMusicTile then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowZombieToMusicTile").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showZombiePat then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowZombiePat").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.cameraJumpToMusic then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCameraJumpToMusic").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showCargoGuide then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowCargoGuide").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showAxeZombieAttackSoldier then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowAxeZombieAttackSoldier").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showGetSoldierView then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowGetSoldierView").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showCargo then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowCargo").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showPanzerShift then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowPanzerShift").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showGetHeroView then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowGetHeroView").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.getWorldNearResourcePoint then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionGetWorldNearResourcePoint").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.getRadarTask then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionGetRadarTask").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.checkNumericalShootingGameLoaded then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCheckNumericalShootingGameLoaded").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.numericalShootingGamePause then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionNumericalShootingGamePause").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showLightArea then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowLightArea").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showShootingGameGuideHand then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowShootingGameGuideHand").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.backToMainCity then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionBackToMainCity").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.recordShootingGameOver then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionRecordShootingGameOver").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.enterShootingGameTwo then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionEnterShootingGameTwo").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.checkIFAreaUnlocked then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCheckIFAreaUnlocked").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.openBuildingUI then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionOenBuildingUI").new(stepInfo)
+    elseif stepInfo.type ==  GuideStepType.ifCompleteRadarTask then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionIfCompleteRadarTask").new(stepInfo)
+    elseif stepInfo.type ==  GuideStepType.shootingGameCameraMove then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShootingGameCameraMove").new(stepInfo)
+    elseif stepInfo.type ==  GuideStepType.shootingGameShowMonsters then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShootingGameShowMonsters").new(stepInfo)
+    elseif stepInfo.type ==  GuideStepType.checkIfInAlliance then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCheckIfInAllianceTask").new(stepInfo)
+    elseif stepInfo.type ==  GuideStepType.openAllianceAddTips then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionOpenAllianceAddTips").new(stepInfo)
+    elseif stepInfo.type ==  GuideStepType.openAllianceMain then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionOpenAllianceMain").new(stepInfo)
+    elseif stepInfo.type ==  GuideStepType.towerDefensePause then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionTowerDefensePause").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.towerDefenseShowHeroGuide then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionTowerDefenseShowHeroGuide").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.recordTowerDefenseOver then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionRecordTowerDefenseOver").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.checkIfTowerDefenseLoaded then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCheckIfTowerDefenseLoaded").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.dragBuildFree then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionDragBuildFree").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.checkIFBuildConnectRoad then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCheckIFBuildConnectRoad").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showFocusEffect then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowFocusEffect").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.checkCondition then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCheckCondition").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.uiBuildingShowSingleBuild then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionUIBuildingShowSingleBuild").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.playVideo then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionPlayVideo").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.moveCityFree then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionMoveCityFree").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.shootGameStart then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShootGameStart").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.checkIfRadarOver then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCheckIfRadarOver").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.checkBrokenWallIsOver then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCheckBrokenWallIsOver").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showWeather then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowWeather").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showTrainCompleteView then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowTrainCompleteView").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.showBuildingSystemBeginView then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionShowBuildingSystemBeginView").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.coverScene then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCoverScene").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.ifSucceedUnlockStage then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionIfSucceedUnlockStage").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.generateTowerZombie then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionGenerateTowerZombie").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.checkUIMainMenuOpen then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionCheckUIMainMenuOpen").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.dispatchCityEvent then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionDispatchCityEvent").new(stepInfo)
+    elseif stepInfo.type == GuideStepType.executeCityBuildGuide then
+        action = require("GameLogic.NewGuide.StepAction.GuideStepActionExecuteCityBuildGuide").new(stepInfo)
+    end
+    return action
+end
+
+
+---@generic T : GuideTriggerCondition
+---@param triggerType GuideTriggerType 引导触发类型
+---@return T
+function M.createCondition(triggerType)
+    local condition
+    if triggerType == GuideTriggerType.CityBuildComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionCityBuildComplete").new()
+    elseif triggerType == GuideTriggerType.CityBuildingUpgrade then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionCityBuildingUpgrade").new()
+    elseif triggerType == GuideTriggerType.CityBuildAddRoadComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionAddRoadComplete").new()
+    elseif triggerType == GuideTriggerType.CityBuildingPutComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionCityBuildingPutComplete").new()
+    elseif triggerType == GuideTriggerType.TaskComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTaskComplete").new()
+    elseif triggerType == GuideTriggerType.ExecuteTask then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionDoTask").new()
+    elseif triggerType == GuideTriggerType.SundriesRemoveComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionSundriesRemoveComplete").new()
+    elseif triggerType == GuideTriggerType.ChapterGetReward then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionGetChapterRewardComplete").new()
+    elseif triggerType == GuideTriggerType.TroopOperation then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTroopOperation").new()
+    elseif triggerType == GuideTriggerType.TransportComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTransportComplete").new()
+    elseif triggerType == GuideTriggerType.ChapterAllTaskComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionChapterAllTaskComplete").new()
+    elseif triggerType == GuideTriggerType.ChapterAllRewardGet then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionChapterAllRewardGet").new()
+    elseif triggerType == GuideTriggerType.TileUnlockComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTileUnlockComplete").new()
+    elseif triggerType == GuideTriggerType.CloseUIResourceUnlockView then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionCloseUIResourceUnlockView").new()
+    elseif triggerType == GuideTriggerType.CloseBiochemicalBeautyStoryView then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionCloseBiochemicalBeautyStory").new()
+    elseif triggerType == GuideTriggerType.AgreeKillIAida then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionAgreeKillAida").new()
+    elseif triggerType == GuideTriggerType.AgreeNotKillAida then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionAgreeNotKillAida").new()
+    elseif triggerType == GuideTriggerType.CampsiteSaveSucceed then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionCampsiteSaveSucceed").new()
+    elseif triggerType == GuideTriggerType.GetItem then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionGetItem").new()
+    elseif triggerType == GuideTriggerType.CloseUpgradeMainCityTips then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionCloseUpgradeMainCityTips").new()
+    elseif triggerType == GuideTriggerType.ClickBuildInformationUpGrade then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionClickBuildInformationUpGrade").new()
+    elseif triggerType == GuideTriggerType.ReturnToCityWhenFinishRecruit then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionReturnToCityWhenFinishRecruit").new()
+    elseif triggerType == GuideTriggerType.HelicopterFirstLand then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionHelicopterFirstLand").new()
+    elseif triggerType == GuideTriggerType.FinishTraining then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionFinishTraining").new()
+    elseif triggerType == GuideTriggerType.ClickMessageBall then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionClickMessageBall").new()
+    elseif triggerType == GuideTriggerType.ScienceFinish then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionScienceFinish").new()
+    elseif triggerType == GuideTriggerType.ChapterTask then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionChapterTask").new()
+    elseif triggerType == GuideTriggerType.SecondHeroArrival then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerSecondHeroArrival").new()
+    elseif triggerType == GuideTriggerType.NumericalShootingArriveLevelOne then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionNumericalShootingArriveLevelOne").new()
+    elseif triggerType == GuideTriggerType.NumericalShootingFiveBossComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionNumericalShootingFiveBossComplete").new()
+    elseif triggerType == GuideTriggerType.NumericalShootingSecondGuideOver then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionNumericalShootingSecondGuideOver").new()
+    elseif triggerType == GuideTriggerType.TowerDefenseDragHeroSuccess then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTowerDefenseDragHeroSuccess").new()
+    elseif triggerType == GuideTriggerType.TowerDefenseGoldAccumulateToValue then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTowerDefenseGoldAccumulateToValue").new()
+    elseif triggerType == GuideTriggerType.TowerDefenseFightFail then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTowerDefenseFightFail").new()
+    elseif triggerType == GuideTriggerType.TowerDefenseWarningOver then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTowerDefenseWarningOver").new()
+    elseif triggerType == GuideTriggerType.NumericalShootingStraightFifthLevelSuccess then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionNumericalShootingStraightFifthLevelSuccess").new()
+    elseif triggerType == GuideTriggerType.NumericalShootingFirstFail then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionNumericalNumericalShootingFirstFail").new()
+    elseif triggerType == GuideTriggerType.NumericalShootingFirstBackToLevelView then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionNumericalShootingFirstBackToLevelView").new()
+    elseif triggerType == GuideTriggerType.TowerDefenseSkillCastSuccess then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTowerDefenseSkillCastSuccess").new()
+    elseif triggerType == GuideTriggerType.TowerDefenseCloseHeroGive then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTowerDefenseCloseHeroGive").new()
+    elseif triggerType == GuideTriggerType.TowerDefenseCompleteLevel then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionTowerDefenseCompleteLevel").new()
+    elseif triggerType == GuideTriggerType.GetTaskRewardComplete then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionGetTaskRewardComplete").new()
+    elseif triggerType == GuideTriggerType.BeginIntoNight then
+        condition = require("GameLogic.NewGuide.Trigger.GuideTriggerConditionBeginIntoNight").new()
+    end
+    
+    return condition
+end
+
+return M

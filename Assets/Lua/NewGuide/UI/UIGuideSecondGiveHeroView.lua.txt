@@ -1,0 +1,158 @@
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+---@class UIGuideSecondGiveHeroView : UIPanel
+local UIGuideSecondGiveHeroView = class("UIGuideSecondGiveHeroView", UIPanel)
+local M = UIGuideSecondGiveHeroView
+
+local randomTips = { "90450039", "90450040", "90450041", "90450042" }
+local plotDialogItem = require("GameLogic.Plot.UI.UIPlotDialogItem")
+local spinePrefab = "Assets/Main/Prefabs/UI/Guide/guider_298.prefab"
+
+function M:getConfigLayerType()
+    return UILayerType.Story
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UIGuideSecondGiveHeroView.prefab"
+end
+
+function M:onParse(params)
+    self.callback = params
+    self.timeCount = 0
+end
+
+function M:onCreate()
+    local plotTable = {}
+    plotTable.name = "90460007" --90460007=诺拉
+    plotTable.content = randomTips[math.random(1, #randomTips)]
+    self:setDialogInfo(plotTable)
+    self:setFigure()
+    
+    self._TimeDesc.text = GameEntry.Localization:GetString("90450043", "")
+    self._DescText.text = GameEntry.Localization:GetString("83401296")
+    self._InfoText.text = GameEntry.Localization:GetString("83401297")
+    
+    --self._GiveHeroArrivalTime = GameEntry.Timer:GetServerTime() + 86400000
+    --GameEntry.Data.Hero.GiveHeroArrivalTime = GameEntry.Timer.GetServerTime() + 86400000
+    self._GiveHeroArrivalTime = GameEntry.Data.Hero.GiveHeroArrivalTime
+    --
+    self.timer = Timer.new(0, 1, true, false, self.updateTime, self)
+    self.timer:start()
+    self:updateTime()
+    
+    if self.callback then
+        self._BtnInfo.button.interactable = false
+        self._BtnDesc.button.interactable = false
+    else
+        self._BtnInfo.button.interactable = true
+        self._BtnDesc.button.interactable = true
+    end
+end
+
+function M:updateTime(dt)
+    if self.callback then
+        self.timeCount = self.timeCount + 1
+        if self.timeCount >= 3 then
+            self.callback()
+            self:closeSelf()
+            return
+        end
+    end
+    
+    if self._GiveHeroArrivalTime > 0 then
+        local remain = self._GiveHeroArrivalTime - GameEntry.Timer:GetServerTime()
+        if remain > 0 then
+            self._TimeText.text = GameEntry.Timer:SecondToFmtString(remain / 1000)
+        else
+            self:closeSelf()    
+        end
+    else
+        self._TimeText.gameObject:SetActive(false)    
+    end
+end
+
+function M:onAddListener()
+    self._CloseButton:addEventListener(ButtonEvent.CLICK, self.onClickCloseBtn, self)
+    self._BtnDesc:addEventListener(ButtonEvent.CLICK, self.onClickDescBtn, self)
+    self._BtnInfo:addEventListener(ButtonEvent.CLICK, self.onClickInfoBtn, self)
+end
+
+function M:onRemoveListener()
+    self._CloseButton:removeEventListener(ButtonEvent.CLICK, self.onClickCloseBtn, self)
+    self._BtnDesc:removeEventListener(ButtonEvent.CLICK, self.onClickDescBtn, self)
+    self._BtnInfo:removeEventListener(ButtonEvent.CLICK, self.onClickInfoBtn, self)
+end
+
+function M:setFigure()
+    if self._SpineParent.transform.childCount > 0  then
+        self.obj = self._SpineParent.gameObject.transform:GetChild(0)
+        self.obj.gameObject:SetActive(true)
+        self.obj.transform.localPosition = Vector3.zero
+        local _objRect = self.obj.gameObject:GetComponent(UnityType.RectTransform)
+        _objRect:SetInsetAndSizeFromParentEdge(CS.UnityEngine.RectTransform.Edge.Right, -100, 640)
+        _objRect:SetInsetAndSizeFromParentEdge(CS.UnityEngine.RectTransform.Edge.Top, 200, 1136)
+    else
+        UResourceManager.LoadAsset(UnityType.GameObject, spinePrefab, function(request)
+            if string.isNilOrEmpty(request.error) then
+                local asset = request.Result
+                self.obj = CS.UnityEngine.GameObject.Instantiate(asset)
+                self.obj.transform:SetParent(self._SpineParent.transform)
+                
+                local _objRect = self.obj.gameObject:GetComponent(UnityType.RectTransform)
+                _objRect:SetInsetAndSizeFromParentEdge(CS.UnityEngine.RectTransform.Edge.Right, -100, 640)
+                _objRect:SetInsetAndSizeFromParentEdge(CS.UnityEngine.RectTransform.Edge.Top, 200, 1136)
+                
+                self.obj.transform.localScale = Vector3.one
+                self.obj.gameObject:SetActive(true)
+            end
+        end)
+    end
+end
+
+function M:setDialogInfo(plotData)
+    if not self.item then
+        self.item = plotDialogItem.new()
+        self.item:bind(self._Left.gameObject)
+    end
+
+    self.item:initData(plotData.name, plotData.content)
+end
+
+function M:onClickCloseBtn()
+    if self.callback then self.callback() end
+    self:closeSelf()
+end
+
+function M:onClickDescBtn()
+    if not UIManager.panel:isOpen(UIPanelType.UIGuideSecondHeroDescView) then
+        UIManager.panel:open(UIPanelType.UIGuideSecondHeroDescView, "UIGuideSecondGiveHeroView")
+    end
+    
+    self:closeSelf()
+end
+
+function M:onClickInfoBtn()
+    if GameEntry.UI:IsLoadingUIForm(CS.GameDefines.UIAssets.UIHeroInfo) or GameEntry.UI:HasUIForm(CS.GameDefines.UIAssets.UIHeroInfo) then
+        return
+    end
+
+    local heroXmlData = GameEntry.DataTable:GetHeroTemplate(CS.GameDefines.SECOND_GIVE_HERO_ID)
+    local param = CS.UIHeroInfo.Parameter()
+    param.currentHero = heroXmlData
+    param.heroList:Add(heroXmlData)
+    CS.UIPreAdd.OpenUIHeroInfo(param)
+    
+    self:closeSelf()
+end
+
+function M:onDispose()
+    if self.timer then
+        self.timer:dispose()
+        self.timer = nil
+    end
+end
+
+return M

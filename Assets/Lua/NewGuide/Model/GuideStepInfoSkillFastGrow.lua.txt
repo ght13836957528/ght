@@ -1,0 +1,19 @@
+
+---@class GuideStepInfoSkillFastGrow:GuideStepBaseInfo 科技快速生长的数据
+---@field public isFastGrow number 是否是快速生产科技（1：是）
+local GuideStepInfoSkillFastGrow = class("GuideStepInfoSkillFastGrow",require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M= GuideStepInfoSkillFastGrow
+
+function M:onParse(params)
+    if not params then
+        print_error("get fast grow data is nil")
+        return
+    end
+    if not params.isFastGrow then
+        print_error("skill fast grow param is nil")
+        return
+    end
+    self.isFastGrow = params.isFastGrow
+end
+
+return M

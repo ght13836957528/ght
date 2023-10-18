@@ -1,0 +1,23 @@
+---@class CarTimeManager
+local CarTimeManager = class("CarTimeManager")
+local M = CarTimeManager
+
+---获取当前的参数发Trigger引导步骤的carTime
+---@param param string triggerParam
+---@return number
+function M:checkCurParamCanTriggerGuide(param)
+    local result = 0
+    local _allGuideInfos = GuideManager.guideInfo:getAllGuideStepInfo()
+    for k, v in pairs(_allGuideInfos) do
+        if v.type == GuideStepType.setTruckTravelTime then
+            if  v.carParam == param then
+                result = v.carTime or 0
+                break
+            end
+        end
+    end
+    return result
+end
+
+
+return M

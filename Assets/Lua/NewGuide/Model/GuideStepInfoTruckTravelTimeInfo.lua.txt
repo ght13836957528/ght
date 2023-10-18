@@ -1,0 +1,14 @@
+---@class GuideStepInfoTruckTravelTimeInfo : GuideStepBaseInfo @引导步骤设置小车行驶时间引导类型数据结构
+---@field public plotId number plotId  
+local GuideStepInfoTruckTravelTimeInfo = class("GuideStepInfoTruckTravelTimeInfo", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoTruckTravelTimeInfo
+
+function M:onParse(params)
+    self.carTime = params.carTime
+    self.hideCar = params.hideCar or 0
+    self.carParam = params.carParam  -- 当该参数为空时，为强引导中的设置小车时间；
+                                     -- 当不为空时，一般是触发引导的一开始,无法通过Trigger去判定是否开始引导并设置小车，所以新增该字段，
+                                     -- 目前是建筑开始升级时，通过逻辑直接判断符合条件的步骤，取carTime进行赋值
+end
+
+return M

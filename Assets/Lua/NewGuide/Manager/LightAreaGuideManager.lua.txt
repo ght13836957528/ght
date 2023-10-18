@@ -1,0 +1,27 @@
+---@class LightAreaGuideManager @高光引导管理器
+local LightAreaGuideManager = class("LightAreaGuideManager")
+local M = LightAreaGuideManager
+
+function M:ctor()
+    self.lightAreaObjList = {} --引导需要高光显示的物体List
+end
+
+---添加物体到List中
+---@param name string 物体名称
+---@param obj UnityType.GameObject 物体的对象
+function M:addObjToList(name,obj)
+    self.lightAreaObjList[name] = obj
+end
+
+---通过名字获取高光物体
+---@param name string 物体名称
+---@return UnityType.GameObject 物体的对象
+function M:getObjByName(name)
+    return self.lightAreaObjList[name]
+end
+
+function M:clearConfigBtnName()
+    self.lightAreaObjList = {}
+end
+
+return M

@@ -1,0 +1,78 @@
+---@class UIMaskGuideView :UIPanel 新手引导屏幕的遮挡(只要配置上lag 或者Camera移动的时候)
+local UIMaskGuideView = class("UIMaskGuideView", UIPanel)
+local M = UIMaskGuideView
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UIGuideMask.prefab"
+end
+
+function M:getConfigLayerType()
+    return UILayerType.Guide
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+---@param params number 时间
+function M:onParse(params)
+    self.curTime = params
+end
+
+function M:onAddListener()
+    BroadcastEvent.subscribe(GuideEvent.MaskViewSetActiveFalse, self.onEventMaskViewSetFalse, self)
+end
+
+function M:onRemoveListener()
+    BroadcastEvent.unsubscribe(GuideEvent.MaskViewSetActiveFalse, self.onEventMaskViewSetFalse, self)
+end
+
+function M:onCreate()
+    if not self.curTime or self.curTime == 0 then
+        self:setBlackMaskActiveSelf(false)
+        return
+    end
+end
+--根据时间设置遮挡
+---@param second number
+function M:setMaskViewTime(second)
+    if second==nil or second == 0 then
+        self:setBlackMaskActiveSelf(false)
+        return
+    end
+    
+    self:setBlackMaskActiveSelf(true)
+    if self.timer~=nil then
+        self.timer:stop()
+    end
+    self.timer = Timer.new(0, second, false, false, function()
+        self:setBlackMaskActiveSelf(false)
+    end, self)
+    self.timer:start()
+end
+
+---@param state boolean
+function M:setBlackMaskActiveSelf(state)
+    self._BlackMask:SetActive(state)
+end
+
+function M:onEventMaskViewSetFalse()
+    self._BlackMask:SetActive(false)
+end
+
+function M:maskActive()
+    return self._BlackMask.activeSelf
+end
+
+function M:onClose()
+end
+
+function M:onDispose()
+    if self.timer ~= nil then
+        self.timer:stop()
+        self.timer:dispose()
+        self.timer = nil
+    end
+end
+
+return M

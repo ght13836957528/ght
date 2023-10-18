@@ -1,0 +1,427 @@
+
+---新手引导的手(先考虑滑动)
+---id,notMoveMap,notAllowBreak,enforce,dub,next,isStart(弃用),type,lag，failHandle,cloaseAllPop,softPanelName,handAndArrowAngle,handMoveTime
+---sortType 1=hand 2=arrow,
+---sortType = hand :handMoveType 1=移动 2=点击
+---handMoveType = 1：handAndArrowStartPosType,handAndArrowStartNode,handAndArrowEndPosType,handAndArrowEndNode
+---handMoveType = 2：handAndArrowStartPosType,handAndArrowStartNode
+---handAndArrowStartPosType,handAndArrowEndPosType:1="UI"2="City"3="地块"
+---handAndArrowStartNode：类型为1：配置对应UI节点下的名字，类型为2：配置city的Id,类型为3：配置地块的名字
+---isFollowHand: 如果在移动的过程中需要指定的对象跟着移动的时候，设置为：1，如果没有可以不配置
+---@class UIHandGuideView:UIPanel
+local UIHandGuideView = class("UIHandGuideView",UIPanel)
+local M = UIHandGuideView
+
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+local DoTweenLoopType = CS.DG.Tweening.LoopType
+local GameObject = CS.UnityEngine.GameObject
+local Screen =CS.UnityEngine.Screen
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UIGuideHandView.prefab"
+end
+
+function M:getConfigLayerType()
+    return UILayerType.Guide
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+---@param params table
+function M:onParse(params)
+    if params == nil then
+        print_error("guide hand panel is error of params ")
+        return
+    end
+
+    --是一个节点的对象
+    self.curHandStartNode = params.handStartNode
+    --是一个节点的对象
+    self.curHandEndNode = params.handEndNode
+    ---@type GuideStepBaseInfo self.curOneStepInfo
+    self.curOneStepInfo = params.handStepInfo
+    self.curHandMoveTime = self.curOneStepInfo.handMoveTime
+    self.curHandScale = params.handScale
+end
+
+function M:onRefresh()
+    self._BlackMask.gameObject:SetActive(false)
+    self._MaskBtn._gameObject:SetActive(false)
+    self._hand_point_new.gameObject:SetActive(true)
+    --设置缩放
+    self._hand.transform.localScale = Vector3.New(self.curHandScale, self.curHandScale, 1)
+    self._handSpine=self._hand_point_new:GetComponent(UnityType.SkeletonGraphic)
+    --_hand_point
+    if self.curOneStepInfo == nil then
+        print_error("current guide data is nil")
+        return
+    end
+
+    --判读是否是软引导
+    if self.curOneStepInfo.type ~= GuideStepType.soft then
+        print_error("hand guide type is error ,not hand please check id:" .. self.curOneStepInfo.id)
+        return
+    end
+
+    --判断是否是手指
+    if self.curOneStepInfo.softType ~= NewGuideConst.SoftGuideType.Hand then
+        print_error("DataTable min type is error ,not hand please check id:" .. self.curOneStepInfo.id)
+        return
+    end
+
+    if self.curOneStepInfo.handAndArrowAngle then
+        self._hand.transform.eulerAngles = Vector3.New(0,0,self.curOneStepInfo.handAndArrowAngle)
+    end
+    
+    self.curCanvas = GameEntry.UI.InstanceRoot:GetComponent("Canvas")
+    if self.curCanvas then
+        self.curCanvasRtm = self.curCanvas:GetComponent("RectTransform")
+    end
+
+    if self.curOneStepInfo.handMoveType then
+        local curMoveType = tonumber(self.curOneStepInfo.handMoveType)
+        if curMoveType == NewGuideConst.HandMoveType.needStartAndEndPos  then
+            self:setMoveData()
+        elseif curMoveType == NewGuideConst.HandMoveType.click then
+            self:setOnclickData()
+        end
+    else
+        self:setMoveData()
+    end
+end
+
+function M:onAddListener()
+    BroadcastEvent.subscribe(NewGuideConst.eventType.HideHandEvent,self.hideCurrentPage,self)
+    self.hidePage = function()
+        self:needDispose()
+        if self.doMove then
+            self.doMove:Pause()
+        end
+        if self.nodeChangedTimer then
+            self.nodeChangedTimer:dispose()
+        end
+        self:releaseCell()
+        self:hide()
+    end
+    GameEntry.Event:Subscribe(CS.EventId.HideHandEvent,self.hidePage)
+    BroadcastEvent.subscribe(CS.EventId.HideHandAndStopAnim, self.hideHandAndStopAnim, self)
+    BroadcastEvent.subscribe(CS.EventId.ShowHandAndResetAnim, self.showHandAndResetAnim, self)
+    
+end
+
+function M:onRemoveListener()
+    BroadcastEvent.unsubscribe(NewGuideConst.eventType.HideHandEvent,self.hideCurrentPage,self)
+    GameEntry.Event:Unsubscribe(CS.EventId.HideHandEvent,self.hidePage)
+    BroadcastEvent.unsubscribe(CS.EventId.HideHandAndStopAnim, self.hideHandAndStopAnim, self)
+    BroadcastEvent.unsubscribe(CS.EventId.ShowHandAndResetAnim, self.showHandAndResetAnim, self)
+    
+end
+
+function M:onClose()
+    if self.handTimer then
+        self.handTimer:dispose()
+    end
+end
+
+function M:setMoveData()
+    if self.curHandStartNode == nil or self.curHandEndNode == nil then
+        print_error("start node or end node is nil")
+        return
+    end
+
+    local startPos = self:getNodePosByNodeType(self.curOneStepInfo.handAndArrowStartPosType,self.curHandStartNode)
+    local endPos = self:getNodePosByNodeType(self.curOneStepInfo.handAndArrowEndPosType,self.curHandEndNode)
+    if endPos == nil then
+        print_error("hand start or end position is nil")
+        return
+    end
+    
+    
+    self._hand.transform.position = startPos
+    if self.curHandMoveTime == nil then
+        self.curHandMoveTime = 1
+    end
+    self:objectFollowHandMove(self.curHandStartNode,startPos,endPos)
+
+    self:doHandAnim()
+    self:hideCurrentPage()
+end
+
+
+function M:refreshPosition(endPos,startPos)
+
+end
+
+--点击
+function M:setOnclickData()
+    local startPos = self:getNodePosByNodeType(self.curOneStepInfo.handAndArrowStartPosType,self.curHandStartNode)
+    self._hand.transform.position = Vector3.New(startPos.x,startPos.y,0)
+    self.handTimer = Timer.new(0,1,true ,false,function()
+        self._handSpine.AnimationState:SetAnimation(0, "dianji01", false)
+    end)
+    self.handTimer:start()
+end
+
+function M:getNodePosByNodeType(nodeType,nodeObj)
+    if nodeObj == nil then
+        return
+    end
+    
+    local curPos = nil
+    if nodeType == NewGuideConst.HandNodeType.UI then
+        curPos = self:getUINodeScreenPosition(nodeObj)
+    elseif nodeType == NewGuideConst.HandNodeType.City then
+        curPos = self:getCityNodeScreenPosition(nodeObj)
+    elseif nodeType == NewGuideConst.HandNodeType.Tile then
+        curPos = self:getTileNodeScreenPosition(nodeObj)
+    elseif nodeType == NewGuideConst.HandNodeType.TowerDefenseScene then
+        curPos = self:getTowerDefenseNodeScreenPosition(nodeObj)
+    elseif nodeType == NewGuideConst.HandNodeType.ScreenCenter then
+        curPos = self:getScreenCenterPosition()
+    end
+    
+    return curPos
+end
+
+--获取UI节点的屏幕坐标
+---@param nodeObj GameObject UI上的挂点
+function M:getUINodeScreenPosition(nodeObj)
+    if nodeObj == nil or nodeObj:Equals(nil) then
+        return
+    end
+    local worldPosition = nodeObj.transform.position
+    return worldPosition
+end
+
+--获取建筑物的屏幕坐标
+---@param nodeObj GameObject 建筑为的对象
+function M:getCityNodeScreenPosition(nodeObj)
+    local buildTileX = tonumber(nodeObj.x)
+    local buildTileY = tonumber(nodeObj.y)
+    local buildPosition = Vector2Int(buildTileX,buildTileY)
+    local worldPos =self:tileToWorld(buildPosition)
+    
+    local cityScreeenView = GameSceneManager.getView(SceneType.City)
+    if cityScreeenView == nil then
+        print_error("get GameSceneManager object fail")
+        return nil
+    end
+    local mainCamera = cityScreeenView.camera
+    local screenPoint = nil
+    if mainCamera then
+         screenPoint = mainCamera.camera:WorldToScreenPoint(worldPos)
+    end
+    
+    return screenPoint
+end
+
+--获取地块节点的屏幕坐标
+function M:getTileNodeScreenPosition(nodeObj)
+    local worldPosition = self:tileToWorld(nodeObj)
+    local cityScreenView = GameSceneManager.getView(SceneType.City)
+    if cityScreenView == nil then
+        print_error("get GameSceneManager object fail")
+        return nil
+    end
+    local mainCamera = cityScreenView.camera
+    local localPosition = nil
+    if mainCamera then
+        local screenPoint = mainCamera.camera:WorldToScreenPoint(worldPosition)
+        local Vector2 = CS.UnityEngine.Vector2
+        self.rectTransform = self._gameObject:GetComponent(UnityType.RectTransform)
+        local flag, localPointerPosition = CS.UnityEngine.RectTransformUtility.
+        ScreenPointToWorldPointInRectangle(self.rectTransform, Vector2(screenPoint.x, screenPoint.y), GameGlobal.GameEntry.UI.camera)
+        localPosition = localPointerPosition
+    end
+
+    --if self.curCanvasRtm then
+    --    screenPoint.x = screenPoint.x *self.curCanvasRtm.sizeDelta.x/Screen.width
+    --    screenPoint.y = screenPoint.y *self.curCanvasRtm.sizeDelta.y/Screen.height
+    --end
+    
+   
+    return localPosition
+end
+
+function M:getTowerDefenseNodeScreenPosition(nodeObj)
+    local worldPosition = nodeObj.gameObject.transform.position
+    local towerDefenseCamera = GameSceneManager.getView(SceneType.Tower).camera.TDCamera
+    local localPosition = nil
+    if towerDefenseCamera then
+        local screenPos = CS.UnityEngine.RectTransformUtility.WorldToScreenPoint(towerDefenseCamera, worldPosition)
+        local Vector2 = CS.UnityEngine.Vector2
+        self.rectTransform = self._gameObject:GetComponent(UnityType.RectTransform)
+        local flag, localPointerPosition = CS.UnityEngine.RectTransformUtility.
+        ScreenPointToWorldPointInRectangle(self.rectTransform, Vector2(screenPos.x, screenPos.y), GameGlobal.GameEntry.UI.camera)
+        localPosition = CS.UnityEngine.Vector3(localPointerPosition.x,localPointerPosition.y,1)
+    else
+        print_error("camera is nil")
+    end
+    return localPosition
+end
+
+function M:getScreenCenterPosition()
+    local localPosition = nil
+    localPosition = CS.UnityEngine.Vector3(CS.UnityEngine.Screen.width / 2,CS.UnityEngine.Screen.height/2,1)
+    return localPosition
+end
+
+---@param tilePos Vector2Int
+function M:tileToWorld(tilePos)
+    local citySceneView = GameSceneManager.getView(SceneType.City)
+    return citySceneView.actor.tilemap:tileToWorld({x = tilePos.x, y = tilePos.y})
+end
+
+function M:hideCurrentPage()
+    --self:hide()
+    HandAndArrowGuideManager.currentStepFinish()
+end
+
+---对象跟随手指移动
+function M:objectFollowHandMove(startNodeObj,startPos,endPos)
+    if not self.curOneStepInfo or not startNodeObj or not startPos or not endPos then
+        return
+    end
+
+    if self.curOneStepInfo.isFollowHand and self.curOneStepInfo.isFollowHand == 1 then
+        self:loadCell(startNodeObj,self._followMoveObjRoot,startPos)
+    end
+end
+
+function M:loadCell(item,trans,startPos)
+    local curObj = GameObject.Instantiate(item)
+    curObj.name = "followHandMoveObj"
+    curObj.transform:SetParent(trans)
+    curObj.transform.position = startPos
+    curObj.transform.localScale = Vector3.one
+    curObj.gameObject:SetActive(true)
+
+    return curObj
+end
+
+function M:releaseCell()
+    if self.curObj then
+        GameObject.Destroy(self.curObj.gameObject)
+    end
+end
+
+--手动画修改
+function M:doHandAnim()
+    if self.getNodePosByNodeType==nil then
+        return
+    end
+    local startPos = self:getNodePosByNodeType(self.curOneStepInfo.handAndArrowStartPosType,self.curHandStartNode)
+    if startPos==nil then
+        --print_error("hand start or end position is nil")
+        return
+    end
+    self._hand.transform.position = startPos
+    if self.timerHandUp~=nil then
+        self.timerHandUp:stop()
+        self.timerHandUp=nil
+    end
+    self._handSpine.AnimationState:SetAnimation(0, "dianji01", false)
+    --print_error("手放下")
+    if self.timerHandDown==nil then
+        self.timerHandDown = Timer.new(0,0.5,false,false,self.doHandParallelMoveAnim,self)
+    end
+    self.timerHandDown:start()
+end
+
+function M:doHandParallelMoveAnim()
+    if self.timerHandDown~=nil then
+        self.timerHandDown:stop()
+        self.timerHandDown=nil
+    end
+    --print_error("手移动")
+    if self.tween then
+        self.tween:Kill()
+    end
+    self._handSpine.AnimationState:SetAnimation(0, "jingzhen", true)
+    local endPos = self:getNodePosByNodeType(self.curOneStepInfo.handAndArrowEndPosType,self.curHandEndNode)
+    local startPos = self:getNodePosByNodeType(self.curOneStepInfo.handAndArrowStartPosType,self.curHandStartNode)
+    if endPos==nil then
+        print_error("hand start or end position is nil")
+        return
+    end
+    self.tween = self._hand.transform:DOMove(endPos,self.curHandMoveTime)
+    --self:refreshHandEndPos(endPos,startPos)
+    self.tween.onComplete = function()
+        self:doHandUpAnim()
+    end
+end
+
+function M:refreshHandEndPos(endPos,startPos)
+    local curPos = nil
+    self.timerHandParallel = Timer.new(0,0.3,true,false,function()
+        curPos = self:getNodePosByNodeType(self.curOneStepInfo.handAndArrowEndPosType,self.curHandEndNode)
+        if curPos ~= endPos then
+            if self.tween then
+                self.tween:Pause()
+            end
+            endPos = curPos
+            self._hand.transform.position = Vector3.New(startPos.x,startPos.y,0)
+            self.tween = self._hand.transform:DOMove(curPos,self.curHandMoveTime)
+            self.tween.onComplete = function()
+                self:doHandUpAnim()
+            end
+        end
+    end)
+    self.timerHandParallel:start()
+end
+
+
+
+function M:doHandUpAnim()
+    --print_error("手抬起")
+    self._handSpine.AnimationState:SetAnimation(0, "dianji02", false)
+    if self.timerHandUp==nil then
+        self.timerHandUp = Timer.new(0,0.5,false,false,self.doHandAnim,self)
+    end
+    self.timerHandUp:start()
+end
+
+--建筑拖出，手动画不显示
+function M:hideHandAndStopAnim()
+    self._hand_point_new.gameObject:SetActive(false)
+end
+
+--建筑拖出动作取消，手动画重新播放
+function M:showHandAndResetAnim()
+    self._hand_point_new.gameObject:SetActive(true)
+    self:needDispose()
+    self:doHandAnim()
+end
+
+function M:needDispose()
+    if self.tween then
+        self.tween:Pause()
+    end
+    if self.timerHandUp then
+        self.timerHandUp:stop()
+        self.timerHandUp:dispose()
+        self.timerHandUp = nil
+    end
+    if self.timerHandDown then
+        self.timerHandDown:stop()
+        self.timerHandDown:dispose()
+        self.timerHandDown = nil
+    end
+    if self.timerHandParallel then
+        self.timerHandParallel:stop()
+        self.timerHandParallel:dispose()
+        self.timerHandParallel = nil
+    end
+    if self.tween then
+        self.tween:Kill()
+        self.tween=nil
+    end
+end
+
+function M:onClose()
+    self:needDispose()
+end
+
+return M

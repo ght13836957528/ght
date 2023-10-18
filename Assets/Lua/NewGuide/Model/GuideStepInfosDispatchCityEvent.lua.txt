@@ -1,0 +1,13 @@
+---@class GuideStepInfosDispatchCityEvent : GuideStepBaseInfo @城建加强 - 建筑出现某一种气泡
+---@field eventType number 气泡类型  1 =  火灾  2 =生病 3 =抢劫
+---@field buildId number 建筑ID
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfosDispatchCityEvent = class("GuideStepInfosDispatchCityEvent", base)
+local M = GuideStepInfosDispatchCityEvent
+
+function M:onParse(params)
+    self.eventType = tonumber(params.eventType)
+    self.buildId = tonumber(params.buildId)
+end
+
+return M

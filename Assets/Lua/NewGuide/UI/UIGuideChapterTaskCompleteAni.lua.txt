@@ -1,0 +1,67 @@
+--章节任务完成动画
+---@class UIGuideChapterTaskCompleteAni:UIPanel
+---
+local UIGuideChapterTaskCompleteAni = class("UIGuideChapterTaskCompleteAni", UIPanel)
+local M = UIGuideChapterTaskCompleteAni
+local DOTween = CS.DG.Tweening.DOTween
+local ParticlePrefab = "Assets/Art/NewUIEffects/UIPrefab/common/fx_cy_common_tuowei.prefab"
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UIGuideChapterTaskCompleteAni.prefab"
+end
+
+function M:getConfigLayerType()
+    return UILayerType.Guide
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    self.callback = params
+end
+
+function M:onCreate()
+    UResourceManager.LoadAsset(UnityType.GameObject, ParticlePrefab, function(request)
+        if string.isNilOrEmpty(request.error) then
+            local asset = request.Result
+            local pObj = CS.UnityEngine.GameObject.Instantiate(asset)
+            pObj.transform:SetParent(self._Image.transform)
+
+            local dstTr = CS.UIMain.Instance:GetBottomLeftBtnTr(CS.GameDefines.GuideConfigValue.UI_questChapterNode)
+            local dstWp = dstTr.transform.position
+
+            local srcWp = Vector3.New(200.0, CS.UnityEngine.Screen.height * 0.7, 0.0)
+            self._Image.transform.position = srcWp
+            self._ImageCanvasGroup.alpha = 1.0
+
+            local subSeq = DOTween.Sequence()
+            --delay 1 second
+            subSeq:Append(self._Image.transform:DOScale(Vector3.one, 1.0))
+            subSeq:Append(self._ImageCanvasGroup:DOFade(0.0, 0.5))
+
+            self.seq = DOTween.Sequence()
+            self.seq:Append(self._Image.transform:DOMove(dstWp, 1.28))
+            self.seq:Join(subSeq)
+            self.seq:AppendCallback(function() self:complete() end)
+            self.seq:SetTarget(self._Image)
+        end
+    end)
+end
+
+function M:complete() 
+    if self.callback then self.callback() end
+    self:closeSelf()
+end
+
+function M:onDispose()
+    if not self.seq then
+        return
+    end
+
+    self.seq:Kill()
+    self.seq = nil
+end
+
+return M

@@ -1,0 +1,28 @@
+---处死艾达界面
+---@class UIGuideTrainSoldierView:UIPanel
+local UIGuideTrainSoldierView = class("UIGuideTrainSoldierView", UIPanel)
+local M = UIGuideTrainSoldierView
+
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UITrainSoldierView.prefab"
+end
+
+function M:getConfigLayerType()
+    return UILayerType.UIResourcePopUp
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+end
+
+function M:onCreate()
+   
+end
+
+
+return M

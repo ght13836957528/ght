@@ -1,0 +1,10 @@
+---@class GuideStepInfoJudgeIFCanGetReward : GuideStepBaseInfo @判断是否可以领取奖励
+---@field public condition string 条件 
+local GuideStepInfoJudgeIFCanGetReward = class("GuideStepInfoJudgeIFCanGetReward", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoJudgeIFCanGetReward
+
+function M:onParse(params)
+    self.condition = params.condition
+end
+
+return M

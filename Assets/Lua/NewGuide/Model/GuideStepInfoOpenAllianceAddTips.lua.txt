@@ -1,0 +1,10 @@
+---@class GuideStepInfoOpenAllianceAddTips:GuideStepBaseInfo 打开加入联盟提示界面
+local GuideStepInfoOpenAllianceAddTips = class("GuideStepInfoOpenAllianceAddTips", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoOpenAllianceAddTips
+
+function M:onParse(params)
+
+end
+
+
+return M

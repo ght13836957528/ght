@@ -1,0 +1,55 @@
+---@class BuildingArrowManager
+BuildingArrowManager = {}
+local M = BuildingArrowManager
+
+local GuideStepInfoBuildingArrow=require("GameLogic.NewGuide.Model.GuideStepInfoBuildingArrow")
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+local CommonUtils = CS.CommonUtils
+
+function M.initManager()
+    M.curStepInfo = nil
+    M.curStepAction=nil
+end
+
+-----@param stepInfo GuideStepBaseInfo
+--function M.doAction(stepInfo)
+--    if not stepInfo then
+--        print_error("mainCityOperation data is nil")
+--        return
+--    end
+--
+--    M.curStepInfo = stepInfo
+--end
+
+---@param durTime number 持续时间
+---@param gridPos Vector2Int
+function M.setBuildingArrow(durTime,gridPos)
+    local param={}
+    param.type=GuideStepType.buildingArrow
+    param.time=durTime
+    param.gridPos=gridPos
+    M.curStepInfo=GuideStepInfoBuildingArrow.new()
+    M.curStepInfo:initData(param)
+    M.curStepAction=GuideFactory.createStepAction(M.curStepInfo)
+    M.curStepAction:enter()
+end
+
+-- 地块坐标转世界坐标
+function M.tileToWorld(tilePos)
+    local citySceneView = GameSceneManager.getView(SceneType.City)
+    return citySceneView.actor.tilemap:tileToWorld({x = tilePos.x, y = tilePos.y})
+end
+
+function M.clear()
+    M.curStepInfo = nil
+    M.curStepAction=nil
+end
+
+------------------------------C#调用-----------------------------------------------------------
+function BuildingArrowManager_SetBuildingArrow(param)
+    if param~=nil then
+        BuildingArrowManager.setBuildingArrow(param.time,param.gridPos)
+    end
+end
+
+return M

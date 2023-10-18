@@ -1,0 +1,11 @@
+---@class GuideStepInfoShowZombiePat: GuideStepBaseInfo
+---@field position number 丧失出现位置  1 = 上方 2= 下方
+local Base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfoShowZombiePat = class("GuideStepInfoShowZombiePat", Base)
+local M = GuideStepInfoShowZombiePat
+
+function M:onParse(params)
+    self.position = params.position
+end
+
+return M

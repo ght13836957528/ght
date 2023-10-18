@@ -1,0 +1,126 @@
+---@class GuideInfo @整段引导数据
+local GuideInfo = class("GuideInfo")
+local M = GuideInfo
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:ctor()
+    self._stepInfos = {}
+    self._curGuideIndex = ""
+    self.allGuideRecordMap = {} -- 服务器下发记录已经完成过的单次引导，比如修路
+    self.isStartGuideInfo = {}
+    self.toDoGuideIdList = {} -- 引导过程中收到事件需要执行的id列表,但不能打断当前引导
+end
+
+function M:initGuideStepTable()
+    local GuideStepBaseInfo = require "GameLogic.NewGuide.Model.GuideStepBaseInfo"
+    local versionControl = GuideManager.getGuideVersionControl()
+    local tableName = versionControl:getCurGuideName()
+    if string.isNilOrEmpty(tableName) then
+        print_error("versionControl tableName is nil")
+        return
+    end
+    print("versionControl guide table name is "..tableName)
+    local _xmlData
+    if GuideManager.ifUseLocalLuaConfig() then
+        _xmlData = DataTable.getTable(tableName)
+    else
+        _xmlData = CS.LuaDataTableUtil.GetDatable(tableName)
+    end
+    for k,v in pairs(_xmlData) do
+        local _newGuideStepInfo = GuideFactory.createStepInfo(v)
+        if _newGuideStepInfo then
+            _newGuideStepInfo:parse(v)
+            self._stepInfos[tonumber(k)] = _newGuideStepInfo
+            if v.isStart and tonumber(v.isStart) == 1 then
+                self.isStartGuideInfo[k] = _newGuideStepInfo
+            end
+        end
+    end
+end
+
+
+-- 引导是否结束
+function M:isGuideOver()
+    if not self._curGuideIndex or string.isNilOrEmpty(self._curGuideIndex) or  not self._stepInfos[self._curGuideIndex] then
+        return true
+    end
+    return false
+end
+
+-- 获取当前的引导步骤的Id
+function M:getCurGuideIndex()
+    return self._curGuideIndex
+end
+
+-- 设置当前引导Id
+function M:setCurGuideId(curIndex)
+    self._curGuideIndex = curIndex
+end
+
+-- 获取当前的引导步骤数据
+function M:getCurGuideInfo()
+    return self._stepInfos[self._curGuideIndex]
+end
+
+-- 获取当前的引导步骤数据
+function M:getCurGuideType()
+    return self._stepInfos[self._curGuideIndex].type
+end
+
+-- 数据层下一步标记
+function M:nextStep()
+    local _stepInfo = self:getCurGuideInfo()
+    if not _stepInfo then
+        return
+    end
+    self._curGuideIndex = tonumber(_stepInfo.next)
+end
+
+-- 根据init下行消息记录引导已完成的固定步骤
+function M:setAllGuideRecordMap(map)
+    self.allGuideRecordMap = map
+end
+
+-- 获取引导固定步骤是否已完成
+function M:getGuideRecordByKey(key)
+    return self.allGuideRecordMap[key]
+end
+
+-- 获取步骤数据
+function M:getAllGuideStepInfo()
+    return self._stepInfos
+end
+
+
+function M:getStepInfoById(id)
+    return self._stepInfos[id]
+end
+
+---@param jumpId number 需要跳转的jumpId
+function M:addToDoGuideIdList(jumpId)
+    table.insert(self.toDoGuideIdList,jumpId)
+end
+
+---@param jumpId number 需要跳转的jumpId
+function M:removeFromToDoGuideIdList(jumpId)
+    for  k,v in pairs(self.toDoGuideIdList) do
+        if jumpId == v then
+            table.remove(self.toDoGuideIdList,k)
+            break
+        end
+    end
+end
+
+function M:getFirstToDoGuideId()
+    return self.toDoGuideIdList[1]
+end
+
+function M:dispose()
+    self._stepInfos = {}
+    self._curGuideIndex = ""
+    self.allGuideRecordMap = {} -- 服务器下发记录已经完成过的单次引导，比如修路
+    self.isStartGuideInfo = {}
+    self.toDoGuideIdList = {} -- 引导过程中收到事件需要执行的id列表,但不能打断当前引导
+end
+
+return M

@@ -1,0 +1,12 @@
+---@class GuideStepInfoDisperseAreaFog : GuideStepBaseInfo @引导步骤散开迷雾类型
+---@field public cartoonName string 动画名称
+---@field public cartoonPara1 string 动画类型第一个参数
+local GuideStepInfoDisperseAreaFog = class("GuideStepInfoDisperseAreaFog", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoDisperseAreaFog
+
+function M:onParse(params)
+    self.tilePos = params.tilePos
+    self.tileSize = params.tileSize
+end
+
+return M

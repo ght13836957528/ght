@@ -1,0 +1,13 @@
+---@class GuideTriggerConditionGetItem : GuideTriggerCondition
+local GuideTriggerConditionGetItem = class("GuideTriggerConditionGetItem", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionGetItem
+
+function M:equals(param)
+    local result = false
+    if tonumber(param) == self.triggerParam then
+        result = true
+    end
+    return result
+end
+
+return M

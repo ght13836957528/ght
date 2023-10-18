@@ -1,0 +1,10 @@
+---@class GuideStepInfosCoverScene:GuideStepBaseInfo
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfosCoverScene = class("GuideStepInfosCoverScene", base)
+local M = GuideStepInfosCoverScene
+
+function M:onParse(params)
+   
+end
+
+return M

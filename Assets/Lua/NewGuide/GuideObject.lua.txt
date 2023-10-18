@@ -1,0 +1,138 @@
+---@class GuideObject @整段引导执行对象
+local GuideObject = class("GuideObject")
+local M = GuideObject
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+function M:ctor()
+  
+end
+
+function M:init()
+    self.guideInfo = GuideManager.getGuideInfo() -- guideInfo的实例
+    self:onAddListener()
+    self.timer = Timer.new(0, 1, true, true, function()
+        if self._curGuideStepAction then
+            self._curGuideStepAction:onExecute()
+        end
+    end, self)
+    self.timer:start()
+end
+
+function M:onAddListener()
+    BroadcastEvent.subscribe(NewGuideConst.eventType.CurStepActionOver, self.moveNext, self)
+    BroadcastEvent.subscribe(CS.EventId.CurStepActionOver,self.moveNext,self)
+end
+
+function M:onRemoveListener()
+    BroadcastEvent.unsubscribe(NewGuideConst.eventType.CurStepActionOver, self.moveNext, self)
+    BroadcastEvent.unsubscribe(CS.EventId.CurStepActionOver,self.moveNext,self)
+end
+
+---@param curIndex number 执行的引导index
+function M:beginGuide(curIndex)
+    self.guideInfo:setCurGuideId(tonumber(curIndex))
+    if self.guideInfo:isGuideOver() then
+        print("GuideObject is over")
+        self:onGuideOver()
+        return
+    end
+    local _curGuideInfo = self.guideInfo:getCurGuideInfo()
+    self:doActionStep(_curGuideInfo)
+end
+
+---执行某一步引导
+---@param stepInfo GuideStepBaseInfo 引导步骤数据
+function M:doActionStep(stepInfo)
+    if not stepInfo then
+        print("stepInfo is nil")
+        return
+    end
+    if self._curGuideStepAction then
+        self._curGuideStepAction:exit()
+        print("guide  action over,id==="..self._curGuideStepAction.stepInfo.id)
+        self:recordGuideStepToServer(tostring(self._curGuideStepAction.stepInfo.id))
+        if self._curGuideStepAction.stepInfo.isNeedRecord and self._curGuideStepAction.stepInfo.isNeedRecord == 1 then
+            GuideManager.recordStep(self._curGuideStepAction.stepInfo.id)
+        end
+        self._curGuideStepAction:dispose()
+        self._curGuideStepAction = nil
+    end
+    self._curGuideStepAction = GuideFactory.createStepAction(stepInfo)
+    if stepInfo and stepInfo.type and stepInfo.type ~= GuideStepType.trigger then
+        GuideManager.recordCurStep(stepInfo.id,0)
+    end
+    print("guide do action ,id==="..stepInfo.id.."  type==="..stepInfo.type)
+    self._curGuideStepAction:enter()
+    
+end 
+
+-- 执行下一个步骤
+function M:moveNext()
+    if not self._curGuideStepAction then
+        print_error("self._curGuideStepAction is nil")
+        return
+    end
+    self._curGuideStepAction:exit()
+    print("guide  action over,id==="..self._curGuideStepAction.stepInfo.id)
+    self.guideInfo:removeFromToDoGuideIdList(self._curGuideStepAction.stepInfo.id)
+    self:recordGuideStepToServer(tostring(self._curGuideStepAction.stepInfo.id))
+    if self._curGuideStepAction.stepInfo.isNeedRecord and self._curGuideStepAction.stepInfo.isNeedRecord == 1 then
+        GuideManager.recordStep(self._curGuideStepAction.stepInfo.id)
+    end
+    GuideManager.recordCurStep(self._curGuideStepAction.stepInfo.id,1)
+    self._curGuideStepAction:dispose()
+    self._curGuideStepAction = nil
+    self.guideInfo:nextStep()
+    
+    if self.guideInfo:isGuideOver() then
+        local todoId = self.guideInfo:getFirstToDoGuideId()
+        if todoId then
+            print("执行todo,id=="..todoId)
+            self.guideInfo:removeFromToDoGuideIdList(todoId)
+            GuideManager.play(todoId)
+        else
+            print("GuideObject is over")
+            self:onGuideOver()
+        end
+    else
+        local _curGuideInfo = self.guideInfo:getCurGuideInfo()
+        self:doActionStep(_curGuideInfo)
+    end
+end
+
+-- 向服务器存储当前步骤
+function M:recordGuideStepToServer(stepInfoId)
+    ServerRecorder.record("PlayerCurrentGuideStep", stepInfoId, function(errorCode)
+        if not string.isNilOrEmpty(errorCode) then
+            print_error("errorCode is not nil,errorCode==="..errorCode)
+            return
+        end
+    end)
+end
+
+-- 引导结束回调
+function M:onGuideOver()
+    UIManager.panel:close(UIPanelType.UIPlotView)
+    local id = ""
+    self:recordGuideStepToServer(id)
+    local citySceneView = GameSceneManager.getView(SceneType.City)
+    if citySceneView and citySceneView.camera then
+        citySceneView.camera:setCanPinch(true)
+        citySceneView.camera:setCanDrag(true)
+    end   
+    GuideManager.setMaskViewActiveSelf(false)
+end
+
+function M:dispose()
+    self.guideInfo = nil
+    self._curGuideStepAction = nil
+    self:onRemoveListener()
+    if self.timer then
+        self.timer:dispose()
+    end
+end
+
+
+
+
+
+return M

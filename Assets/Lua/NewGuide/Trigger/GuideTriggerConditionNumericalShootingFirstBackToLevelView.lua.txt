@@ -1,0 +1,9 @@
+---@class GuideTriggerConditionNumericalShootingFirstBackToLevelView:GuideTriggerCondition
+local GuideTriggerConditionNumericalShootingFirstBackToLevelView = class("GuideTriggerConditionNumericalShootingFirstBackToLevelView", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionNumericalShootingFirstBackToLevelView
+
+function M:equals(param)
+    return true
+end
+
+return M

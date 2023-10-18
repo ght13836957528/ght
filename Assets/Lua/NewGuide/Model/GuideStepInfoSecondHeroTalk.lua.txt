@@ -1,0 +1,10 @@
+---@class GuideStepInfoSecondHeroTalk : GuideStepBaseInfo
+local Base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfoSecondHeroTalk = class("GuideStepInfoSecondHeroTalk", Base)
+local M = GuideStepInfoSecondHeroTalk
+
+function M:onParse(params)
+
+end
+
+return M

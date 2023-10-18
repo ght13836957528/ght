@@ -1,0 +1,10 @@
+---@class GuideStepInfoChapterTaskComplete : GuideStepBaseInfo
+local Base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfoChapterTaskComplete = class("GuideStepInfoChapterTaskComplete", Base)
+local M = GuideStepInfoChapterTaskComplete
+
+function M:onParse()
+
+end
+
+return M

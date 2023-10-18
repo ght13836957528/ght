@@ -1,0 +1,12 @@
+---@class GuideStepInfoDragBuild : GuideStepBaseInfo @引导步骤拖拽新建建筑型数据结构
+---@field public buildID number buildID
+---@field public limitGrid string 目标位置
+local GuideStepInfoDragBuild = class("GuideStepInfoDragBuild", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoDragBuild
+
+function M:onParse(params)
+    self.buildID = params.buildID
+    self.limitGrid = params.limitGrid
+end
+
+return M

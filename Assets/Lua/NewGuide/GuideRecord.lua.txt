@@ -1,0 +1,73 @@
+---@class GuideRecord @引导存储对象
+local GuideRecord = class("GuideRecord")
+local M = GuideRecord
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+local SERVER_GUIDE_KEY = "SERVER_GUIDE_Completed_Key"
+
+function M:ctor()
+    self._recordCompletedGuideIdList = {}   -- 存储已经执行的id
+    self.recordCompletedGuideIdText  = ""   -- 已经执行的id的字符文本
+end
+
+---解析存储的Id
+---@param idText string 已经执行的引导index
+function M:parse(idText)
+    local idList = string.split(idText,";")
+    for k,v in pairs(idList) do
+        table.insert(self._recordCompletedGuideIdList,tonumber(v))
+    end
+    self.recordCompletedGuideIdText  = idText or ""
+end
+
+---判断步骤id是否已经执行
+---@param stepInfoId number 执行的引导index
+function M:ifStepHasExecuted(stepInfoId)
+    local has = false
+    local stepInfoIdNum = tonumber(stepInfoId)
+    for k,v in pairs(self._recordCompletedGuideIdList) do
+        if v == stepInfoIdNum then
+            has = true
+            break
+        end
+    end
+    return has
+end
+
+
+---存储已经执行的id
+---@param stepInfoId number 执行的引导index
+function M:recordKeyStepId(stepInfoId)
+    if not self:checkIsSavedStepId(stepInfoId) then
+        table.insert(self._recordCompletedGuideIdList,tonumber(stepInfoId))
+    end
+    if string.isNilOrEmpty(self.recordCompletedGuideIdText) then
+        self.recordCompletedGuideIdText = tostring(stepInfoId)
+    else
+        self.recordCompletedGuideIdText = self.recordCompletedGuideIdText..";"..stepInfoId
+    end
+    ServerRecorder.record(SERVER_GUIDE_KEY, self.recordCompletedGuideIdText, function(errorCode)
+        if not string.isNilOrEmpty(errorCode) then
+            return
+        end
+    end)
+end
+
+---是否已经存储过了
+---@param stepInfoId number 执行的引导index
+function M:checkIsSavedStepId(stepInfoId)
+    for _, v in ipairs(self._recordCompletedGuideIdList) do
+        if stepInfoId==v then
+            return true
+        end
+    end
+    return false
+end
+
+-- 重置数据
+function M:resetData()
+    self._recordCompletedGuideIdList = {}   -- 存储已经执行的id
+    self.recordCompletedGuideIdText  = ""   -- 已经执行的id的字符文本
+end
+
+
+return M

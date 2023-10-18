@@ -1,0 +1,16 @@
+---@class GuideStepInfoPlot : GuideStepBaseInfo @引导步骤对话引导类型数据结构
+---@field public plotId number plotId  
+---@field public lastAndAutoClose boolean 是否是本引导步骤结束但不关闭对话框的类型（有同时出现对话和手引导的需求）
+---@field public stepTime number 本步骤时间
+---@field public closeTime number 界面关闭的时间，一般大于步骤时间
+local GuideStepInfoPlot = class("GuideStepInfoPlot", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoPlot
+
+function M:onParse(params)
+    self.plotId = params.plotId
+    self.lastAndAutoClose = params.lastAndAutoClose and tonumber(params.lastAndAutoClose) == 1
+    self.stepTime = tonumber(params.stepTime) 
+    self.closeTime = tonumber(params.closeTime)
+end
+
+return M

@@ -1,0 +1,9 @@
+---@class GuideStepInfoCheckIfTowerDefenseLoaded: GuideStepBaseInfo @检查塔防新手关是否加载完成
+local GuideStepInfoCheckIfTowerDefenseLoaded = class("GuideStepInfoCheckIfTowerDefenseLoaded", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoCheckIfTowerDefenseLoaded
+
+function M:onParse(params)
+
+end
+
+return M
