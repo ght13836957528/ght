@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
+using AssetBundles;
 using FrameWork.UI;
+using GameManager;
 
 public class GameEntry
 {
@@ -30,17 +32,14 @@ public class GameEntry
         get;
     }
     
-    // private ResourceManager _resourceManager;
-    //
-    // public ResourceManager ResourceManager
-    // {
-    //     get;
-    // }
 
     public void Init()
     {
+        string localPath = Utility.GetStreamingAssetsDirectory();
+        ResourceManager.Instance.Initialize(localPath,null,null,AssetBundleManager.LoadMode.Local); // 暂时写到这里，后续添加启动状态机之后，挪到状态机里
+        
         _uiComponent = new UIComponent(_gameModulesList);
-        // _resourceManager = new ResourceManager(_gameModulesList);
+  
         foreach (var item in _gameModulesList)
         {
             item.Init();
