@@ -64,8 +64,7 @@ namespace AssetBundles
             if (m_Request != null)
                 return false;
 
-            LoadedAssetBundle bundle =
-                AssetBundleManager.GetLoadedAssetBundle(assetBundleVariant, out m_DownloadingError);
+            LoadedAssetBundle bundle = AssetBundleManager.GetLoadedAssetBundle(assetBundleVariant, out m_DownloadingError);
             if (bundle != null)
             {
                 //需要检查是否加载出现异常

@@ -41,8 +41,8 @@ namespace GameManager
                 {
                     if (obj is GameObject prefab)
                     {
-                        // prefab.RecycleAll();
-                        // prefab.DestroyPooled();
+                        prefab.RecycleAll();
+                        prefab.DestroyPooled();
                     }
                 }
 
@@ -86,6 +86,7 @@ namespace GameManager
         [ShowInInspector, ShowIf("showOdinInfo"), ListDrawerSettings(IsReadOnly = true)]
 #endif
         private List<AssetBundleLoadAssetOperation> m_InProgressOperations = new List<AssetBundleLoadAssetOperation>(); //正在加载的资源
+
 #if ODIN_INSPECTOR
         [ShowInInspector, ShowIf("showOdinInfo"), DictionaryDrawerSettings(IsReadOnly = true)]
 #endif
@@ -147,26 +148,21 @@ namespace GameManager
             //assetbundle 释放
             AssetBundles.AssetBundleManager.Release();
         }
-
-        public void Initialize(OnLoadComplete callback = null, AssetBundles.AssetBundleManager.LoadMode loadMode = AssetBundles.AssetBundleManager.LoadMode.Internal, AssetBundles.AssetBundleManager.LogMode logMode = AssetBundles.AssetBundleManager.LogMode.JustErrors)
+        
+        public void Initialize(string localAssetBundlePath, string remoteAssetBundlePath , OnLoadComplete callback, AssetBundles.AssetBundleManager.LoadMode loadMode = AssetBundles.AssetBundleManager.LoadMode.Internal, AssetBundles.AssetBundleManager.LogMode logMode = AssetBundles.AssetBundleManager.LogMode.JustErrors)
         {
-            Initialize(null, null, callback, loadMode, logMode);
-        }
-
-        public void Initialize(string localAssetBundlePath, string remoteAssetBundlePath, OnLoadComplete callback, AssetBundles.AssetBundleManager.LoadMode loadMode = AssetBundles.AssetBundleManager.LoadMode.Internal, AssetBundles.AssetBundleManager.LogMode logMode = AssetBundles.AssetBundleManager.LogMode.JustErrors)
-        {
-            if (!AssetBundles.AssetBundleManager.IsInited)
+            if (!AssetBundleManager.IsInited)
             {
                 //1.场景的加载/卸载管理
                 SceneManager.sceneLoaded += OnSceneLoaded;
                 SceneManager.sceneUnloaded += OnSceneUnloaded;
 
                 //bundle的加载/卸载管理
-                AssetBundles.AssetBundleManager.loadMode = loadMode;
-                AssetBundles.AssetBundleManager.logMode = logMode;
+                AssetBundleManager.loadMode = loadMode;
+                AssetBundleManager.logMode = logMode;
                 //设置本地资源加载路径，和远端资源加载路径
-                AssetBundles.AssetBundleManager.SetLocalAssetBundleDirectory(localAssetBundlePath);
-                AssetBundles.AssetBundleManager.SetRemoteAssetBundleURL(remoteAssetBundlePath);
+                AssetBundleManager.SetLocalAssetBundleDirectory(localAssetBundlePath);
+                AssetBundleManager.SetRemoteAssetBundleURL(remoteAssetBundlePath);
 
                 //todo 需要和热更逻辑配合
                 // string file = Path.Combine(AssetBundleManager.BaseLocalURL, Utility.GetPlatformName());
@@ -188,7 +184,18 @@ namespace GameManager
         IEnumerator _YieldCallback(OnLoadComplete callback)
         {
             yield return new WaitForEndOfFrame();
-            callback(Utility.GetPlatformName(), AssetBundles.AssetBundleManager.AssetBundleManifestObject, null);
+            string key = Utility.GetPlatformName();
+            if (string.IsNullOrEmpty(key))
+            {
+                Debug.LogError("key is null");
+            }
+            AssetBundleManifest manifest = AssetBundleManager.AssetBundleManifestObject;
+            if (manifest == null)
+            {
+                Debug.LogError("manifest is null");
+            }
+
+            callback(key, manifest, null);
         }
 
         #region load scene
@@ -256,7 +263,7 @@ namespace GameManager
         /// <param name="callback">Callback.</param>
         /// <param name="preload">If set to <c>true</c> preload asset and if <paramref name="memeryHold"/> is not "Always", ref count will no increase.</param>
         /// <param name="memeryHold">Memery hold.</param>
-        public string LoadAssetAsync(string assetBundle, string assetName, System.Type type, OnLoadComplete callback = null, bool preload = false, MemeryHold memeryHold = MemeryHold.Once)
+        public string LoadAssetAsync(string assetBundle, string assetName, System.Type type, OnLoadComplete callback = null, bool preload = false, MemeryHold memoryHold = MemeryHold.Once)
         {
 
             if (string.IsNullOrEmpty(assetBundle))
@@ -270,7 +277,7 @@ namespace GameManager
             string key = AssetKey(assetBundle, assetName, type);
 
             // 查找或创建一个AssetCache
-            AssetCache cache = GenAssetCache(key, assetBundle, assetName, type, memeryHold, preload);
+            AssetCache cache = GenAssetCache(key, assetBundle, assetName, type, memoryHold, preload);
 
             // 判断是否正在Loading
             if (IsInLoading(key))
