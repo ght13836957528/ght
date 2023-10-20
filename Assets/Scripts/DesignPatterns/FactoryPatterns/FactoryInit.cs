@@ -7,8 +7,8 @@ namespace DesignPatterns.FactoryPatterns
     {
         private void Start()
         {
-            PizzaStore store = new PizzaStore();
-            store.OrderPizza(Pizza.PizzaType.Cheese);
+            PizzaStore nyStore = new NYPizzaStore();
+            nyStore.OrderPizza(Pizza.PizzaType.Cheese);
         }
     }
 }
