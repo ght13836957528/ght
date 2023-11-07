@@ -1,4 +1,0 @@
-repository "MyGame@ght_ght@cloud.cn"
-  path "/"
-    br "/main"
-    co "/main"
