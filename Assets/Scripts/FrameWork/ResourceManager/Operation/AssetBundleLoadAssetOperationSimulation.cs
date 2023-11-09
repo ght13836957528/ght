@@ -141,5 +141,5 @@ namespace AssetBundles
             return 1;
         }
     }
-}
 #endif
+}
