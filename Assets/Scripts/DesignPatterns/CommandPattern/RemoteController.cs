@@ -1,17 +1,36 @@
-﻿namespace DesignPatterns.CommandPattern
+﻿using System.Collections.Generic;
+
+namespace DesignPatterns.CommandPattern
 {
     public class RemoteController
     {
-        private ICommand _command;
-        
-        public void SetCommand(ICommand command)
+        private readonly List<Command> _onCommandList;
+        private readonly List<Command> _offCommandList;
+        const int ControllerCount = 2;
+
+        public RemoteController()
         {
-            _command = command;
+            _onCommandList = new List<Command>();
+            _offCommandList = new List<Command>();
         }
 
-        public void Click()
+        public void SetCommand(int index ,Command onCommand , Command offCommand)
         {
-            _command.ExecuteCommand();
+            if (onCommand != null)
+            {
+                _onCommandList.Add(onCommand);
+            }
+            else if (offCommand != null)
+            {
+                _offCommandList.Add(offCommand); ;
+            }
         }
+
+        public void ClickCommand(int index)
+        {
+            _onCommandList[index].ExecuteCommand();
+        }
+        
+      
     }
 }

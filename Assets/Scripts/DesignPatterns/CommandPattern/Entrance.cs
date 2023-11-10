@@ -8,12 +8,20 @@ namespace DesignPatterns.CommandPattern
         private void Start()
         {
             RemoteController remoteController = new RemoteController();
-            LightCommand lightCommand = new LightCommand();
+            LightOffCommand lightOffCommand = new LightOffCommand();
             Light curLight = new Light();
-            lightCommand.SetLight(curLight);
+            lightOffCommand.SetLight(curLight);
             
-            remoteController.SetCommand(lightCommand);
-            remoteController.Click();
+            LightOnCommand lightOnCommand = new LightOnCommand();
+            lightOnCommand.SetLight(curLight);
+            
+            remoteController.SetCommand(0,null,lightOffCommand);
+            remoteController.SetCommand(0,lightOnCommand,null);
+
+            remoteController.ClickCommand(0);
+            remoteController.ClickCommand(1);
+            
+
         }
     }
 }

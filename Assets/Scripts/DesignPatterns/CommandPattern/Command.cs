@@ -1,8 +1,8 @@
 ﻿namespace DesignPatterns.CommandPattern
 {
-    public interface ICommand
+    public class Command
     {
-        void ExecuteCommand()
+        public virtual void ExecuteCommand()
         {
             
         }

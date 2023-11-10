@@ -28,16 +28,14 @@ namespace DesignPatterns.CommandPattern
             return _lightIsOn;
         }
 
-        public void Pull()
+        public void TurnOn()
         {
-            if (GetLightIsOn())
-            {
-                TurnOffLight();
-            }
-            else
-            {
-                TurnOnLight();
-            }
+            TurnOnLight();
+        }
+        
+        public void TurnOff()
+        {
+            TurnOffLight();
         }
 
     }

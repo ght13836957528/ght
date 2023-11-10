@@ -1,6 +1,6 @@
 ﻿namespace DesignPatterns.CommandPattern
 {
-    public class LightCommand : ICommand
+    public class LightOffCommand : Command
     {
         private Light _light;
 
@@ -9,11 +9,9 @@
             _light = Light;
         }
 
-        public void ExecuteCommand()
+        public override void ExecuteCommand()
         {
-            _light.Pull();
+            _light.TurnOn();
         }
-
-        
     }
 }
