@@ -11,7 +11,7 @@
 
         public override void ExecuteCommand()
         {
-            _light.TurnOn();
+            _light.TurnOff();
         }
     }
 }

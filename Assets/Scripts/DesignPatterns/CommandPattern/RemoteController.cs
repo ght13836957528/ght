@@ -4,31 +4,30 @@ namespace DesignPatterns.CommandPattern
 {
     public class RemoteController
     {
-        private readonly List<Command> _onCommandList;
-        private readonly List<Command> _offCommandList;
-        const int ControllerCount = 2;
+        private readonly List<Command> _commandList;
+       
 
         public RemoteController()
         {
-            _onCommandList = new List<Command>();
-            _offCommandList = new List<Command>();
+            _commandList = new List<Command>();
+           
         }
 
         public void SetCommand(int index ,Command onCommand , Command offCommand)
         {
             if (onCommand != null)
             {
-                _onCommandList.Add(onCommand);
+                _commandList.Add(onCommand);
             }
             else if (offCommand != null)
             {
-                _offCommandList.Add(offCommand); ;
+                _commandList.Add(offCommand); ;
             }
         }
 
         public void ClickCommand(int index)
         {
-            _onCommandList[index].ExecuteCommand();
+            _commandList[index].ExecuteCommand();
         }
         
       
