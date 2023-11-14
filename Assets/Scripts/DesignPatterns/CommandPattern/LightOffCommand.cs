@@ -13,5 +13,10 @@
         {
             _light.TurnOff();
         }
+
+        public override void UndoCommand()
+        {
+            _light.TurnOn();
+        }
     }
 }

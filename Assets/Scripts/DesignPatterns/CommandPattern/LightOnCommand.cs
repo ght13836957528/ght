@@ -14,6 +14,9 @@
             _light.TurnOn();
         }
 
-        
+        public override void UndoCommand()
+        {
+            _light.TurnOff();
+        }
     }
 }

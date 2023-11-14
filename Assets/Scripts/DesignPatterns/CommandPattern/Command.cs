@@ -6,5 +6,10 @@
         {
             
         }
+
+        public virtual void UndoCommand()
+        {
+            
+        }
     }
 }

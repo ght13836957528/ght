@@ -15,13 +15,13 @@ namespace DesignPatterns.CommandPattern
             LightOnCommand lightOnCommand = new LightOnCommand();
             lightOnCommand.SetLight(curLight);
             
-            remoteController.SetCommand(0,null,lightOffCommand);
-            remoteController.SetCommand(0,lightOnCommand,null);
+            remoteController.SetCommand(lightOffCommand);
+            remoteController.SetCommand(lightOnCommand);
 
             remoteController.ClickCommand(0);
             remoteController.ClickCommand(1);
             
-
+            remoteController.UndoCommand();
         }
     }
 }

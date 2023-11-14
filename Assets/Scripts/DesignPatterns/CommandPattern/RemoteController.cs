@@ -5,7 +5,7 @@ namespace DesignPatterns.CommandPattern
     public class RemoteController
     {
         private readonly List<Command> _commandList;
-       
+        private Command _lastCommand;
 
         public RemoteController()
         {
@@ -13,23 +13,20 @@ namespace DesignPatterns.CommandPattern
            
         }
 
-        public void SetCommand(int index ,Command onCommand , Command offCommand)
+        public void SetCommand(Command command )
         {
-            if (onCommand != null)
-            {
-                _commandList.Add(onCommand);
-            }
-            else if (offCommand != null)
-            {
-                _commandList.Add(offCommand); ;
-            }
+            _commandList.Add(command);
         }
-
         public void ClickCommand(int index)
         {
             _commandList[index].ExecuteCommand();
+            _lastCommand = _commandList[index];
         }
-        
-      
+
+        public void UndoCommand()
+        {
+            _lastCommand.UndoCommand();
+        }
+
     }
 }
