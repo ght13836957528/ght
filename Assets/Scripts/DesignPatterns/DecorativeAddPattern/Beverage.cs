@@ -2,6 +2,9 @@
 
 namespace Script.DecorativeAddPattern
 {
+    /// <summary>
+    /// 饮料抽象基类
+    /// </summary>
     public abstract class Beverage
     {
         public abstract string GetDescription();

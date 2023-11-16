@@ -2,6 +2,9 @@
 
 namespace Script.DecorativeAddPattern
 {
+    /// <summary>
+    /// 调味品装饰类
+    /// </summary>
     public class CondimentDecorator
     {
         private string _description = String.Empty;
