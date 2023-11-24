@@ -9,7 +9,7 @@ namespace DesignPatterns.IteratorPattern
         public ContainerItem(object[] numberArray)
         {
             _numberArray = numberArray;
-            _curIndex = 0;
+            _curIndex = -1;
         }
 
         public object Current 

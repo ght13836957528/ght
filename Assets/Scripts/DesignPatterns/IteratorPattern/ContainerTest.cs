@@ -15,14 +15,14 @@ namespace DesignPatterns.IteratorPattern
         public delegate void CallBack(int number);
         public ContainerTest()
         {
-            _curIndex = -1;
+            _curIndex = 0;
             _numberArray = new object[_defaultLength];
         }
 
         public bool Add(int number)
         {
-            _curIndex ++;
             _numberArray[_curIndex] = number;
+            _curIndex ++;
             return true;
         }
 
@@ -31,18 +31,22 @@ namespace DesignPatterns.IteratorPattern
             return new ContainerItem(_numberArray);
         }
         
+        /// <summary>
+        /// 猜测foreach遍历与该函数逻辑类似
+        /// </summary>
+        /// <param name="callBack"></param>
         public void ForEach(CallBack callBack)
         {
             IEnumerator iEnumerator = GetEnumerator();
             iEnumerator.Reset();
-            do
+            while (iEnumerator.MoveNext())
             {
                 if (iEnumerator.Current != null)
                 {
                     int number = (int)iEnumerator.Current;
                     callBack(number);
                 }
-            } while (iEnumerator.MoveNext());
+            } 
            
         }
     }

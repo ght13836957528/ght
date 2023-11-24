@@ -14,7 +14,10 @@ namespace DesignPatterns.IteratorPattern
             _containerTest.Add(2);
             _containerTest.Add(3);
             _containerTest.Add(4);
-            _containerTest.ForEach(Print);
+            foreach (var item in _containerTest)
+            {
+                Debug.Log(item);
+            }
         }
 
         private void Print(int number)
