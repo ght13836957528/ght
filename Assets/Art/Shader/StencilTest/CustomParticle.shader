@@ -3,9 +3,9 @@
         Tags { "RenderType"="Opaque" "Queue"="Geometry+1"}
         Pass {
             Stencil {
-                Ref 2
+                Ref 7
                 Comp equal
-                Pass keep 
+                Pass Zero 
                 ZFail decrWrap
             }
         

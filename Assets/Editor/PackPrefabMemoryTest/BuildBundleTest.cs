@@ -13,9 +13,9 @@ namespace PackPrefabMemoryTest
             AssetBundleBuild[] buildMap = new AssetBundleBuild[1];
 
             //打包出来的AssetBundle包文件名字;
-            buildMap[0].assetBundleName = "assets/PackPrefabTest";
+            buildMap[0].assetBundleName = "assets/UnpackPrefabTest";
             buildMap[0].assetBundleVariant = "bundle";
-            string[] guids = AssetDatabase.FindAssets("t:Object", new[] {"Assets/Art/Prefab/PackPrefabTest"});
+            string[] guids = AssetDatabase.FindAssets("t:Object", new[] {"Assets/Art/Prefab/UnpackPrefabTest"});
             List<string> scriptList = new List<string>(); 
             foreach (var guid in guids)
             {
