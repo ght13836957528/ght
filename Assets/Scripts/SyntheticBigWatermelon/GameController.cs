@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using GameManager;
 using UnityEngine;
 
+
 namespace SyntheticBigWatermelon
 {
     public class SaveFruit
@@ -16,7 +17,7 @@ namespace SyntheticBigWatermelon
         private FruitFactory _factory;
         private List<SaveFruit> _fruitList;
         private List<Fruit> _fruitPool;
-        private Fruit _fruitInScene;
+        private FruitBase _fruitInScene;
 
         public void Init()
         {
@@ -28,40 +29,57 @@ namespace SyntheticBigWatermelon
             _factory = new FruitFactory(fruitGameObject , fruitParent , startPoint );
         }
 
-        public Fruit GetFruitInScene()
+        public FruitBase GetFruitInScene()
         {
             return _fruitInScene;
         }
 
-        public void GenerateFruitInScene()
+        public void GenerateFruitInScene(FruitConst.FruitType type = FruitConst.FruitType.Default)
         {
-            _fruitInScene = GenerateFruit();
+            if (type == FruitConst.FruitType.AnyCombine)
+            {
+                GameObject.Destroy(_fruitInScene.gameObject);
+            }
+
+            _fruitInScene = GenerateFruit(type);
         }
 
-        public Fruit GenerateFruit()
+        public FruitBase GenerateFruit(FruitConst.FruitType type )
         {
-            Fruit fruit = _factory.GenerateFruit();
+            FruitBase fruit = _factory.GenerateFruit(default,type);
             return fruit;
         }
         
-        public void OnFruitCollision(Collision2D other , Fruit fruit)
+        public void OnFruitCollision(Collision2D other , FruitBase fruit)
         {
-            Fruit colliderFruit = other.transform.GetComponent<Fruit>();
-            if (colliderFruit != null && colliderFruit.FruitType == fruit.FruitType)
+            FruitBase colliderFruit = other.transform.GetComponent<FruitBase>();
+            fruit.SetDetected(false);
+            colliderFruit.SetDetected(false);
+            FruitConst.FruitType generateType = colliderFruit.FruitType + 1;
+            if (generateType > FruitConst.FruitType.Orange)
             {
-                fruit.SetDetected(false);
-                colliderFruit.SetDetected(false);
-                FruitConst.FruitType generateType = fruit.FruitType + 1;
-                if (generateType > FruitConst.FruitType.Orange)
-                {
-                    return;
-                }
-                Debug.Log("OnFruitCollision other=="+other.transform.name);
-                Fruit generateFruit = _factory.GenerateFruit(other.transform.position,generateType );
-                generateFruit.SetSimulate(true);
-                GameObject.Destroy(other.gameObject);
-                GameObject.Destroy(fruit.gameObject);
+                return;
+            }
+            FruitBase generateFruit = _factory.GenerateFruit(other.transform.position, generateType);
+            generateFruit.SetSimulate(true);
+            GameObject.Destroy(other.gameObject);
+            GameObject.Destroy(fruit.gameObject);
+            
+        }
+
+        public void AddForce()
+        {
+            List<FruitBase> fruitList = _factory.GetFruitList();
+            foreach (var fruit in fruitList)
+            {
+                Rigidbody2D rigidbody2D = fruit.GetRigidbody2D();
+                float x = UnityEngine.Random.Range(-1, 1);
+                float y = UnityEngine.Random.Range(0, 1);
+                rigidbody2D.AddForce(Vector2.up * 500);
             }
         }
+
+        
+
     }
 }

@@ -6,7 +6,7 @@ namespace SyntheticBigWatermelon
     public class InputManager : MonoBehaviour
     {
        
-        private Fruit _fruitInTheScene;//定义用来保存场景中未落下的水果
+        private FruitBase _fruitInTheScene;//定义用来保存场景中未落下的水果
         public GameObject left;
         public GameObject right;
         private bool _isInt;

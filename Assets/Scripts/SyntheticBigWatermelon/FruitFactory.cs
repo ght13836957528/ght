@@ -10,16 +10,17 @@ namespace SyntheticBigWatermelon
         private GameObject _fruitParent;
         private GameObject _fruitStartPoint;
         private GameObject _recoverParent;
+        private List<FruitBase> _fruitBaseList;
         public FruitFactory(List<GameObject> fruitLIst ,GameObject parent, GameObject startPoint)
         {
             _fruitList = fruitLIst;
             _fruitParent = parent;
             _fruitStartPoint = startPoint;
+            _fruitBaseList = new List<FruitBase>();
         }
 
-        public Fruit GenerateFruit(Vector3 pos = default,FruitConst.FruitType type = FruitConst.FruitType.Default)
+        private FruitConst.FruitType GetGenerateType( FruitConst.FruitType type)
         {
-            GameObject i;
             FruitConst.FruitType generateType;
             if (type == FruitConst.FruitType.Default)
             {
@@ -37,7 +38,13 @@ namespace SyntheticBigWatermelon
                 generateType = type;
             }
 
-            i = _fruitList[(int)generateType];
+            return generateType;
+        }
+
+        public FruitBase GenerateFruit(Vector3 pos = default,FruitConst.FruitType type = FruitConst.FruitType.Default)
+        {
+            FruitConst.FruitType generateType = GetGenerateType(type);
+            GameObject i = _fruitList[(int)generateType];
             GameObject fruitObj = GameObject.Instantiate(i,_fruitParent.transform);//实例化物体
             if (pos != default)
             {
@@ -47,12 +54,17 @@ namespace SyntheticBigWatermelon
             {
                 fruitObj.transform.position = _fruitStartPoint.transform.position;
             }
-            Fruit fruit = fruitObj.GetComponent<Fruit>();
-            fruit.Init();
+            FruitBase fruit = fruitObj.GetComponent<FruitBase>();
+            fruit.Init(generateType);
             fruit.SetSimulate(false);
-            fruit.FruitType = generateType;
+            _fruitBaseList.Add(fruit);
             return fruit;
         }
-        
+
+        public List<FruitBase> GetFruitList()
+        {
+            return _fruitBaseList;
+        }
+
     }
 }

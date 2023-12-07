@@ -5,10 +5,11 @@
         public enum FruitType
         {
             Default = -1,
-            Cherry = 0,
+            Cherry,
             Grape,
             Lemon,
             Orange,
+            AnyCombine,
         }
 
         public enum FruitState

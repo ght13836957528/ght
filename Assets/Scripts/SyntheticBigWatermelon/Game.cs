@@ -10,7 +10,8 @@ namespace SyntheticBigWatermelon
         [SerializeField] private GameObject fruitParent;
         [SerializeField] private GameObject startPoint;
         [SerializeField] private GameObject recoverParent;
-
+        [SerializeField] private GameObject Bottom;
+        
         private void Start()
         {
             Debug.Log("Game Start");
@@ -34,6 +35,16 @@ namespace SyntheticBigWatermelon
         private void InitInputManager()
         {
             GetComponent<InputManager>().Init();
+        }
+
+        public void UseAnyCombine()
+        {
+           GameController.Instance.GenerateFruitInScene(FruitConst.FruitType.AnyCombine);
+        }
+        
+        public void AddForce()
+        {
+            GameController.Instance.AddForce();
         }
 
     }
