@@ -10,18 +10,21 @@ namespace SyntheticBigWatermelon
         private CircleCollider2D _circleCollider2D;
         private bool _isDetected;
 
-        private void Start()
+        public FruitConst.FruitType FruitType
         {
-            Debug.Log("fruit Start");
-            _rigidbody2D = transform.GetComponent<Rigidbody2D>();
-            _circleCollider2D = transform.GetComponent<CircleCollider2D>();
+            get; set;
         }
-        
         void OnCollisionEnter2D(Collision2D other) //碰撞检测
         {
            
         }
-        
+
+        public void Init()
+        {
+            _rigidbody2D = transform.GetComponent<Rigidbody2D>();
+            _circleCollider2D = transform.GetComponent<CircleCollider2D>();
+        }
+
         public void SetSimulate(bool simulate)
         {
             _rigidbody2D.simulated = simulate;
