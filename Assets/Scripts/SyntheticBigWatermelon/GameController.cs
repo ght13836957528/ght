@@ -16,7 +16,8 @@ namespace SyntheticBigWatermelon
         private FruitFactory _factory;
         private List<SaveFruit> _fruitList;
         private List<Fruit> _fruitPool;
-        
+        private Fruit _fruitInScene;
+
         public void Init()
         {
             _fruitList = new List<SaveFruit>();
@@ -24,46 +25,25 @@ namespace SyntheticBigWatermelon
 
         public void InitFruitFactory(List<GameObject> fruitGameObject , GameObject fruitParent , GameObject startPoint, GameObject recoverParent)
         {
-            _factory = new FruitFactory(fruitGameObject , fruitParent , startPoint , recoverParent);
+            _factory = new FruitFactory(fruitGameObject , fruitParent , startPoint );
         }
-        public Fruit GenerateFruit(Vector3 pos)
+
+        public Fruit GetFruitInScene()
         {
-            if (_fruitPool == null)
-            {
-                _fruitPool = new List<Fruit>();
-            }
-
-            if (_factory != null)
-            {
-                Fruit fruit = _factory.GenerateFruit(pos);
-                _fruitPool.Add(fruit);
-                return fruit;
-            }
-            return null;
+            return _fruitInScene;
         }
 
-        public void SaveToList()
+        public void GenerateFruitInScene()
         {
-            foreach (var fruit in _fruitPool)
-            {
-                SaveFruit aSaveFruit = new SaveFruit();
-                aSaveFruit.fruitType = (int)fruit.FruitType;
-                aSaveFruit.pos = fruit.transform.localPosition;
-                _fruitList.Add(aSaveFruit);
-            }
-           
+            _fruitInScene = GenerateFruit();
         }
 
-        public void Recovery()
+        public Fruit GenerateFruit()
         {
-            foreach (var fruit in _fruitList)
-            {
-                Vector2 pos = new Vector2(fruit.pos.x +400 ,fruit.pos.y);
-                int type = fruit.fruitType;
-                _factory.GenerateFruitByPos(pos, (FruitConst.FruitType)type);
-            }
+            Fruit fruit = _factory.GenerateFruit();
+            return fruit;
         }
-
+        
         public void OnFruitCollision(Collision2D other , Fruit fruit)
         {
             Fruit colliderFruit = other.transform.GetComponent<Fruit>();

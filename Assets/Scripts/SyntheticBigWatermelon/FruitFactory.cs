@@ -10,18 +10,17 @@ namespace SyntheticBigWatermelon
         private GameObject _fruitParent;
         private GameObject _fruitStartPoint;
         private GameObject _recoverParent;
-        public FruitFactory(List<GameObject> fruitLIst ,GameObject parent, GameObject startPoint,GameObject recoverParent)
+        public FruitFactory(List<GameObject> fruitLIst ,GameObject parent, GameObject startPoint)
         {
             _fruitList = fruitLIst;
             _fruitParent = parent;
             _fruitStartPoint = startPoint;
-            _recoverParent = recoverParent;
         }
 
-        public Fruit GenerateFruit( Vector3 pos , FruitConst.FruitType type = FruitConst.FruitType.Default)
+        public Fruit GenerateFruit(Vector3 pos = default,FruitConst.FruitType type = FruitConst.FruitType.Default)
         {
             GameObject i;
-            FruitConst.FruitType generateType = type;
+            FruitConst.FruitType generateType;
             if (type == FruitConst.FruitType.Default)
             {
                 if (_fruitList.Count >= 4)//判断总水果是否大于4个
@@ -40,7 +39,14 @@ namespace SyntheticBigWatermelon
 
             i = _fruitList[(int)generateType];
             GameObject fruitObj = GameObject.Instantiate(i,_fruitParent.transform);//实例化物体
-            fruitObj.transform.position = new Vector3(pos.x,_fruitStartPoint.transform.position.y,0);
+            if (pos != default)
+            {
+                fruitObj.transform.position = pos;
+            }
+            else
+            {
+                fruitObj.transform.position = _fruitStartPoint.transform.position;
+            }
             Fruit fruit = fruitObj.GetComponent<Fruit>();
             fruit.Init();
             fruit.SetSimulate(false);
@@ -48,17 +54,5 @@ namespace SyntheticBigWatermelon
             return fruit;
         }
         
-        public void GenerateFruitByPos( Vector3 pos , FruitConst.FruitType type )
-        {
-            GameObject i;
-            FruitConst.FruitType generateType = type;
-            i = _fruitList[(int)generateType];
-            GameObject fruitObj = GameObject.Instantiate(i,_recoverParent.transform);//实例化物体
-            fruitObj.transform.localPosition = new Vector3(pos.x,pos.y,0);
-            Fruit fruit = fruitObj.GetComponent<Fruit>();
-            fruit.Init();
-            fruit.SetSimulate(true);
-            fruit.FruitType = generateType;
-        }
     }
 }

@@ -1,39 +1,51 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace SyntheticBigWatermelon
 {
     public class InputManager : MonoBehaviour
     {
-        private bool hasItBeenGenerated = false;//定义是否已在游戏中生成物体
-        private Fruit fruitInTheScene;//定义用来保存场景中未落下的水果
-        private float time = 0;//计时
+       
+        private Fruit _fruitInTheScene;//定义用来保存场景中未落下的水果
         public GameObject left;
         public GameObject right;
+        private bool _isInt;
+
+        private void Start()
+        {
+            _isInt = false;
+        }
 
         // Update is called once per frame
         void Update()
         {
-
-            //用作延迟生成物体
-            if (time < 0.3f)
+            if (!_isInt)
             {
-                time += Time.deltaTime;
+                return;
             }
-            else
+            //判断是否完成点击
+            if (Input.GetMouseButtonUp(0))
             {
-                //判断是否完成点击
-                if (Input.GetMouseButtonUp(0))
+                Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition); //获取点击位置
+                if (mousePosition.x < left.transform.position.x)
                 {
-                    Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);//获取点击位置
-                    if (mousePosition.x < left.transform.position.x)
-                    {
-                        return;
-                    }
-
-                    fruitInTheScene = GameController.Instance.GenerateFruit(mousePosition);
-                    fruitInTheScene.SetSimulate(true);
+                    return;
                 }
+
+                _fruitInTheScene = GameController.Instance.GetFruitInScene();
+                if (_fruitInTheScene != null)
+                {
+                    _fruitInTheScene.transform.position = new Vector3(mousePosition.x, _fruitInTheScene.transform.position.y);
+                    _fruitInTheScene.SetSimulate(true);
+                    GameController.Instance.GenerateFruitInScene();
+                }
+
             }
+        }
+
+        public void Init()
+        {
+            _isInt = true;
         }
     }
 }

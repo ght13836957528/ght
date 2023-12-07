@@ -18,7 +18,6 @@ namespace SyntheticBigWatermelon
             {
                 return;
             }
-
             GameController.Instance.OnFruitCollision(other,this);
         }
 
