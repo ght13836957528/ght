@@ -1,6 +1,4 @@
-﻿using System;
-using Unity.VisualScripting;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace SyntheticBigWatermelon
 {
@@ -16,13 +14,19 @@ namespace SyntheticBigWatermelon
         }
         void OnCollisionEnter2D(Collision2D other) //碰撞检测
         {
-           
+            if (!_isDetected)
+            {
+                return;
+            }
+
+            GameController.Instance.OnFruitCollision(other,this);
         }
 
         public void Init()
         {
             _rigidbody2D = transform.GetComponent<Rigidbody2D>();
             _circleCollider2D = transform.GetComponent<CircleCollider2D>();
+            _isDetected = true;
         }
 
         public void SetSimulate(bool simulate)
@@ -34,6 +38,8 @@ namespace SyntheticBigWatermelon
         {
             _isDetected = detect;
         }
+        
+        
         
 
     }

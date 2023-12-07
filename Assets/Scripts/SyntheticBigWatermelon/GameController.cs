@@ -63,5 +63,25 @@ namespace SyntheticBigWatermelon
                 _factory.GenerateFruitByPos(pos, (FruitConst.FruitType)type);
             }
         }
+
+        public void OnFruitCollision(Collision2D other , Fruit fruit)
+        {
+            Fruit colliderFruit = other.transform.GetComponent<Fruit>();
+            if (colliderFruit != null && colliderFruit.FruitType == fruit.FruitType)
+            {
+                fruit.SetDetected(false);
+                colliderFruit.SetDetected(false);
+                FruitConst.FruitType generateType = fruit.FruitType + 1;
+                if (generateType > FruitConst.FruitType.Orange)
+                {
+                    return;
+                }
+                Debug.Log("OnFruitCollision other=="+other.transform.name);
+                Fruit generateFruit = _factory.GenerateFruit(other.transform.position,generateType );
+                generateFruit.SetSimulate(true);
+                GameObject.Destroy(other.gameObject);
+                GameObject.Destroy(fruit.gameObject);
+            }
+        }
     }
 }

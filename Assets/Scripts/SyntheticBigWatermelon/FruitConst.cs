@@ -10,6 +10,14 @@
             Lemon,
             Orange,
         }
-        
+
+        public enum FruitState
+        {
+            Default,
+            StandBy,
+            Dropping,
+            Collision,
+        }
+
     }
 }
