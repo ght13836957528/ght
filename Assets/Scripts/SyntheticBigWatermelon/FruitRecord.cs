@@ -47,11 +47,14 @@ namespace SyntheticBigWatermelon
         public bool RemoveFruitFromRecordList(FruitBase fruit)
         {
             int hashCode = fruit.GetHashCode();
-            return _fruitRecordParamsDic.Remove(hashCode);
+            bool result =  _fruitRecordParamsDic.Remove(hashCode);
+            Record();
+            return result;
         }
 
         private void Record()
         {
+            Debug.Log("dic length = "+_fruitRecordParamsDic.Count );
             if (IfRecord())
             {
             }

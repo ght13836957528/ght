@@ -34,8 +34,13 @@ namespace SyntheticBigWatermelon
         {
            GameController.Instance.GenerateFruitNext(FruitConst.FruitType.AnyCombine);
         }
-        
-       
+
+
+        public void Reload()
+        {
+            
+        }
+
 
     }
 }

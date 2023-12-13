@@ -9,7 +9,6 @@ namespace SyntheticBigWatermelon
     public class GameController : Singleton<GameController>
     {
         private FruitFactory _factory;
-        private List<Fruit> _fruitPool;
         private FruitBase _fruitNext;
         private FruitRecord _record;
         
@@ -32,6 +31,11 @@ namespace SyntheticBigWatermelon
         private void InitRecord()
         {
             _record = new FruitRecord();
+        }
+
+        public void Reload()
+        {
+            
         }
 
         public FruitBase GetFruitNext()
@@ -65,11 +69,10 @@ namespace SyntheticBigWatermelon
             fruit.SetDetected(false);
             colliderFruit.SetDetected(false);
             FruitConst.FruitType generateType = colliderFruit.FruitType + 1;
-            if (generateType > FruitConst.FruitType.Orange)
-            {
-                return;
-            }
             FruitBase generateFruit = _factory.GenerateFruit(FruitConst.FruitGenerateType.Combine, other.transform.position, generateType );
+            
+            
+            
             generateFruit.Fall();
             colliderFruit.Dispose();
             fruit.Dispose();
@@ -89,6 +92,11 @@ namespace SyntheticBigWatermelon
         public void UpdateFruitPosInRecordList(FruitBase fruitBase)
         {
              _record.UpdateFruitPosInRecordList(fruitBase);
+        }
+
+        public FruitConst.FruitType GetMaxFruitType()
+        {
+            return FruitConst.FruitType.Orange;
         }
 
 

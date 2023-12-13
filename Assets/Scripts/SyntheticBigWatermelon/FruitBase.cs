@@ -34,7 +34,11 @@ namespace SyntheticBigWatermelon
             FruitState = FruitConst.FruitState.StandBy;
             FruitGenerateType = generateType;
             SetSimulate(false);
-            GameController.Instance.AddFruitToRecordList(this);
+            if (generateType == FruitConst.FruitGenerateType.Combine)
+            {
+                GameController.Instance.AddFruitToRecordList(this);
+            }
+
             OnInt();
         }
         
@@ -56,6 +60,7 @@ namespace SyntheticBigWatermelon
         {
             SetSimulate(true);
             FruitState = FruitConst.FruitState.Dropping;
+            GameController.Instance.AddFruitToRecordList(this);
         }
 
         private void SetSimulate(bool simulate)
