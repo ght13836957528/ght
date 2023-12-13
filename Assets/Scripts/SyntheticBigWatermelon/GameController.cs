@@ -6,47 +6,56 @@ using UnityEngine;
 
 namespace SyntheticBigWatermelon
 {
-    public class SaveFruit
-    {
-        public int fruitType;
-        public Vector2 pos;
-    }
-
     public class GameController : Singleton<GameController>
     {
         private FruitFactory _factory;
-        private List<SaveFruit> _fruitList;
         private List<Fruit> _fruitPool;
-        private FruitBase _fruitInScene;
-
-        public void Init()
+        private FruitBase _fruitNext;
+        private FruitRecord _record;
+        
+        public GameController()
         {
-            _fruitList = new List<SaveFruit>();
+            
         }
 
-        public void InitFruitFactory(List<GameObject> fruitGameObject , GameObject fruitParent , GameObject startPoint, GameObject recoverParent)
+        public void Init(List<GameObject> fruitGameObject , GameObject fruitParent , GameObject startPoint)
+        {
+            InitRecord();
+            InitFruitFactory(fruitGameObject, fruitParent, startPoint);
+        }
+
+        private void InitFruitFactory(List<GameObject> fruitGameObject , GameObject fruitParent , GameObject startPoint)
         {
             _factory = new FruitFactory(fruitGameObject , fruitParent , startPoint );
         }
 
-        public FruitBase GetFruitInScene()
+        private void InitRecord()
         {
-            return _fruitInScene;
+            _record = new FruitRecord();
         }
 
-        public void GenerateFruitInScene(FruitConst.FruitType type = FruitConst.FruitType.Default)
+        public FruitBase GetFruitNext()
         {
-            if (type == FruitConst.FruitType.AnyCombine)
-            {
-                GameObject.Destroy(_fruitInScene.gameObject);
-            }
-
-            _fruitInScene = GenerateFruit(type);
+            return _fruitNext;
         }
-
-        public FruitBase GenerateFruit(FruitConst.FruitType type )
+       
+        public void GenerateFirstFruit()
         {
-            FruitBase fruit = _factory.GenerateFruit(default,type);
+            GenerateFruitNext();
+        }
+        
+        /// <summary>
+        /// 生成下一个水果
+        /// </summary>
+        /// <param name="type"></param>
+        public void GenerateFruitNext(FruitConst.FruitType type = default)
+        {
+            _fruitNext = GenerateFruit(type);
+        }
+        
+        private FruitBase GenerateFruit(FruitConst.FruitType type = default )
+        {
+            FruitBase fruit = _factory.GenerateFruit(FruitConst.FruitGenerateType.Generate,default,type);
             return fruit;
         }
         
@@ -60,26 +69,29 @@ namespace SyntheticBigWatermelon
             {
                 return;
             }
-            FruitBase generateFruit = _factory.GenerateFruit(other.transform.position, generateType);
-            generateFruit.SetSimulate(true);
-            GameObject.Destroy(other.gameObject);
-            GameObject.Destroy(fruit.gameObject);
-            
+            FruitBase generateFruit = _factory.GenerateFruit(FruitConst.FruitGenerateType.Combine, other.transform.position, generateType );
+            generateFruit.Fall();
+            colliderFruit.Dispose();
+            fruit.Dispose();
         }
-
-        public void AddForce()
-        {
-            List<FruitBase> fruitList = _factory.GetFruitList();
-            foreach (var fruit in fruitList)
-            {
-                Rigidbody2D rigidbody2D = fruit.GetRigidbody2D();
-                float x = UnityEngine.Random.Range(-1, 1);
-                float y = UnityEngine.Random.Range(0, 1);
-                rigidbody2D.AddForce(Vector2.up * 500);
-            }
-        }
-
         
+        public void AddFruitToRecordList(FruitBase fruitBase)
+        {
+            _record.AddFruitToRecordList(fruitBase);
+        }
+        
+        public bool RemoveFruitFromRecordList(FruitBase fruitBase)
+        {
+            bool succeed = _record.RemoveFruitFromRecordList(fruitBase);
+            return succeed;
+        }
+
+        public void UpdateFruitPosInRecordList(FruitBase fruitBase)
+        {
+             _record.UpdateFruitPosInRecordList(fruitBase);
+        }
+
+
 
     }
 }

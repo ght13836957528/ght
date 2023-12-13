@@ -9,5 +9,15 @@ namespace SyntheticBigWatermelon
             FruitBase colliderFruit = other.transform.GetComponent<FruitBase>();
             return (colliderFruit != null && colliderFruit.FruitType == fruit.FruitType);
         }
+        
+        protected override void OnInt()
+        {
+            
+        }
+        
+        protected override void OnDispose()
+        {
+            
+        }
     }
 }

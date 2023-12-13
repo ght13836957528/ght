@@ -19,6 +19,13 @@
             Dropping,
             Collision,
         }
+        
+        public enum FruitGenerateType
+        {
+            Default,
+            Generate,
+            Combine,
+        }
 
     }
 }

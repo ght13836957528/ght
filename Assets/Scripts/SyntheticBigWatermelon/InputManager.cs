@@ -10,11 +10,7 @@ namespace SyntheticBigWatermelon
         public GameObject left;
         public GameObject right;
         private bool _isInt;
-
-        private void Start()
-        {
-            _isInt = false;
-        }
+        
 
         // Update is called once per frame
         void Update()
@@ -24,6 +20,17 @@ namespace SyntheticBigWatermelon
                 return;
             }
             //判断是否完成点击
+            if (Input.GetMouseButton(0))
+            {
+                Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition); //获取点击位置
+                if (mousePosition.x < left.transform.position.x)
+                {
+                    return;
+                }
+                _fruitInTheScene = GameController.Instance.GetFruitNext();
+                _fruitInTheScene.transform.position = new Vector3(mousePosition.x, _fruitInTheScene.transform.position.y);
+            }
+
             if (Input.GetMouseButtonUp(0))
             {
                 Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition); //获取点击位置
@@ -32,12 +39,12 @@ namespace SyntheticBigWatermelon
                     return;
                 }
 
-                _fruitInTheScene = GameController.Instance.GetFruitInScene();
+                _fruitInTheScene = GameController.Instance.GetFruitNext();
                 if (_fruitInTheScene != null)
                 {
                     _fruitInTheScene.transform.position = new Vector3(mousePosition.x, _fruitInTheScene.transform.position.y);
-                    _fruitInTheScene.SetSimulate(true);
-                    GameController.Instance.GenerateFruitInScene();
+                    _fruitInTheScene.Fall();
+                    GameController.Instance.GenerateFruitNext(FruitConst.FruitType.Default);
                 }
 
             }
@@ -45,6 +52,7 @@ namespace SyntheticBigWatermelon
 
         public void Init()
         {
+            Debug.Log("_isInt");
             _isInt = true;
         }
     }

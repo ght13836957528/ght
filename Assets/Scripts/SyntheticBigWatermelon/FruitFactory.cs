@@ -10,13 +10,13 @@ namespace SyntheticBigWatermelon
         private GameObject _fruitParent;
         private GameObject _fruitStartPoint;
         private GameObject _recoverParent;
-        private List<FruitBase> _fruitBaseList;
+        
         public FruitFactory(List<GameObject> fruitLIst ,GameObject parent, GameObject startPoint)
         {
             _fruitList = fruitLIst;
             _fruitParent = parent;
             _fruitStartPoint = startPoint;
-            _fruitBaseList = new List<FruitBase>();
+           
         }
 
         private FruitConst.FruitType GetGenerateType( FruitConst.FruitType type)
@@ -24,14 +24,7 @@ namespace SyntheticBigWatermelon
             FruitConst.FruitType generateType;
             if (type == FruitConst.FruitType.Default)
             {
-                if (_fruitList.Count >= 4)//判断总水果是否大于4个
-                {
-                    generateType= (FruitConst.FruitType)Random.Range(0, 4);
-                }
-                else
-                {
-                    generateType = (FruitConst.FruitType)Random.Range(0, _fruitList.Count);
-                }
+                generateType= (FruitConst.FruitType)Random.Range(0, 4);
             }
             else
             {
@@ -41,10 +34,10 @@ namespace SyntheticBigWatermelon
             return generateType;
         }
 
-        public FruitBase GenerateFruit(Vector3 pos = default,FruitConst.FruitType type = FruitConst.FruitType.Default)
+        public FruitBase GenerateFruit(FruitConst.FruitGenerateType generateType,Vector3 pos = default,FruitConst.FruitType type = FruitConst.FruitType.Default )
         {
-            FruitConst.FruitType generateType = GetGenerateType(type);
-            GameObject i = _fruitList[(int)generateType];
+            FruitConst.FruitType fruitType = GetGenerateType(type);
+            GameObject i = _fruitList[(int)fruitType];
             GameObject fruitObj = GameObject.Instantiate(i,_fruitParent.transform);//实例化物体
             if (pos != default)
             {
@@ -55,16 +48,11 @@ namespace SyntheticBigWatermelon
                 fruitObj.transform.position = _fruitStartPoint.transform.position;
             }
             FruitBase fruit = fruitObj.GetComponent<FruitBase>();
-            fruit.Init(generateType);
-            fruit.SetSimulate(false);
-            _fruitBaseList.Add(fruit);
+            fruit.Init(fruitType,generateType);
             return fruit;
         }
 
-        public List<FruitBase> GetFruitList()
-        {
-            return _fruitBaseList;
-        }
+       
 
     }
 }

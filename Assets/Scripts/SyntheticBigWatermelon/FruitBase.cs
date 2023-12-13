@@ -12,25 +12,61 @@ namespace SyntheticBigWatermelon
             get; 
             private set;
         }
-        
-        protected virtual bool GetIfCanCombine(Collision2D other , FruitBase fruit )
+
+        public FruitConst.FruitState FruitState
         {
-            return false;
+            get; 
+            private set;
         }
         
-        public void Init(FruitConst.FruitType fruitType )
+        public FruitConst.FruitGenerateType FruitGenerateType
+        {
+            get; 
+            private set;
+        }
+
+        public void Init(FruitConst.FruitType fruitType, FruitConst.FruitGenerateType generateType )
         {
             _rigidbody2D = transform.GetComponent<Rigidbody2D>();
             _circleCollider2D = transform.GetComponent<CircleCollider2D>();
             _isDetected = true;
             FruitType = fruitType;
+            FruitState = FruitConst.FruitState.StandBy;
+            FruitGenerateType = generateType;
+            SetSimulate(false);
+            GameController.Instance.AddFruitToRecordList(this);
+            OnInt();
+        }
+        
+        public void Dispose()
+        {
+            bool succeed = GameController.Instance.RemoveFruitFromRecordList(this);
+            if (succeed)
+            {
+                OnDispose();
+                Destroy(gameObject);
+            }
+            else
+            {
+                Debug.LogError("remove fail");
+            }
         }
 
-        public void SetSimulate(bool simulate)
+        public void Fall()
+        {
+            SetSimulate(true);
+            FruitState = FruitConst.FruitState.Dropping;
+        }
+
+        private void SetSimulate(bool simulate)
         {
             _rigidbody2D.simulated = simulate;
         }
         
+        /// <summary>
+        /// 设置是否进行碰撞检测
+        /// </summary>
+        /// <param name="detect"></param>
         public void SetDetected(bool detect)
         {
             _isDetected = detect;
@@ -42,16 +78,30 @@ namespace SyntheticBigWatermelon
             {
                 return;
             }
+            
+            FruitState = FruitConst.FruitState.Collision;
+            GameController.Instance.UpdateFruitPosInRecordList(this);
 
             if (GetIfCanCombine(other , this))
             {
                 GameController.Instance.OnFruitCollision(other,this);
             }
+
         }
 
-        public Rigidbody2D GetRigidbody2D()
+        protected virtual void OnInt()
         {
-            return _rigidbody2D;
+            
+        }
+
+        protected virtual void OnDispose()
+        {
+            
+        }
+        
+        protected virtual bool GetIfCanCombine(Collision2D other , FruitBase fruit )
+        {
+            return false;
         }
 
     }

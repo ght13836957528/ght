@@ -10,28 +10,21 @@ namespace SyntheticBigWatermelon
         [SerializeField] private GameObject fruitParent;
         [SerializeField] private GameObject startPoint;
         [SerializeField] private GameObject recoverParent;
-        [SerializeField] private GameObject Bottom;
-        
+
         private void Start()
         {
             Debug.Log("Game Start");
             InitGameController();
-            InitFruitFactory();
             InitInputManager();
 
-            GameController.Instance.GenerateFruitInScene();
+            GameController.Instance.GenerateFirstFruit();
         }
 
         private void InitGameController()
         {
-            GameController.Instance.Init();
+            GameController.Instance.Init(fruitList,fruitParent,startPoint);
         }
-
-        private void InitFruitFactory()
-        {
-            GameController.Instance.InitFruitFactory(fruitList,fruitParent,startPoint,recoverParent);
-        }
-
+        
         private void InitInputManager()
         {
             GetComponent<InputManager>().Init();
@@ -39,13 +32,10 @@ namespace SyntheticBigWatermelon
 
         public void UseAnyCombine()
         {
-           GameController.Instance.GenerateFruitInScene(FruitConst.FruitType.AnyCombine);
+           GameController.Instance.GenerateFruitNext(FruitConst.FruitType.AnyCombine);
         }
         
-        public void AddForce()
-        {
-            GameController.Instance.AddForce();
-        }
+       
 
     }
 }
