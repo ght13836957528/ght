@@ -1,4 +1,7 @@
-﻿using UnityEngine;
+﻿using System;
+using DG.Tweening;
+using UnityEngine;
+using UnityEngine.Events;
 
 namespace SyntheticBigWatermelon
 {
@@ -63,7 +66,7 @@ namespace SyntheticBigWatermelon
             GameController.Instance.AddFruitToRecordList(this);
         }
 
-        private void SetSimulate(bool simulate)
+        public void SetSimulate(bool simulate)
         {
             _rigidbody2D.simulated = simulate;
         }
@@ -91,7 +94,20 @@ namespace SyntheticBigWatermelon
             {
                 GameController.Instance.OnFruitCollision(other,this);
             }
+        }
 
+        public void OnFruitCollision()
+        {
+           SetDetected(false);
+           SetSimulate(false);
+        }
+
+        public void PlayCombineEffect(Vector3 pos,UnityAction callBack)
+        {
+            transform.DOMove(pos, 0.2f).onComplete = () =>
+            {
+                callBack();
+            };
         }
 
         protected virtual void OnInt()

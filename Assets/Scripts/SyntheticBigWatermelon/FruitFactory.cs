@@ -24,7 +24,7 @@ namespace SyntheticBigWatermelon
             FruitConst.FruitType generateType;
             if (type == FruitConst.FruitType.Default)
             {
-                generateType= (FruitConst.FruitType)Random.Range(0, 4);
+                generateType= (FruitConst.FruitType)Random.Range(0, 2);
             }
             else
             {

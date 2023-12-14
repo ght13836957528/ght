@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using DG.Tweening;
 using GameManager;
 using UnityEngine;
 
@@ -66,16 +67,21 @@ namespace SyntheticBigWatermelon
         public void OnFruitCollision(Collision2D other , FruitBase fruit)
         {
             FruitBase colliderFruit = other.transform.GetComponent<FruitBase>();
-            fruit.SetDetected(false);
-            colliderFruit.SetDetected(false);
-            FruitConst.FruitType generateType = colliderFruit.FruitType + 1;
-            FruitBase generateFruit = _factory.GenerateFruit(FruitConst.FruitGenerateType.Combine, other.transform.position, generateType );
+            colliderFruit.OnFruitCollision();
+            fruit.OnFruitCollision();
+            float colliderFruitPosY = colliderFruit.transform.position.y;
+            float curPosY = fruit.transform.position.y;
             
-            
-            
-            generateFruit.Fall();
-            colliderFruit.Dispose();
-            fruit.Dispose();
+            Vector3 pos = curPosY < colliderFruitPosY ? fruit.transform.position : colliderFruit.transform.position;
+
+            fruit.PlayCombineEffect(pos, () =>
+            {
+                FruitConst.FruitType generateType = colliderFruit.FruitType + 1;
+                FruitBase generateFruit = _factory.GenerateFruit(FruitConst.FruitGenerateType.Combine, pos, generateType );
+                generateFruit.Fall();
+                colliderFruit.Dispose();
+                fruit.Dispose();
+            });
         }
         
         public void AddFruitToRecordList(FruitBase fruitBase)
