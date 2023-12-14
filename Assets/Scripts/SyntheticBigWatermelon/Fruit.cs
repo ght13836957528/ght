@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using DG.Tweening;
+using UnityEngine;
 
 namespace SyntheticBigWatermelon
 {
@@ -14,7 +15,16 @@ namespace SyntheticBigWatermelon
         
         protected override void OnInt()
         {
-            
+            if (FruitGenerateType == FruitConst.FruitGenerateType.Combine)
+            {
+                Vector3 beginSize = new Vector3(0.67f, 0.67f, 1);
+                transform.localScale = beginSize;
+                Sequence s = DOTween.Sequence();
+                Vector3 bigSize = new Vector3(1.3f, 1.3f, 1);
+                s.Append(transform.DOScale(bigSize,0.1f));
+                Vector3 smallSize = new Vector3(1.0f, 1.0f, 1);
+                s.Append(transform.DOScale(smallSize,0.1f));
+            }
         }
         
         protected override void OnDispose()

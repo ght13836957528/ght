@@ -66,7 +66,7 @@ namespace SyntheticBigWatermelon
             GameController.Instance.AddFruitToRecordList(this);
         }
 
-        public void SetSimulate(bool simulate)
+        private void SetSimulate(bool simulate)
         {
             _rigidbody2D.simulated = simulate;
         }
@@ -75,7 +75,7 @@ namespace SyntheticBigWatermelon
         /// 设置是否进行碰撞检测
         /// </summary>
         /// <param name="detect"></param>
-        public void SetDetected(bool detect)
+        private void SetDetected(bool detect)
         {
             _isDetected = detect;
         }
