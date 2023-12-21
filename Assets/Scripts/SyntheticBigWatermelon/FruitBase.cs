@@ -104,7 +104,7 @@ namespace SyntheticBigWatermelon
 
         public void PlayCombineEffect(Vector3 pos,UnityAction callBack)
         {
-            transform.DOMove(pos, 0.2f).onComplete = () =>
+            transform.DOMove(pos, 0.5f).onComplete = () =>
             {
                 callBack();
             };

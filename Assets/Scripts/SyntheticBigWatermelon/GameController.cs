@@ -72,7 +72,7 @@ namespace SyntheticBigWatermelon
             float colliderFruitPosY = colliderFruit.transform.position.y;
             float curPosY = fruit.transform.position.y;
             
-            Vector3 pos = curPosY < colliderFruitPosY ? fruit.transform.position : colliderFruit.transform.position;
+            Vector3 pos = curPosY <= colliderFruitPosY ? fruit.transform.position : colliderFruit.transform.position;
 
             fruit.PlayCombineEffect(pos, () =>
             {
