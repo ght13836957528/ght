@@ -12,31 +12,27 @@ public class InitProblemItem : MonoBehaviour
 
     private void Awake()
     {
-        Debug.LogError("InitProblemItem Awake");
+        Debug.Log("InitProblemItem Awake");
+        Debug.Log("Awake Frame=="+ InitProblemMain._frameNum);
     }
 
-    void Start()
+    public void Start()
     {
         Debug.LogError("InitProblemItem start");
         _testList = new List<string>();
+        Debug.Log("start Frame=="+ InitProblemMain._frameNum);
     }
     
 
     public void Init()
     {
         Debug.Log("InitProblemItem Init");
-        // if (scroll == null)
-        // {
-        //     Debug.LogError("scroll is null");
-        //     return;
-        // }
-        //
-        // scroll.Test();
-        // Debug.LogError("InitProblemItem Init" + scroll.GetInstanceID());
         if (_testList == null)
         {
             Debug.LogError("_testList is null");
         }
-        
+        Debug.Log("Init Frame=="+ InitProblemMain._frameNum);
     }
+
+   
 }

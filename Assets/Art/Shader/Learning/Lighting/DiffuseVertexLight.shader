@@ -33,6 +33,7 @@ Shader "Custom/DiffuseVertexLight"
                 fixed3 worldNormal = UnityObjectToWorldNormal(data.normal);
                 fixed3 worldLight = normalize(_WorldSpaceLightPos0.xyz);
                 float3 diffuse = _LightColor0.rgb * _Diffuse.rgb * saturate(dot(worldNormal,worldLight)* 0.5f + 0.5f);
+                //半兰伯特，之前是将小于0的结果都变成0，使得背光面无变化，兰半伯特将点积的结果从（-1，1）映射到（0，1），使得背光面也有明暗变化
                 o.col = diffuse + ambient;
                 return o;
             }

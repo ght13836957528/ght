@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: 27cc1f6746bce7a41b29a4988a519c4d
+TrueTypeFontImporter:
+  externalObjects: {}
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontNames:
+  - Microsoft YaHei
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData: 
+  assetBundleName: assets/art/localization_bak/chinesesimplified/fonts/msyh
+  assetBundleVariant: bundle
