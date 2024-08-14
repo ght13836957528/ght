@@ -361,8 +361,8 @@ namespace ImageTools
         private static List<string> GetSpritesPath()
         {
             List<string> paths = new List<string>();
-            paths.Add("Assets/Main/Arts/Sprites");
-            paths.Add("Assets/Main/ArtsDyre/Sprites");
+            paths.Add("Assets/Art/Sprites");
+            // paths.Add("Assets/Main/ArtsDyre/Sprites");
 
             return paths;
         }
