@@ -1255,7 +1255,7 @@ namespace Tools
 
         #region 公共接口
 
-        private static void SetTextureSettings(string assetPath)
+        public static void SetTextureSettings(string assetPath)
 		{
 			var texture = AssetDatabase.LoadMainAssetAtPath(assetPath) as Texture2D;
 			if (null == texture)
