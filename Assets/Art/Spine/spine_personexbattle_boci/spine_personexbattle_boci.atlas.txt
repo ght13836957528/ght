@@ -1,0 +1,187 @@
+
+spine_personexbattle_boci.png
+size: 1928,1814
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+texiaoa00
+  rotate: false
+  xy: 2, 1512
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa01
+  rotate: false
+  xy: 2, 1210
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa02
+  rotate: false
+  xy: 644, 1512
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa03
+  rotate: false
+  xy: 2, 908
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa04
+  rotate: false
+  xy: 644, 1210
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa05
+  rotate: false
+  xy: 1286, 1512
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa06
+  rotate: false
+  xy: 2, 606
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa07
+  rotate: false
+  xy: 644, 908
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa08
+  rotate: false
+  xy: 1286, 1210
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa09
+  rotate: false
+  xy: 2, 304
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa10
+  rotate: false
+  xy: 644, 606
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa11
+  rotate: false
+  xy: 1286, 908
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa12
+  rotate: false
+  xy: 2, 2
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa13
+  rotate: false
+  xy: 644, 304
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa14
+  rotate: false
+  xy: 1286, 606
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa15
+  rotate: false
+  xy: 644, 2
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa16
+  rotate: false
+  xy: 1286, 304
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa17
+  rotate: false
+  xy: 1286, 2
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+
+spine_personexbattle_boci2.png
+size: 1512,946
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+texiaoa18
+  rotate: true
+  xy: 2, 304
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa19
+  rotate: false
+  xy: 2, 2
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa20
+  rotate: true
+  xy: 304, 304
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa21
+  rotate: true
+  xy: 606, 304
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa22
+  rotate: false
+  xy: 644, 2
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoa23
+  rotate: true
+  xy: 908, 304
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1
+texiaoc01
+  rotate: true
+  xy: 1210, 304
+  size: 640, 300
+  orig: 640, 300
+  offset: 0, 0
+  index: -1

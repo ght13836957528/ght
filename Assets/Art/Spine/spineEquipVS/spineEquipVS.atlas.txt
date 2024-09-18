@@ -1,0 +1,272 @@
+
+spineEquipVS.png
+size: 1999,1587
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+guang
+  rotate: false
+  xy: 2, 941
+  size: 637, 644
+  orig: 637, 644
+  offset: 0, 0
+  index: -1
+guang1
+  rotate: false
+  xy: 1763, 843
+  size: 86, 118
+  orig: 86, 118
+  offset: 0, 0
+  index: -1
+guang2
+  rotate: false
+  xy: 2, 371
+  size: 438, 568
+  orig: 438, 568
+  offset: 0, 0
+  index: -1
+lizi0001
+  rotate: false
+  xy: 641, 966
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0002
+  rotate: false
+  xy: 1049, 1285
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0003
+  rotate: false
+  xy: 1371, 1285
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0004
+  rotate: true
+  xy: 1693, 1265
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0005
+  rotate: true
+  xy: 535, 619
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0006
+  rotate: false
+  xy: 535, 317
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0007
+  rotate: false
+  xy: 409, 15
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0008
+  rotate: false
+  xy: 731, 15
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0009
+  rotate: true
+  xy: 837, 644
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0010
+  rotate: true
+  xy: 857, 322
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0011
+  rotate: false
+  xy: 963, 966
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0012
+  rotate: false
+  xy: 1285, 983
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0013
+  rotate: false
+  xy: 1607, 963
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0014
+  rotate: true
+  xy: 1139, 644
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0015
+  rotate: true
+  xy: 1159, 322
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0016
+  rotate: false
+  xy: 1053, 20
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0017
+  rotate: false
+  xy: 1441, 661
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0018
+  rotate: true
+  xy: 1461, 339
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0019
+  rotate: false
+  xy: 1375, 20
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+lizi0020
+  rotate: true
+  xy: 1697, 17
+  size: 320, 300
+  orig: 320, 300
+  offset: 0, 0
+  index: -1
+ptn_pjsj_dz_hong
+  rotate: false
+  xy: 2, 52
+  size: 405, 317
+  orig: 405, 317
+  offset: 0, 0
+  index: -1
+ptn_pjsj_dz_lan
+  rotate: false
+  xy: 641, 1268
+  size: 406, 317
+  orig: 406, 317
+  offset: 0, 0
+  index: -1
+ptn_pjsj_dz_s
+  rotate: false
+  xy: 1763, 651
+  size: 87, 88
+  orig: 87, 88
+  offset: 0, 0
+  index: -1
+ptn_pjsj_dz_v
+  rotate: true
+  xy: 1763, 741
+  size: 100, 85
+  orig: 100, 85
+  offset: 0, 0
+  index: -1
+sui1
+  rotate: true
+  xy: 664, 941
+  size: 23, 19
+  orig: 23, 19
+  offset: 0, 0
+  index: -1
+sui10
+  rotate: false
+  xy: 1049, 1268
+  size: 29, 15
+  orig: 29, 15
+  offset: 0, 0
+  index: -1
+sui2
+  rotate: false
+  xy: 2, 9
+  size: 33, 41
+  orig: 33, 41
+  offset: 0, 0
+  index: -1
+sui3
+  rotate: false
+  xy: 641, 941
+  size: 21, 23
+  orig: 21, 23
+  offset: 0, 0
+  index: -1
+sui4
+  rotate: false
+  xy: 1053, 2
+  size: 25, 16
+  orig: 25, 16
+  offset: 0, 0
+  index: -1
+sui5
+  rotate: false
+  xy: 409, 357
+  size: 27, 12
+  orig: 27, 12
+  offset: 0, 0
+  index: -1
+sui6
+  rotate: true
+  xy: 1080, 2
+  size: 16, 8
+  orig: 16, 8
+  offset: 0, 0
+  index: -1
+sui7
+  rotate: true
+  xy: 442, 376
+  size: 10, 27
+  orig: 10, 27
+  offset: 0, 0
+  index: -1
+sui8
+  rotate: false
+  xy: 837, 621
+  size: 17, 21
+  orig: 17, 21
+  offset: 0, 0
+  index: -1
+sui9
+  rotate: false
+  xy: 1607, 1274
+  size: 13, 9
+  orig: 13, 9
+  offset: 0, 0
+  index: -1
+xian
+  rotate: false
+  xy: 442, 388
+  size: 91, 551
+  orig: 91, 551
+  offset: 0, 0
+  index: -1

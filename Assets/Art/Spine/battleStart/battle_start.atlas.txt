@@ -1,0 +1,83 @@
+
+battle_start.png
+size: 2048,2048
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+texiaoxian0
+  rotate: false
+  xy: 2, 572
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1
+texiaoxian1
+  rotate: false
+  xy: 644, 1462
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1
+texiaoxian2
+  rotate: false
+  xy: 2, 2
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1
+texiaoxian3
+  rotate: false
+  xy: 966, 1462
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1
+texiaoxian4
+  rotate: false
+  xy: 1288, 1462
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1
+texiaoxian5
+  rotate: false
+  xy: 1610, 1462
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1
+texiaoxian6
+  rotate: false
+  xy: 324, 572
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1
+texiaoxian7
+  rotate: false
+  xy: 324, 2
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1
+texiaoxian8
+  rotate: false
+  xy: 646, 892
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1
+zhandoukaishi_heitiao
+  rotate: false
+  xy: 2, 1142
+  size: 640, 888
+  orig: 640, 888
+  offset: 0, 0
+  index: -1
+zhandoukaishi_wang
+  rotate: false
+  xy: 646, 322
+  size: 320, 568
+  orig: 320, 568
+  offset: 0, 0
+  index: -1

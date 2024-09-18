@@ -1,0 +1,237 @@
+
+Logo-intro.png
+size: 1024,512
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+c
+  rotate: false
+  xy: 291, 179
+  size: 91, 132
+  orig: 91, 132
+  offset: 0, 0
+  index: -1
+e
+  rotate: true
+  xy: 457, 3
+  size: 65, 77
+  orig: 65, 77
+  offset: 0, 0
+  index: -1
+h
+  rotate: true
+  xy: 633, 395
+  size: 115, 134
+  orig: 115, 134
+  offset: 0, 0
+  index: -1
+i
+  rotate: true
+  xy: 386, 278
+  size: 67, 128
+  orig: 67, 128
+  offset: 0, 0
+  index: -1
+m
+  rotate: false
+  xy: 516, 295
+  size: 95, 81
+  orig: 95, 81
+  offset: 0, 0
+  index: -1
+mask
+  rotate: false
+  xy: 501, 71
+  size: 25, 25
+  orig: 25, 25
+  offset: 0, 0
+  index: -1
+missb_Hand
+  rotate: true
+  xy: 397, 2
+  size: 66, 58
+  orig: 66, 58
+  offset: 0, 0
+  index: -1
+missb_Head
+  rotate: false
+  xy: 2, 60
+  size: 147, 232
+  orig: 147, 232
+  offset: 0, 0
+  index: -1
+missb_bicept
+  rotate: false
+  xy: 190, 77
+  size: 106, 78
+  orig: 106, 78
+  offset: 0, 0
+  index: -1
+missb_body
+  rotate: false
+  xy: 2, 294
+  size: 211, 216
+  orig: 211, 216
+  offset: 0, 0
+  index: -1
+missb_forearm
+  rotate: true
+  xy: 384, 195
+  size: 81, 104
+  orig: 81, 104
+  offset: 0, 0
+  index: -1
+museum_bg
+  rotate: true
+  xy: 298, 58
+  size: 119, 97
+  orig: 119, 97
+  offset: 0, 0
+  index: -1
+museum_pillar
+  rotate: true
+  xy: 633, 375
+  size: 18, 92
+  orig: 18, 92
+  offset: 0, 0
+  index: -1
+museum_pillar_end_1
+  rotate: false
+  xy: 769, 395
+  size: 31, 9
+  orig: 31, 9
+  offset: 0, 0
+  index: -1
+museum_pillar_end_2
+  rotate: false
+  xy: 98, 5
+  size: 29, 21
+  orig: 29, 21
+  offset: 0, 0
+  index: -1
+museum_pillar_end_3
+  rotate: true
+  xy: 129, 2
+  size: 24, 7
+  orig: 24, 7
+  offset: 0, 0
+  index: -1
+museum_pillar_end_4
+  rotate: true
+  xy: 2, 5
+  size: 21, 94
+  orig: 21, 94
+  offset: 0, 0
+  index: -1
+museum_pillar_top
+  rotate: true
+  xy: 1011, 491
+  size: 19, 6
+  orig: 19, 6
+  offset: 0, 0
+  index: -1
+museum_stair
+  rotate: true
+  xy: 151, 77
+  size: 215, 37
+  orig: 215, 37
+  offset: 0, 0
+  index: -1
+museum_top
+  rotate: false
+  xy: 2, 28
+  size: 132, 30
+  orig: 132, 30
+  offset: 0, 0
+  index: -1
+n
+  rotate: false
+  xy: 511, 378
+  size: 120, 132
+  orig: 120, 132
+  offset: 0, 0
+  index: -1
+o
+  rotate: false
+  xy: 397, 70
+  size: 102, 123
+  orig: 102, 123
+  offset: 0, 0
+  index: -1
+p
+  rotate: true
+  xy: 769, 406
+  size: 104, 134
+  orig: 104, 134
+  offset: 0, 0
+  index: -1
+perc_Feather
+  rotate: true
+  xy: 905, 377
+  size: 133, 104
+  orig: 133, 104
+  offset: 0, 0
+  index: -1
+perc_Head
+  rotate: false
+  xy: 215, 313
+  size: 169, 197
+  orig: 169, 197
+  offset: 0, 0
+  index: -1
+perc_arm
+  rotate: false
+  xy: 501, 98
+  size: 44, 48
+  orig: 44, 48
+  offset: 0, 0
+  index: -1
+perc_body
+  rotate: false
+  xy: 386, 347
+  size: 123, 163
+  orig: 123, 163
+  offset: 0, 0
+  index: -1
+perc_hand
+  rotate: false
+  xy: 501, 148
+  size: 46, 59
+  orig: 46, 59
+  offset: 0, 0
+  index: -1
+perc_left elbow
+  rotate: false
+  xy: 555, 259
+  size: 37, 34
+  orig: 37, 34
+  offset: 0, 0
+  index: -1
+perc_left shoulder
+  rotate: false
+  xy: 490, 209
+  size: 63, 67
+  orig: 63, 67
+  offset: 0, 0
+  index: -1
+s
+  rotate: false
+  xy: 190, 157
+  size: 99, 135
+  orig: 99, 135
+  offset: 0, 0
+  index: -1
+ss
+  rotate: false
+  xy: 689, 295
+  size: 54, 78
+  orig: 54, 78
+  offset: 0, 0
+  index: -1
+u
+  rotate: false
+  xy: 613, 295
+  size: 74, 78
+  orig: 74, 78
+  offset: 0, 0
+  index: -1

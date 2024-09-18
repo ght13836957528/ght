@@ -1,0 +1,181 @@
+
+Aria-spine.png
+size: 1024,256
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+E/EeyeL
+  rotate: false
+  xy: 944, 157
+  size: 32, 39
+  orig: 32, 39
+  offset: 0, 0
+  index: -1
+E/EeyeR
+  rotate: true
+  xy: 966, 132
+  size: 23, 19
+  orig: 23, 19
+  offset: 0, 0
+  index: -1
+E/Eface
+  rotate: false
+  xy: 441, 102
+  size: 131, 152
+  orig: 131, 152
+  offset: 0, 0
+  index: -1
+E/Ehair
+  rotate: false
+  xy: 155, 93
+  size: 150, 161
+  orig: 153, 162
+  offset: 3, 1
+  index: -1
+E/EhairL
+  rotate: true
+  xy: 682, 100
+  size: 47, 104
+  orig: 47, 104
+  offset: 0, 0
+  index: -1
+E/EhairR
+  rotate: true
+  xy: 682, 149
+  size: 105, 153
+  orig: 105, 155
+  offset: 0, 2
+  index: -1
+armL1
+  rotate: false
+  xy: 988, 203
+  size: 21, 51
+  orig: 21, 51
+  offset: 0, 0
+  index: -1
+armL2
+  rotate: true
+  xy: 279, 43
+  size: 48, 20
+  orig: 48, 20
+  offset: 0, 0
+  index: -1
+armR1
+  rotate: true
+  xy: 165, 2
+  size: 28, 21
+  orig: 28, 21
+  offset: 0, 0
+  index: -1
+armR2
+  rotate: false
+  xy: 853, 99
+  size: 38, 48
+  orig: 38, 48
+  offset: 0, 0
+  index: -1
+backL
+  rotate: true
+  xy: 2, 15
+  size: 76, 161
+  orig: 76, 161
+  offset: 0, 0
+  index: -1
+backR
+  rotate: true
+  xy: 837, 198
+  size: 56, 149
+  orig: 56, 149
+  offset: 0, 0
+  index: -1
+body
+  rotate: true
+  xy: 788, 91
+  size: 56, 63
+  orig: 56, 63
+  offset: 0, 0
+  index: -1
+bottom
+  rotate: true
+  xy: 165, 32
+  size: 59, 112
+  orig: 59, 112
+  offset: 0, 0
+  index: -1
+eyeL
+  rotate: false
+  xy: 893, 108
+  size: 30, 39
+  orig: 30, 39
+  offset: 0, 0
+  index: -1
+eyeR
+  rotate: false
+  xy: 257, 11
+  size: 23, 19
+  orig: 23, 19
+  offset: 0, 0
+  index: -1
+face
+  rotate: false
+  xy: 307, 102
+  size: 132, 152
+  orig: 132, 152
+  offset: 0, 0
+  index: -1
+footL
+  rotate: true
+  xy: 225, 10
+  size: 20, 30
+  orig: 20, 30
+  offset: 0, 0
+  index: -1
+footR
+  rotate: false
+  xy: 925, 117
+  size: 20, 30
+  orig: 20, 30
+  offset: 0, 0
+  index: -1
+hair
+  rotate: false
+  xy: 2, 93
+  size: 151, 161
+  orig: 154, 162
+  offset: 3, 1
+  index: -1
+hairL
+  rotate: true
+  xy: 837, 149
+  size: 47, 105
+  orig: 47, 105
+  offset: 0, 0
+  index: -1
+hairR
+  rotate: false
+  xy: 574, 102
+  size: 106, 152
+  orig: 106, 155
+  offset: 0, 3
+  index: -1
+hand
+  rotate: true
+  xy: 188, 4
+  size: 26, 35
+  orig: 26, 35
+  offset: 0, 0
+  index: -1
+legR
+  rotate: false
+  xy: 947, 126
+  size: 17, 29
+  orig: 17, 29
+  offset: 0, 0
+  index: -1
+mouth
+  rotate: false
+  xy: 307, 98
+  size: 13, 2
+  orig: 13, 2
+  offset: 0, 0
+  index: -1
