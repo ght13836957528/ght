@@ -1,0 +1,13 @@
+
+battleaoeplane.png
+size: 557,362
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+feiji
+  rotate: false
+  xy: 2, 2
+  size: 553, 358
+  orig: 560, 364
+  offset: 4, 3
+  index: -1

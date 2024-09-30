@@ -1,0 +1,153 @@
+
+battleaoe.png
+size: 782,1069
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+baozha1
+  rotate: true
+  xy: 394, 577
+  size: 161, 191
+  orig: 256, 256
+  offset: 48, 49
+  index: -1
+baozha10
+  rotate: true
+  xy: 633, 906
+  size: 161, 146
+  orig: 256, 256
+  offset: 48, 37
+  index: -1
+baozha11
+  rotate: true
+  xy: 2, 2
+  size: 161, 157
+  orig: 256, 256
+  offset: 48, 39
+  index: -1
+baozha12
+  rotate: true
+  xy: 394, 251
+  size: 161, 168
+  orig: 256, 256
+  offset: 48, 42
+  index: -1
+baozha13
+  rotate: true
+  xy: 587, 580
+  size: 161, 181
+  orig: 256, 256
+  offset: 48, 43
+  index: -1
+baozha14
+  rotate: true
+  xy: 394, 414
+  size: 161, 194
+  orig: 256, 256
+  offset: 48, 45
+  index: -1
+baozha15
+  rotate: false
+  xy: 334, 43
+  size: 161, 206
+  orig: 256, 256
+  offset: 48, 46
+  index: -1
+baozha16
+  rotate: true
+  xy: 580, 743
+  size: 161, 200
+  orig: 256, 256
+  offset: 48, 48
+  index: -1
+baozha2
+  rotate: false
+  xy: 129, 189
+  size: 161, 93
+  orig: 256, 256
+  offset: 48, 27
+  index: -1
+baozha3
+  rotate: true
+  xy: 497, 106
+  size: 143, 141
+  orig: 256, 256
+  offset: 57, 14
+  index: -1
+baozha4
+  rotate: false
+  xy: 161, 16
+  size: 171, 171
+  orig: 256, 256
+  offset: 42, 6
+  index: -1
+baozha5
+  rotate: false
+  xy: 394, 740
+  size: 184, 184
+  orig: 256, 256
+  offset: 36, 3
+  index: -1
+baozha6
+  rotate: false
+  xy: 590, 396
+  size: 182, 182
+  orig: 256, 256
+  offset: 37, 4
+  index: -1
+baozha7
+  rotate: true
+  xy: 214, 408
+  size: 181, 178
+  orig: 256, 256
+  offset: 38, 6
+  index: -1
+baozha8
+  rotate: false
+  xy: 564, 252
+  size: 209, 142
+  orig: 256, 256
+  offset: 24, 24
+  index: -1
+baozha9
+  rotate: false
+  xy: 394, 926
+  size: 237, 141
+  orig: 256, 256
+  offset: 10, 28
+  index: -1
+paodan0
+  rotate: false
+  xy: 640, 135
+  size: 78, 115
+  orig: 286, 703
+  offset: 150, 507
+  index: -1
+paodan1
+  rotate: false
+  xy: 2, 165
+  size: 125, 281
+  orig: 286, 703
+  offset: 90, 357
+  index: -1
+paodan2
+  rotate: false
+  xy: 214, 591
+  size: 178, 476
+  orig: 286, 703
+  offset: 33, 161
+  index: -1
+paodan3
+  rotate: false
+  xy: 2, 448
+  size: 210, 619
+  orig: 286, 703
+  offset: 0, 1
+  index: -1
+zhandouguangquan
+  rotate: false
+  xy: 129, 284
+  size: 246, 122
+  orig: 246, 122
+  offset: 0, 0
+  index: -1

@@ -1,0 +1,13 @@
+
+battleheroicon_gj.png
+size: 106,132
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+bai
+  rotate: false
+  xy: 2, 2
+  size: 102, 128
+  orig: 102, 128
+  offset: 0, 0
+  index: -1

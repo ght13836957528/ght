@@ -1,0 +1,160 @@
+
+battleaoe.png
+size: 1549,521
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+baozha1
+  rotate: true
+  xy: 921, 174
+  size: 161, 191
+  orig: 256, 256
+  offset: 48, 49
+  index: -1
+baozha10
+  rotate: true
+  xy: 1346, 358
+  size: 161, 146
+  orig: 256, 256
+  offset: 48, 37
+  index: -1
+baozha11
+  rotate: true
+  xy: 1297, 185
+  size: 161, 157
+  orig: 256, 256
+  offset: 48, 39
+  index: -1
+baozha12
+  rotate: false
+  xy: 1148, 5
+  size: 161, 168
+  orig: 256, 256
+  offset: 48, 42
+  index: -1
+baozha13
+  rotate: true
+  xy: 1114, 175
+  size: 161, 181
+  orig: 256, 256
+  offset: 48, 43
+  index: -1
+baozha14
+  rotate: true
+  xy: 741, 9
+  size: 161, 194
+  orig: 256, 256
+  offset: 48, 45
+  index: -1
+baozha15
+  rotate: true
+  xy: 533, 3
+  size: 161, 206
+  orig: 256, 256
+  offset: 48, 46
+  index: -1
+baozha16
+  rotate: true
+  xy: 719, 172
+  size: 161, 200
+  orig: 256, 256
+  offset: 48, 48
+  index: -1
+baozha2
+  rotate: true
+  xy: 1454, 22
+  size: 161, 93
+  orig: 256, 256
+  offset: 48, 27
+  index: -1
+baozha3
+  rotate: true
+  xy: 1311, 40
+  size: 143, 141
+  orig: 256, 256
+  offset: 57, 14
+  index: -1
+baozha4
+  rotate: false
+  xy: 1173, 348
+  size: 171, 171
+  orig: 256, 256
+  offset: 42, 6
+  index: -1
+baozha5
+  rotate: false
+  xy: 623, 335
+  size: 184, 184
+  orig: 256, 256
+  offset: 36, 3
+  index: -1
+baozha6
+  rotate: false
+  xy: 809, 337
+  size: 182, 182
+  orig: 256, 256
+  offset: 37, 4
+  index: -1
+baozha7
+  rotate: true
+  xy: 993, 338
+  size: 181, 178
+  orig: 256, 256
+  offset: 38, 6
+  index: -1
+baozha8
+  rotate: false
+  xy: 937, 30
+  size: 209, 142
+  orig: 256, 256
+  offset: 24, 24
+  index: -1
+baozha9
+  rotate: false
+  xy: 480, 166
+  size: 237, 141
+  orig: 256, 256
+  offset: 10, 28
+  index: -1
+paodan0
+  rotate: false
+  xy: 1456, 241
+  size: 78, 115
+  orig: 286, 703
+  offset: 150, 507
+  index: -1
+paodan1
+  rotate: true
+  xy: 2, 2
+  size: 125, 281
+  orig: 286, 703
+  offset: 90, 357
+  index: -1
+paodan2
+  rotate: true
+  xy: 2, 129
+  size: 178, 476
+  orig: 286, 703
+  offset: 33, 161
+  index: -1
+paodan3
+  rotate: true
+  xy: 2, 309
+  size: 210, 619
+  orig: 286, 703
+  offset: 0, 1
+  index: -1
+zhandouguangquan
+  rotate: false
+  xy: 285, 5
+  size: 246, 122
+  orig: 246, 122
+  offset: 0, 0
+  index: -1
+战斗合层TO特效
+  rotate: false
+  xy: 285, 2
+  size: 1, 1
+  orig: 1, 1
+  offset: 0, 0
+  index: -1

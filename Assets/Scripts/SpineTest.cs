@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Spine;
 using Spine.Unity;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,10 +8,12 @@ using UnityEngine.UI;
 public class SpineTest : MonoBehaviour
 {
     // Start is called before the first frame update
-    [SerializeField] private SkeletonGraphic skeletonAnimation;
-    [SerializeField] private GameObject iconUp;
-    [SerializeField] private GameObject iconDown;
-    [SerializeField] private GameObject startNode;
+    // [SerializeField] private SkeletonGraphic spinePlane;
+    // [SerializeField] private GameObject iconUp;
+    // [SerializeField] private GameObject iconDown;
+    // [SerializeField] private GameObject startNode;
+    [SerializeField] private GameObject model;
+    [SerializeField] private Image target;
     void Start()
     {
 
@@ -25,14 +28,20 @@ public class SpineTest : MonoBehaviour
 
     private void Init()
     {
-       
-        BindBone( skeletonAnimation,iconUp,"bone");
-        BindBone( skeletonAnimation,iconDown,"zi");
-        BindBone( skeletonAnimation,startNode.gameObject,"bone3");
-        skeletonAnimation.AnimationState.SetAnimation(0, "animation", false).Complete += (entry) =>
-        {
-            Debug.LogError("finish");
-        };
+        bool isUp = false;
+        // spinePlane.AnimationState.SetAnimation(0, "hongzha_shang", false).Complete+= OnSpineComplete;
+        // BindBone( skeletonAnimation,iconUp,"bone");
+        // BindBone( skeletonAnimation,iconDown,"zi");
+        // BindBone( skeletonAnimation,startNode.gameObject,"bone3");
+        // skeletonAnimation.AnimationState.SetAnimation(0, "animation", false).Complete += (entry) =>
+        // {
+        //     Debug.LogError("finish");
+        // };
+    }
+    
+    private void OnSpineComplete(TrackEntry entry)
+    {
+        Debug.Log("OnSpineComplete");
     }
 
     private void BindBone(SkeletonGraphic spineAni, GameObject go, string boneName)
