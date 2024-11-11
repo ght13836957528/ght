@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -5,6 +6,11 @@ using UnityEngine;
 public class MeshTest : MonoBehaviour
 {
     // Start is called before the first frame update
+    private void Awake()
+    {
+        Application.targetFrameRate = 30;
+    }
+
     void Start()
     {
         var meshFilter = GetComponent<MeshFilter>();
@@ -22,6 +28,8 @@ public class MeshTest : MonoBehaviour
         {
             Debug.LogError("vertex=="+vertex);
         }
+
+       
     }
 
     // Update is called once per frame
