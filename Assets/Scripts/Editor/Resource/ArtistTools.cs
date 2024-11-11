@@ -366,7 +366,7 @@ namespace Tools
         }
 
 
-		private static void CreateSpriteAtlas(string path)
+		public static void CreateSpriteAtlas(string path)
         {
             bool isNewAtlas = true;
             SpriteAtlas spriteAtlas = null;

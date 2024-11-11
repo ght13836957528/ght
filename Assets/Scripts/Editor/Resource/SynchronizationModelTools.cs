@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Spine;
+using Spine.Unity;
+using Spine.Unity.Editor;
 using UnityEditor;
 using UnityEngine;
 
@@ -219,6 +222,63 @@ namespace Main.Scripts.Editor.Resource
             }
             
         }
+        static GameObject NewSkeletonGraphicGameObject(string gameObjectName)
+        {
+            var go = EditorInstantiation.NewGameObject(gameObjectName, true, typeof(RectTransform), typeof(CanvasRenderer), typeof(SkeletonGraphic));
+            var graphic = go.GetComponent<SkeletonGraphic>();
+            graphic.material = SkeletonGraphicInspector.DefaultSkeletonGraphicMaterial;
+            graphic.additiveMaterial = SkeletonGraphicInspector.DefaultSkeletonGraphicAdditiveMaterial;
+            graphic.multiplyMaterial = SkeletonGraphicInspector.DefaultSkeletonGraphicMultiplyMaterial;
+            graphic.screenMaterial = SkeletonGraphicInspector.DefaultSkeletonGraphicScreenMaterial;
+            return go;
+        }
+
+        // [MenuItem("Tools/通用工具/spine", false, 1)]
+        // public static void ProcessSpine()
+        // {
+        //     string modelPath = "Assets/Art/spineTest";
+        //     string[] skeletonFiles = Directory.GetFiles(modelPath, "*.asset", SearchOption.AllDirectories);
+        //     foreach (var skeleton in skeletonFiles)
+        //     {
+        //         SkeletonDataAsset skeletonDataAsset = AssetDatabase.LoadAssetAtPath<SkeletonDataAsset>(skeleton);
+        //         if(skeletonDataAsset == null) continue;
+        //         string goName =  skeletonDataAsset.name.Replace("_SkeletonData", "");
+        //         // var go = NewSkeletonGraphicGameObject(spineGameObjectName);
+        //         // var graphic = go.GetComponent<SkeletonGraphic>();
+        //         // graphic.skeletonDataAsset = skeletonDataAsset;
+        //         //
+        //         // SkeletonData data = skeletonDataAsset.GetSkeletonData(true);
+        //         //
+        //         // if (data == null)
+        //         // {
+        //         //     for (int i = 0; i < skeletonDataAsset.atlasAssets.Length; i++)
+        //         //     {
+        //         //         string reloadAtlasPath = AssetDatabase.GetAssetPath(skeletonDataAsset.atlasAssets[i]);
+        //         //         skeletonDataAsset.atlasAssets[i] =
+        //         //             (AtlasAssetBase)AssetDatabase.LoadAssetAtPath(reloadAtlasPath, typeof(AtlasAssetBase));
+        //         //     }
+        //         //
+        //         //     data = skeletonDataAsset.GetSkeletonData(true);
+        //         // }
+        //         //
+        //         // var skin = data.DefaultSkin;
+        //         // graphic.MeshGenerator.settings.zSpacing = SpineEditorUtilities.Preferences.defaultZSpacing;
+        //         // graphic.startingLoop = SpineEditorUtilities.Preferences.defaultInstantiateLoop;
+        //         // graphic.Initialize(false);
+        //         // if (skin != null) graphic.Skeleton.SetSkin(skin);
+        //         // graphic.initialSkinName = skin.Name;
+        //         // graphic.Skeleton.UpdateWorldTransform();
+        //         // graphic.UpdateMesh();
+        //         
+        //         SkeletonGraphic go = SkeletonGraphic.NewSkeletonGraphicGameObject(skeletonDataAsset,tra);
+        //         go.transform.name = goName;
+        //         string skeletonPath = Path.Combine(modelPath, go.name + ".prefab");
+        //         PrefabUtility.SaveAsPrefabAsset(go.gameObject, skeletonPath);
+        //        
+        //         DestroyImmediate(go);
+        //         AssetDatabase.Refresh();
+        //     }
+        // }
 
 
     }

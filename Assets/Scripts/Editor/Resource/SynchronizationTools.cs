@@ -14,32 +14,14 @@ namespace Main.Scripts.Editor.Resource
         string _sourceFolder = ""; // 源文件夹路径
         string _hotUpdateSourceFolder = ""; // 动更文件夹路径
         bool _imageSelected;
-        bool _innerSpriteSelected;
-        bool _hotUpdateSpriteSelected;
+      
         private bool _onlyCompare;
         private readonly List<string> _addImageList = new List<string>();
-
-        private List<string> _cocosUnProperSourcePath = new List<string>()
+        private readonly List<string> _modifiedDirectoryList = new List<string>();
+        private string[] _blackListPath =
         {
-            "Assets/Art/Sprites/SynchronizationToolsTest/Common1",
-            "Assets/Main/Arts/Sprites/Origin/Common/Common_1",
-            "Assets/Main/Arts/Sprites/Origin/Common/Common_42",
-            "Assets/Main/Arts/Sprites/Origin/Expack/AccountBindGuide",
-            "Assets/Main/Arts/Sprites/Origin/Expack/Battle_soldier",
-            "Assets/Main/Arts/Sprites/Origin/Expack/Battle_soldier2",
-            "Assets/Main/Arts/Sprites/Origin/Expack/Common_12",
-            "Assets/Main/Arts/Sprites/Origin/Expack/Common_15",
-
-            "Assets/Main/Arts/Sprites/Origin/Expack/Common_1000",
-            "Assets/Main/Arts/Sprites/Origin/Expack/Common_27",
-            "Assets/Main/Arts/Sprites/Origin/Expack/Expack_119",
-            "Assets/Main/Arts/Sprites/Origin/Expack/Expack_250",
-            "Assets/Main/Arts/Sprites/Origin/Expack/spineScienceUnlock/effect",
-            "Assets/Main/Arts/Sprites/Origin/Expack/spineScienceUnlock",
-            "Assets/Main/Arts/Sprites/Origin/Expack/World_2",
-            "Assets/Main/Arts/Sprites/Origin/Imperial/Imperial_250",
-            "Assets/Main/Arts/Sprites/Origin/World/World_4",
-           
+            "TowerDefense",
+            "Particle",
         };
 
         [MenuItem("Tools/通用工具/资源同步", false, 2)]
@@ -50,21 +32,23 @@ namespace Main.Scripts.Editor.Resource
 
         void OnGUI()
         {
-            GUILayout.Label("资源同步", EditorStyles.boldLabel);
             _sourceFolder = EditorGUILayout.TextField("CocosProjectRoot", _sourceFolder);
             _hotUpdateSourceFolder = EditorGUILayout.TextField("Cocos dynamicResource Path", _hotUpdateSourceFolder);
             GUILayout.Label("勾选同步的资源类型");
             _imageSelected = EditorGUILayout.Toggle("PNG", _imageSelected);
-            GUILayout.Label("是否只是生成对比文件，而不同步");
-            _onlyCompare = EditorGUILayout.Toggle("only compare", _onlyCompare);
+      
+            _onlyCompare = EditorGUILayout.Toggle("是否只是生成对比文件，而不同步", _onlyCompare);
 
             GUILayout.Label("勾选同步的资源路径");
-            _innerSpriteSelected = EditorGUILayout.Toggle("包内资源同步", _innerSpriteSelected);
-            _hotUpdateSpriteSelected = EditorGUILayout.Toggle("热更路径资源同步", _hotUpdateSpriteSelected);
 
-            if (GUILayout.Button("开始同步"))
+            if (GUILayout.Button("同步包内图片资源"))
             {
-                ExecuteCopyFiles();
+                SynchronizationInnerFile();
+            }
+            
+            if (GUILayout.Button("同步动更图片资源"))
+            {
+                SynchronizationDynamicResFile();
             }
 
             if (GUILayout.Button("检查文件夹是否存在文件夹与png同级情况"))
@@ -76,30 +60,45 @@ namespace Main.Scripts.Editor.Resource
             {
                 CheckSpriteAtlasFiles();
             }
+
         }
 
-        void ExecuteCopyFiles()
+        void SynchronizationInnerFile()
         {
-            if (_innerSpriteSelected)
+            string targetFolder = "Assets/Main/Arts/Sprites/Origin";
+            string sourceFolder = Path.Combine(_sourceFolder, "IF");
+            CopyFiles(sourceFolder, targetFolder);
+            
+            Debug.Log("_addImageList length==" + _addImageList.Count);
+            foreach (var path in _addImageList)
             {
-                string targetFolder = "Assets/Art/Sprites/SynchronizationToolsTest";
-                string sourceFolder = Path.Combine(_sourceFolder, "IF");
-                CopyFiles(sourceFolder, targetFolder);
+                ArtistTools.SetTextureSettings(path);
             }
 
-            if (_hotUpdateSpriteSelected)
+            foreach (var path in _modifiedDirectoryList)
             {
-                if (string.IsNullOrEmpty(_hotUpdateSourceFolder))
-                {
-                    Debug.LogError("Cocos dynamicResource Path is empty");
-                    return;
-                }
-
-                string targetFolder = "Assets/Art/Sprites/SynchronizationToolsHotUpdateTest";
-                CopyFiles(_hotUpdateSourceFolder, targetFolder);
+                ArtistTools.CreateSpriteAtlas(path);
+            }
+            LogFlush();
+        }
+        
+        void SynchronizationDynamicResFile()
+        {
+            if (string.IsNullOrEmpty(_hotUpdateSourceFolder))
+            {
+                Debug.LogError("Cocos dynamicResource Path is empty");
+                return;
             }
 
+            if (!_hotUpdateSourceFolder.Contains("dynamicResource"))
+            {
+                Debug.LogError("Cocos dynamicResource Path is wrong,need include dynamicResource");
+                return;
+            }
 
+            string targetFolder = "Assets/Main/ArtsDyre/Sprites";
+            CopyFiles(_hotUpdateSourceFolder, targetFolder);
+            
             Debug.Log("_addImageList length==" + _addImageList.Count);
             foreach (var path in _addImageList)
             {
@@ -108,7 +107,7 @@ namespace Main.Scripts.Editor.Resource
 
             LogFlush();
         }
-
+        
 
         void CopyFiles(string sourceDir, string targetDir)
         {
@@ -117,13 +116,22 @@ namespace Main.Scripts.Editor.Resource
                 Debug.LogError($"Source folder does not exist: {sourceDir}");
                 return;
             }
-
-            if (sourceDir.ToLower().Contains("towerdefense"))
+            
+            bool isBlackListPath = false;
+            foreach (var path in _blackListPath)
+            {
+                if (Path.GetFileName(sourceDir) == path)
+                {
+                    isBlackListPath = true;
+                    break;
+                }
+            }
+            if (isBlackListPath)
             {
                 Debug.Log($"Skipping folder: {sourceDir}");
                 return;
             }
-
+            
             if (IsSpine(sourceDir))
             {
                 Debug.Log($"Skipping folder: {sourceDir}");
@@ -143,6 +151,11 @@ namespace Main.Scripts.Editor.Resource
                 foreach (string sourceFilePath in files)
                 {
                     string fileName = Path.GetFileName(sourceFilePath);
+                    if (fileName.ToLower().Contains("spine"))
+                    {
+                        continue;
+                    }
+
                     string targetFilePath = Path.Combine(targetDir, fileName);
                     if (IfCocosUnProperSourcePath(sourceDir))
                     {
@@ -158,10 +171,15 @@ namespace Main.Scripts.Editor.Resource
                         }
                     }
 
-                    if (!File.Exists(targetFilePath))
+                    if (!File.Exists(targetFilePath) && IfNotExistFileInProject(targetFilePath))
                     {
                         if (!_onlyCompare)
                         {
+                            var directory = Path.GetDirectoryName(targetFilePath);
+                            if (!_modifiedDirectoryList.Contains(directory))
+                            {
+                                _modifiedDirectoryList.Add(directory);   
+                            }
                             File.Copy(sourceFilePath, targetFilePath);
                             _addImageList.Add(targetFilePath);
                         }
@@ -194,6 +212,11 @@ namespace Main.Scripts.Editor.Resource
 
         bool IsSpine(string sourceDir)
         {
+            if (sourceDir.ToLower().Contains("spine"))
+            {
+                return true;
+            }
+
             string fileName = Path.GetFileName(sourceDir);
             string tpsFileName = "_alpha_" + fileName;
             var parentPath = Directory.GetParent(sourceDir)?.FullName;
@@ -389,5 +412,13 @@ namespace Main.Scripts.Editor.Resource
 
             LogFlush();
         }
+
+        public static bool IfNotExistFileInProject(string txtFilePath)
+        {
+            var fileName = Path.GetFileNameWithoutExtension(txtFilePath);
+            string[] guids = AssetDatabase.FindAssets(fileName + " t:Texture");
+            return guids.Length == 0;
+        }
+        
     }
 }
