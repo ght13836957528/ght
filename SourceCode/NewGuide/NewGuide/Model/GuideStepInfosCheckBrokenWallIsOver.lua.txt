@@ -1,0 +1,10 @@
+---@class GuideStepInfosCheckBrokenWallIsOver:GuideStepBaseInfo
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfosCheckBrokenWallIsOver = class("GuideStepInfosCheckBrokenWallIsOver", base)
+local M = GuideStepInfosCheckBrokenWallIsOver
+
+function M:onParse(params)
+   
+end
+
+return M

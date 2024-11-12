@@ -1,0 +1,223 @@
+----------------------------------------------------------------------
+--------- 2023年01月04日 10:55:52 星期三
+----------------------------------------------------------------------
+
+---@class UIPVEPauseView
+local UIPVEPauseView = class("UIPVEPauseView", UIPanel)
+local M = UIPVEPauseView
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+function M:GetConfigAssetPath()
+    return UIPanelAsset.UIPVEPauseView
+end
+
+function M:GetPanelConfig()
+    return UIPanelConfig.Default_Default
+end
+
+------UIPanel生命周期 start------
+-- { customId = self.battleData.targetId, battleContext = self.battleContext })
+function M:OnParse(params)
+    self._customId = params.customId
+    ---@type BattleContext
+    self._battleContext = params.battleContext
+    self._isReplay = params.isReplay
+    --LuaBehavior属性
+    -- self._cancelButton       = nil       -- Button       退出战斗
+    -- self._restartButton      = nil       -- Button       重新开始
+    -- self._DisplayGridButton  = nil       -- Button       显示网格
+    -- self._resumeButton       = nil       -- Button       继续战斗
+    -- self._CloseBtn           = nil       -- Button       退出界面
+    -- _Main
+end
+
+function M:OnCreate()
+
+end
+
+function M:OnAddListener()
+    self._cancelButton.onClick:AddListener(function() self:_onClickCancel() end)
+    self._restartButton.onClick:AddListener(function() self:_onClickRestart() end)
+    -- self._DisplayGridButton.onClick:AddListener(function() self:_onClickDisplayGrid() end)
+    self._resumeButton.onClick:AddListener(function() self:_onClickResume() end)
+    self._m_btn_close.onClick:AddListener(function() self:_onClickClose() end)
+    self._btnOff.onClick:AddListener(function() self:_onClickOff() end)
+    self._btnOn.onClick:AddListener(function() self:_onClickOn() end)
+
+    self._btnOff_hp.onClick:AddListener(function() self:_onClickOff_hp() end)
+    self._btnOn_hp.onClick:AddListener(function() self:_onClickOn_hp() end)
+
+    self._btnOff_jp.onClick:AddListener(function() self:_onClickOff_jp() end)
+    self._btnOn_jp.onClick:AddListener(function() self:_onClickOn_jp() end)
+end
+
+function M:OnRemoveListener()
+    self._cancelButton.onClick:RemoveAllListeners()
+    self._restartButton.onClick:RemoveAllListeners()
+    -- self._DisplayGridButton.onClick:RemoveAllListeners()
+    self._resumeButton.onClick:RemoveAllListeners()
+    self._m_btn_close.onClick:RemoveAllListeners()
+    self._btnOff.onClick:RemoveAllListeners()
+    self._btnOn.onClick:RemoveAllListeners()
+    self._btnOff_hp.onClick:RemoveAllListeners()
+    self._btnOn_hp.onClick:RemoveAllListeners()
+    self._btnOff_jp.onClick:RemoveAllListeners()
+    self._btnOn_jp.onClick:RemoveAllListeners()
+end
+
+------UIPanel生命周期 end------
+function M:OnShow()
+
+end
+
+---销毁前清理
+function M:OnDispose()
+    if self.delayTimer then
+        self.delayTimer:Dispose()
+        self.delayTimer = nil
+    end
+end
+
+function M:OnRefresh()
+    self:refreshToggleActive()
+    self:init()
+end
+
+function M:init()
+    self:refreshShowData()
+    self:refreshIsOpenGrid(BattleHelper:GetBattleGridIsShow(), true)
+    self:refreshIsOpenHp(BattleHelper:GetBattleHpIsShow(), true)
+    self:refreshIsOpenJp(BattleHelper:GetBattleJpIsShow(), true)
+end
+
+function M:OnOpen()
+    self:openAni()
+end
+
+function M:openAni()
+    self._Main:Play("UIPVEPauseViewIn")
+end
+
+function M:closeAni()
+    if self._Main then
+        self._Main:Play("UIPVEPauseViewOut")
+    end
+end
+
+function M:refreshShowData()
+    GameObjectUtil.SafeSetActiveSelf(self._VerticalLayoutGroup.gameObject, not self._isReplay)
+    GameObjectUtil.SafeSetActiveSelf(self._restartButton.gameObject, not self._isReplay)
+end
+
+function M:refreshToggleActive()
+    GameObjectUtil.SafeSetActiveSelf(self._item_hp.gameObject,
+        ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleSwitch_ShowLifeBar") == 1)
+    GameObjectUtil.SafeSetActiveSelf(self._item_jp.gameObject,
+        ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleSwitch_ShowCombatInfo") == 1)
+end
+
+function M:CloseSelf(cb)
+    if self.delayTimer ~= nil then
+        self.delayTimer:reset(0.13, 0, false, false, cb, self)
+    else
+        self.delayTimer = Timer.new(0.13, 0, false, false, cb, self)
+    end
+    self.delayTimer:start()
+    self:closeAni()
+end
+
+function M:_onClickCancel()
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEPauseView)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+        if self._battleContext:GetPlayType() == BattleEnum.BattlePlayType.Normal then
+            SceneHelper.ChangeScene(SceneType.PushGraph)
+        else
+            SceneHelper.ChangeSceneToPreScene()
+        end
+    end
+    self:CloseSelf(cb)
+end
+
+function M:_onClickRestart()
+    -- BroadcastEvent.dispatch(BattleEventId.Event_Battle_ReStart)
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEPauseView)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+        SceneHelper.ChangeSceneToPreScene()
+
+        if self._battleContext:GetPlayType() == BattleEnum.BattlePlayType.Normal then
+            Game.BusinessManager.BattleTeamManager:SwitchNormalScene(self._customId)
+        elseif self._battleContext:GetPlayType() == BattleEnum.BattlePlayType.PVE_Common then
+            Game.BusinessManager.BattleTeamManager:SwitchCommonScene(self._customId)
+        end
+      
+    end
+    self:CloseSelf(cb)
+end
+
+function M:_onClickResume()
+    self:_onClickClose()
+end
+
+function M:_onClickClose()
+    local cb = function()
+        BroadcastEvent.dispatch(BattleEventId.Event_Battle_Go_On)
+        UIManager.panel:Close(UIPanelType.UIPVEPauseView)
+    end
+    self:CloseSelf(cb)
+end
+
+function M:refreshIsOpenGrid(isOn, isInit)
+    isInit = isInit or false
+    GameObjectUtil.SafeSetActiveSelf(self._btnOff.gameObject, not isOn)
+    GameObjectUtil.SafeSetActiveSelf(self._btnOn.gameObject, isOn)
+    if not isInit then
+        BroadcastEvent.dispatch(BattleEventId.Event_Battle_Active_Render_Grid, isOn)
+    end
+end
+
+function M:refreshIsOpenHp(isOn, isInit)
+    isInit = isInit or false
+    GameObjectUtil.SafeSetActiveSelf(self._btnOff_hp.gameObject, not isOn)
+    GameObjectUtil.SafeSetActiveSelf(self._btnOn_hp.gameObject, isOn)
+    if not isInit then
+        BattleHelper:SetBattleHpIsShow(isOn)
+        BroadcastEvent.dispatch(BattleEventId.Event_Battle_Active_Render_Hp, isOn)
+    end
+end
+
+function M:refreshIsOpenJp(isOn, isInit)
+    isInit = isInit or false
+    GameObjectUtil.SafeSetActiveSelf(self._btnOff_jp.gameObject, not isOn)
+    GameObjectUtil.SafeSetActiveSelf(self._btnOn_jp.gameObject, isOn)
+    if not isInit then
+        BattleHelper:SetBattleJpIsShow(isOn)
+    end
+end
+
+function M:_onClickOff()
+    self:refreshIsOpenGrid(true)
+end
+
+function M:_onClickOn()
+    self:refreshIsOpenGrid(false)
+end
+
+function M:_onClickOff_hp()
+    self:refreshIsOpenHp(true)
+end
+
+function M:_onClickOn_hp()
+    self:refreshIsOpenHp(false)
+end
+
+function M:_onClickOff_jp()
+    self:refreshIsOpenJp(true)
+end
+
+function M:_onClickOn_jp()
+    self:refreshIsOpenJp(false)
+end
+
+return M

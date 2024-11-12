@@ -1,0 +1,120 @@
+--- 战斗事件
+BattleEventId = {
+    MSG_BATTLE_CREATE_CHARACTER   = "", -- 战斗场景创建角色
+    MSG_BATTLE_SELECT_CHARACTER   = "", -- 玩家选择参与战斗的角色
+    MSG_BATTLE_UNSELECT_CHARACTER = "", -- 玩家取消选择参与战斗的角色
+    MSG_BATTLE_TRIGGER_PROFOUND   = "", -- (点击按钮)触发必杀
+    MSG_BATTLE_START_FIGHT        = "", -- 开始战斗
+    MSG_BATTLE_RAGE_REACH_MAX     = "", -- 怒气到达最大值
+    MSG_BATTLE_FIGHT_END          = "", -- 战斗结束，战胜放由参数决定 1-己方获胜，2-敌方获胜
+    MSG_BATTLE_CHARACTER_DIE      = "", -- 角色死亡，参数传递死亡的角色的ID
+    MSG_BATTLE_ATTRIBUTE_CHANGED  = "", -- 角色属性发生变化，参数{characterId = {rage = 1, hp = 2}}
+    MSG_BATTLE_HANDLE_CHARACTER   = "", -- 选择或取消选择后，操作角色 { id = characterId, index = 1, selected = 1 }
+    MSG_BATTLE_USE_CHARACTER_RAGE = "", -- 角色消耗了怒气值
+    MSG_BATTLE_SHOW_MAP_GRID      = "", -- 显示地图网格
+
+
+    MSG_BATTLE_TRIGGER_EVENT = "",             -- 触发时机的事件
+    TriggerTime_EnterBattle_1 = "",            -- 进入战斗
+    TriggerTime_OutputDamage_2 = "",           -- 造成伤害
+    TriggerTime_InputDamage_3 = "",            -- 受到伤害
+    TriggerTime_OutputCure_4 = "",             -- 造成治疗
+    TriggerTime_InputCure_5 = "",              -- 受到治疗
+    TriggerTime_GetBuff_6 = "",                -- 获得buff
+    TriggerTime_RemoveBuff_7 = "",             -- 移除buff
+    TriggerTime_OnOneSDeathbed_8 = "",         -- 濒死
+    TriggerTime_OnDied_9 = "",                 -- 死亡
+    TriggerTime_Kill_10 = "",                  -- 击杀
+    TriggerTime_OnOtherDied_11 = "",           -- 有单位阵亡时
+    TriggerTime_OnBattleStart_12 = "",         -- 战斗开始得第几秒
+    TriggerTime_HpChange_13 = "",              -- 自身血量变化
+    TriggerTime_PlaySkill_14 = "",             -- 放大招触发
+    TriggerTime_CharacterNumberChange_15 = "", -- 场上单位数量改变时
+    TriggerTime_PosChange_16 = "",             -- 己方半场没有敌人
+    TriggerTime_DischargeSkill_17 = "",
+    TriggerTime_Time_Update_18 = "",
+    
+    Event_Battle_Go_On = "",              -- 继续战斗
+    Event_Battle_Pause = "",              -- 暂停战斗
+    Event_Battle_Active_Render_Grid = "", -- 是否显示战斗格子
+    Event_Battle_Active_Render_Hp = "",
+    Event_Battle_Active_Render_JumpWord = "",
+    Event_Battle_Render_SkillCanPlay = "",             -- 可以释放发招了
+    Event_Battle_Render_CreateEntity = "",             -- 创建renderEntity
+    Event_Battle_Render_RemoveRenderEntity = "",       -- 移除renderEntity
+    Event_Battle_Render_Move_Line = "",
+    Event_Battle_Render_CreateEff_Pos = "",            -- 创建特效事件 位置
+    Event_Battle_Render_CreateEff_Bind = "",           -- 创建特效事件 绑点
+    Event_Battle_Render_CreateFlyEff_bind = "",        -- 创建飞行特效事件 绑点
+    Event_Battle_Render_CreateFlyForwardEff_bind = "", -- 创建朝固定方向飞行特效事件 绑点
+    Event_Battle_Render_DestroyEff = "",
+    Event_Battle_Render_Rotate = "",
+    Event_Battle_Render_Rotate_2 = "",
+    Event_Battle_Render_SwitchAni = "",
+    Event_Battle_Render_SetAniSpeed = "",
+    Event_Battle_Render_ShockScene = "", -- 震屏
+    Event_Battle_BlackOut = "",
+    Event_Battle_BlackOutScene = "",
+    Event_Battle_Render_Died = "",
+    Event_Battle_ShieldChange = "",
+    Event_Battle_HpChange = "",
+    Event_Battle_HpActive = "",
+    Event_Battle_Render_SwitchEffAni = "",
+    Event_Battle_Render_ShowHide = "",
+    Event_Battle_Mowing_Render_ShowHide = "",
+    Event_Battle_RageChange = "",
+    Event_Battle_RageChange_JumpWord = "",
+    Event_Battle_Miss_JumpWord = "",
+    Event_Battle_Parry_JumpWord = "",
+    Event_Battle_Immune_JumpWord = "",
+    Event_Battle_Render_HeroEffectSwitch = "",
+
+    Event_Battle_AttAdd_JumpWord = "",
+    Event_Battle_AttSub_JumpWord = "",
+    Event_Battle_PhysicsDefAdd_JumpWord = "",
+    Event_Battle_PhysicsDefSub_JumpWord = "",
+    Event_Battle_MagicDefAdd_JumpWord = "",
+    Event_Battle_MagicDefSub_JumpWord = "",
+    Event_Battle_AttSpeedAdd_JumpWord = "",
+    Event_Battle_AttSpeedSub_JumpWord = "",
+
+
+    Event_Battle_Logic_BattleSpeed = "", -- 刷新战斗倍速
+    Event_Battle_Logic_AutoBattle = "",  -- 自动战斗
+
+    --
+    Event_Battle_Render_CreateUIHeadCell = "",
+    Event_Battle_Render_CreateGunCell = "",
+
+    Event_Battle_ReStart = "",
+
+
+    Event_Battle_Result = "", -- 战斗结算
+    Event_Battle_LogicEnd = "",
+    Event_Battle_Arena_Result = "",
+    Event_Battle_Jump_To_Result = "",
+    Event_Battle_Render_LoadFinish = "",
+    Event_Battle_Render_VSFinish = "",
+
+
+    Event_Battle_Refresh_Hatred = "",
+
+    Event_Battle_Render_PlaySound = "",
+    Event_Battle_Render_BreakSound = "",
+
+    Event_Battle_Render_PlayBGM = "",
+    Event_Battle_Render_BreakBGM = "",
+    Event_Battle_Render_BossShockScene = "",
+    
+    Event_Battle_Render_GunFire = "",
+
+    Event_Battle_Render_GunCD = "",
+
+    Event_Battle_Render_CreateMowingEntity = "",    -- 创建割草entity
+    Event_Battle_Render_RemoveMowingEntity = "",    -- 移除割草entity
+}
+
+--给所有的Event赋值
+for k, _ in pairs(BattleEventId) do
+    BattleEventId[k] = k
+end

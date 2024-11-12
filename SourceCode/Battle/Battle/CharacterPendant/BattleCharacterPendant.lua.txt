@@ -1,0 +1,164 @@
+local BattleCharacter              = require "GameLogic.Battle.Characters.BattleCharacter"
+local BattleHelper                 = require "GameLogic.Battle.BattleHelper"
+local BattleEnum                   = require "GameLogic.Battle.BattleEnum"
+local CharacterController          = require "GameLogic.Battle.Characters.CharacterController"
+local BattleCharacterAttribute     = require "GameLogic.Battle.Characters.BattleCharacterAttribute"
+local CharacterSearcher            = require "GameLogic.Battle.Characters.CharacterSearcher"
+local CharacterTransform           = require "GameLogic.Battle.Characters.CharacterTransform"
+local HatredManager                = require "GameLogic.Battle.Characters.HatredManager"
+local CharacterRageManager         = require "GameLogic.Battle.Characters.CharacterRageManager"
+local CharacterSkillSystem         = require "GameLogic.Battle.SkillSystem.CharacterSkillSystem"
+local CharacterBuffManager         = require "GameLogic.Battle.BuffSystem.CharacterBuffManager"
+local CharacterFindPathManager     = require "GameLogic.Battle.Characters.CharacterFindPathManager"
+local BattleCharacterContext       = require "GameLogic.Battle.Characters.BattleCharacterContext"
+local BattleCharacterStepManager   = require "GameLogic.Battle.Characters.BattleCharacterStepManager"
+local BattleCharacterLogicHandler  = require "GameLogic.Battle.Characters.BattleCharacterLogicHandler"
+local BattleCharacterBaseAttribute = require "GameLogic.Battle.Characters.BattleCharacterBaseAttribute"
+local BattleNumericalBox           = require "GameLogic.Battle.BattleStatistics.BattleNumericalBox"
+local BattleDataCounter            = require "GameLogic.Battle.BattleStatistics.BattleDataCounter"
+---@class BattleCharacterPendant:BattleCharacter
+local BattleCharacterPendant       = class("BattleCharacterPendant", BattleCharacter)
+local M                            = BattleCharacterPendant
+--- @param iCharacterBattleId number 战斗中的角色ID
+--- @param tbConfigData table 角色的配置数据（数据来自Hero_Detail）
+--- @param tbRepresentCharacter RepresentBattleCharacter
+---@param tbBattleContext BattleContext
+function M:Ctor(iCharacterBattleId, tBattleData, tbBattleContext, battleCamp)
+    self.characterBattleId  = iCharacterBattleId
+    self.battleData         = tBattleData
+    self.battleContext      = tbBattleContext
+    self.characterContext   = BattleCharacterContext.new(battleCamp)
+    -- self.controller                   = CharacterController.new()
+    -- self.characterAttribute           = BattleCharacterAttribute.new(self)
+    -- self.hatredManager                = HatredManager.new(self)
+    -- self.rageManager                  = CharacterRageManager.new(self) -- 怒气值管理
+    self.skillManager       = CharacterSkillSystem.new(self.battleContext)
+    self.buffManager        = CharacterBuffManager.new(self, self.battleContext)
+    self.searcher           = CharacterSearcher.new(self, self.battleContext)
+    -- self.findPathManager              = CharacterFindPathManager.new(self, self.battleContext)
+    self.characterTransform = CharacterTransform.new(self, self.battleContext)
+    -- self.stepManager                  = BattleCharacterStepManager.new(self, self.battleContext)
+    -- self.battleCharacterLogicHandler  = BattleCharacterLogicHandler.new(self, self.battleContext)
+    -- self.battleCharacterBaseAttribute = BattleCharacterBaseAttribute.new(self, self.battleContext)
+    -- self.battleNumericalBox           = BattleNumericalBox.new(iCharacterBattleId, tbBattleContext)
+    -- self.battleDataCounter            = BattleDataCounter.new(iCharacterBattleId, tbBattleContext)
+end
+
+function M:Initialize(parentEntityId)
+    self:registerEvent()
+    self.characterTransform:Initialize(self.battleData._initRotate, self.battleData._posIndex, self.battleData
+        ._baseScale, self.battleData._heroId)
+    self.characterContext:Initialize(self.battleData)
+    -- self.controller:Initialize(self)
+    -- self.characterAttribute:Initialize(self.battleData._attMap)
+    -- self.battleCharacterBaseAttribute:Initialize(self.battleData)
+    -- self.hatredManager:Initialize()
+    -- self.rageManager:Initialize(self.battleData)
+    self.skillManager:Initialize_Pendant(self, self.battleContext:GetPassivePendantLeft())
+    self.buffManager:Initialize(self.battleData._buff)
+    self.searcher:Initialize()
+    -- self.findPathManager:Initialize(self.battleData._initRotate, self.battleData._posIndex,
+    -- BattleHelper:getBattleSceneId(self.battleContext._battlePlayType, self.battleContext._battleStageId))
+    -- self.stepManager:Initialize()
+    -- self.battleNumericalBox:setParentBox(parentEntityId)
+    -- self.battleDataCounter:setParentBox(parentEntityId)
+
+    -- self.isBrevity = false
+    self.isDied = false
+    self.isSummoner = parentEntityId ~= nil
+end
+
+function M:OnUpdate(fDeltaTime)
+    if self.isDied then
+        return
+    end
+
+    self.characterContext:OnUpdate(fDeltaTime)
+    self.buffManager:OnUpdate(fDeltaTime)
+    self.skillManager:OnUpdate(fDeltaTime)
+end
+
+function M:OnUpdateSpecial(fDeltaTime)
+    -- self.findPathManager:OnUpdateSpecial(fDeltaTime)
+end
+
+function M:Clear()
+    self:unRegisterEvent()
+    self.skillManager:Clear()
+    self.buffManager:Clear()
+    self.searcher:Clear()
+    self.characterContext:Clear()
+    self.isDied = false
+end
+
+------------------------------------------------------------------------------------------------------
+function M:CheckIsDied()
+    return self.isDied
+end
+
+------------------------------------------------------------------------------------------------------
+function M:GetConfigData()
+    return {}
+end
+
+function M:GetHeroConfigId()
+    return "-1"
+end
+
+function M:GetHeroUId()
+    return "-1"
+end
+
+function M:IsMagic()
+    return false
+end
+
+function M:IsRobot()
+    return false
+end
+
+------------------------------------------------------------------------------------------------------
+function M:OnDied()
+    self.isDied = true
+    if self.controller and self.controller.OnDied then
+        self.controller:OnDied()
+    end
+    if self.characterAttribute and self.characterAttribute.OnDied then
+        self.characterAttribute:OnDied()
+    end
+    if self.hatredManager and self.hatredManager.OnDied then
+        self.hatredManager:OnDied()
+    end
+    if self.rageManager and self.rageManager.OnDied then
+        self.rageManager:OnDied()
+    end
+    if self.skillManager and self.skillManager.OnDied then
+        self.skillManager:OnDied()
+    end
+    if self.buffManager and self.buffManager.OnDied then
+        self.buffManager:OnDied()
+    end
+    if self.searcher and self.searcher.OnDied then
+        self.searcher:OnDied()
+    end
+    if self.findPathManager and self.findPathManager.OnDied then
+        self.findPathManager:OnDied()
+    end
+    if self.stepManager and self.stepManager.OnDied then
+        self.stepManager:OnDied()
+    end
+
+    if self.characterTransform and self.characterTransform.OnDied then
+        self.characterTransform:OnDied()
+    end
+end
+
+function M:_onCharacterDieHandle(characterBattleId)
+
+end
+
+function M:_onHandleSkillBlackOut(param)
+
+end
+
+return BattleCharacterPendant

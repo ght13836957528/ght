@@ -1,0 +1,21 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 10:45:45 星期一
+----------------------------------------------------------------------
+
+---@class BuffContext
+local BuffContext = class("BuffContext")
+local M = BuffContext
+
+function M:Ctor()
+    
+end
+
+function M:Initialize()
+    
+end
+
+function M:Clear()
+    
+end
+
+return M

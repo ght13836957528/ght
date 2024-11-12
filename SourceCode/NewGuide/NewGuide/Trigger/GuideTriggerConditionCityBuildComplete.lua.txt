@@ -1,0 +1,31 @@
+---@class GuideTriggerConditionCityBuildComplete : GuideTriggerCondition
+local GuideTriggerConditionCityBuildComplete = class("GuideTriggerConditionCityBuildComplete", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionCityBuildComplete
+
+function M:equals(param)
+    local result = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return result
+    end
+    local type = tonumber(param)
+    local cityBuilding = GameSceneManager.getActor(SceneType.City).building
+    local buildInfo = cityBuilding:getBuildInfoByType(type)
+    if  param == self.triggerParam and buildInfo and buildInfo.level == 0  then
+        result = true
+    end
+    return result
+end
+
+function M:ifStepActionComplete(stepInfo)
+    local result = false
+    local param = stepInfo.triggerParam
+    local type = tonumber(param)
+    local cityBuilding = GameSceneManager.getActor(SceneType.City).building
+    local buildInfo = cityBuilding:getBuildInfoByType(type)
+    if  param == self.triggerParam and buildInfo and buildInfo.level == 0  then
+        result = true
+    end
+    return result
+end
+
+return M

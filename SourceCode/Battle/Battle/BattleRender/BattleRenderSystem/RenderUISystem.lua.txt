@@ -1,0 +1,425 @@
+local BattleEnum     = require "GameLogic.Battle.BattleEnum"
+local ISystem        = require "GameLogic.Battle.BattleRender.BattleRenderSystem.ISystem"
+local BattleHelper   = require "GameLogic.Battle.BattleHelper"
+local math           = math
+---@class RenderUISystem:ISystem
+local RenderUISystem = class("RenderUISystem", ISystem)
+local M              = RenderUISystem
+local HeadTop        = 2.5 -- 格挡，免疫，闪避
+local Head           = 2
+local HalfTop2       = 1.6 -- 状态增加
+local HalfTop1       = 1.3 -- 治疗，护盾增加，怒气
+local Half           = 1   -- 普通伤害，暴击，
+local tootTop2       = 0.7 -- 护盾减少
+local tootTop1       = 0.4 -- 状态减少
+local root           = 0
+function M:Ctor(systemManager)
+    ISystem.Ctor(self, systemManager)
+    self._jumpIndex = 0
+end
+
+local jumpOffsetY1 = {
+    -0.3, -0.6, -0.9, -1.2, -1.5
+}
+local jumpOffsetY2 = {
+    0.3, 0.6, 0.9, 1.2, 1.5
+}
+function M:getOffsetY(enumType)
+    do
+        return 0
+    end
+    if enumType == BattleEnum.JumpWorldType.Damage or
+        enumType == BattleEnum.JumpWorldType.Crit or
+        enumType == BattleEnum.JumpWorldType.ShieldMinus or
+        enumType == BattleEnum.JumpWorldType.AngerMinus then
+        self._jumpIndex = self._jumpIndex + 1
+        self._jumpIndex = self._jumpIndex > #jumpOffsetY1 and 1 or self._jumpIndex
+        return jumpOffsetY1[self._jumpIndex]
+    elseif enumType == BattleEnum.JumpWorldType.ShieldAdd or
+        enumType == BattleEnum.JumpWorldType.Cure or
+        enumType == BattleEnum.JumpWorldType.AngerAdd then
+        self._jumpIndex = self._jumpIndex + 1
+        self._jumpIndex = self._jumpIndex > #jumpOffsetY2 and 1 or self._jumpIndex
+        return jumpOffsetY2[self._jumpIndex]
+    else
+        return 0
+    end
+end
+
+function M:GetEventHandleMap()
+    return {
+        [BattleEventId.Event_Battle_HpChange]               = "HandleHpChange",
+        [BattleEventId.Event_Battle_ShieldChange]           = "HandleShieldChange",
+        [BattleEventId.Event_Battle_RageChange]             = "HandleRageChange",
+        [BattleEventId.Event_Battle_RageChange_JumpWord]    = "HandleRageChangeJW",
+        [BattleEventId.Event_Battle_Miss_JumpWord]          = "HandleMissJW",
+        [BattleEventId.Event_Battle_Parry_JumpWord]         = "HandleParryJW",
+        [BattleEventId.Event_Battle_Immune_JumpWord]        = "HandleImmuneJW",
+        [BattleEventId.Event_Battle_AttAdd_JumpWord]        = "HandleAttAddJW",
+        [BattleEventId.Event_Battle_AttSub_JumpWord]        = "HandleAttSubJW",
+        [BattleEventId.Event_Battle_PhysicsDefAdd_JumpWord] = "HandlePhysicsDefAddJW",
+        [BattleEventId.Event_Battle_PhysicsDefSub_JumpWord] = "HandlePhysicsDefSubJW",
+        [BattleEventId.Event_Battle_MagicDefAdd_JumpWord]   = "HandleMagicDefAddJW",
+        [BattleEventId.Event_Battle_MagicDefSub_JumpWord]   = "HandleMagicDefSubJW",
+        [BattleEventId.Event_Battle_AttSpeedAdd_JumpWord]   = "HandleAttSpeedAddJW",
+        [BattleEventId.Event_Battle_AttSpeedSub_JumpWord]   = "HandleAttSpeedSubJW",
+        [BattleEventId.Event_Battle_Active_Render_Hp]       = "HandleRenderHp",
+        [BattleEventId.Event_Battle_HpActive]               = "HandleActiveHp",
+
+    }
+end
+
+function M:HandleRenderHp(isShow)
+    local allEntity = self:GetEntityMap()
+    for _, entity in pairs(allEntity) do
+        if entity and entity.GetCSRenderComponent then
+            local csRender = entity:GetCSRenderComponent()
+            if csRender then
+                csRender:SetIsShow(isShow)
+            end
+        end
+    end
+end
+
+function M:HandleActiveHp(data)
+    local entityId = data.entityId
+    local isShow = data.isShow
+    
+    local entity = self:GetEntityByUid(entityId)
+    if entity and entity.GetCSRenderComponent and entity:IsShowHp() ~= isShow then
+        entity:SetHpActive(isShow)
+        local csRender = entity:GetCSRenderComponent()
+        csRender:SetIsShow(isShow)
+    end
+end
+
+function M:ShowJumpWorld(entityId, hUDBehaviour, jumpType, transform, changeValue, off_y)
+    if BattleHelper:GetBattleJpIsShow() then
+        hUDBehaviour:ShowJumpWorld(entityId, jumpType, transform, changeValue, off_y)
+    end
+end
+
+function M:HandleShieldChange(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local fChangeValue = data.changeValue
+    local fCurrentValue = data.currentValue
+    local fMaxValue = data.maxValue
+    local isBoss = data.isBoss
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        if not isBoss then
+            if csRender then
+                csRender:UpdateShield(fChangeValue, fCurrentValue, fMaxValue)
+            end
+        end
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            fChangeValue = math.floor(fChangeValue)
+            if fChangeValue <= 0 then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.ShieldMinus, csRender.transform,
+                    fChangeValue,
+                    tootTop2 + self:getOffsetY(BattleEnum.JumpWorldType.ShieldMinus))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.ShieldAdd, csRender.transform,
+                    fChangeValue,
+                    HalfTop1 + self:getOffsetY(BattleEnum.JumpWorldType.ShieldAdd))
+            end
+        end
+    end
+end
+
+function M:HandleHpChange(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local fChangeValue = data.changeValue
+    local fCurrentValue = data.currentValue
+    local fMaxValue = data.maxValue
+    local isCritical = data.isCritical
+    local isBoss = data.isBoss
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        if not isBoss then
+            if csRender then
+                csRender:UpdateHpDisplay(fChangeValue, fCurrentValue, fMaxValue)
+            end
+        end
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if fChangeValue <= 0 then
+                if isCritical then
+                    self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.Crit, csRender.transform,
+                        fChangeValue,
+                        Half + self:getOffsetY(BattleEnum.JumpWorldType.Crit))
+                else
+                    self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.Damage, csRender.transform,
+                        fChangeValue,
+                        Half + self:getOffsetY(BattleEnum.JumpWorldType.Damage))
+                end
+                csRender:ShowBeAttacked(0.2)
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.Cure, csRender.transform,
+                    fChangeValue,
+                    HalfTop1 + self:getOffsetY(BattleEnum.JumpWorldType.Cure))
+            end
+        end
+    end
+end
+
+function M:HandleRageChange(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local fMaxRage = data.maxValue
+    local fCurrentRage = data.currentValue
+    local isBoss = data.isBoss
+    if entity and entity.GetCSRenderComponent and not isBoss then
+        local csRender = entity:GetCSRenderComponent()
+        if csRender then
+            csRender:UpdateRageDisplay(fMaxRage, fCurrentRage)
+        end
+    end
+end
+
+function M:HandleRageChangeJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local changValue = data.changValue
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if changValue > 0 then
+                local y = Half + self:getOffsetY(BattleEnum.JumpWorldType.AngerAdd)
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AngerAdd, csRender.transform,
+                    changValue, y)
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AngerMinus, csRender.transform,
+                    changValue,
+                    Half + self:getOffsetY(BattleEnum.JumpWorldType.AngerMinus))
+            end
+        end
+    end
+end
+
+function M:HandleMissJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local posType = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if posType then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.Miss, csRender.transform, 0,
+                    HeadTop + self:getOffsetY(BattleEnum.JumpWorldType.Miss))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.MissRight, csRender.transform, 0,
+                    HeadTop + self:getOffsetY(BattleEnum.JumpWorldType.MissRight))
+            end
+        end
+    end
+end
+
+function M:HandleParryJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local posType = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if posType then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.Parry, csRender.transform, 0,
+                    HeadTop + self:getOffsetY(BattleEnum.JumpWorldType.Parry))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.ParryRight, csRender.transform, 0,
+                    HeadTop + self:getOffsetY(BattleEnum.JumpWorldType.ParryRight))
+            end
+        end
+    end
+end
+
+function M:HandleImmuneJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local posType = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if posType then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.Immune, csRender.transform, 0,
+                    HeadTop + self:getOffsetY(BattleEnum.JumpWorldType.Immune))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.ImmuneRight, csRender.transform, 0,
+                    HeadTop + self:getOffsetY(BattleEnum.JumpWorldType.ImmuneRight))
+            end
+        end
+    end
+end
+
+function M:HandleAttAddJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local isLeft = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if isLeft then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AttAdd, csRender.transform, 0,
+                    HalfTop2 + self:getOffsetY(BattleEnum.JumpWorldType.AttAdd))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AttAddRight, csRender.transform, 0,
+                    HalfTop2 + self:getOffsetY(BattleEnum.JumpWorldType.AttAddRight))
+            end
+        end
+    end
+end
+
+function M:HandleAttSubJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local isLeft = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if not isLeft then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AttMinus, csRender.transform, 0,
+                    tootTop1 + self:getOffsetY(BattleEnum.JumpWorldType.AttMinus))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AttMinusRight, csRender.transform, 0,
+                    tootTop1 + self:getOffsetY(BattleEnum.JumpWorldType.AttMinusRight))
+            end
+        end
+    end
+end
+
+function M:HandlePhysicsDefAddJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local isLeft = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if isLeft then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.PhysicsDefAdd, csRender.transform, 0,
+                    HalfTop2 + self:getOffsetY(BattleEnum.JumpWorldType.PhysicsDefAdd))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.PhysicsDefAddRight,
+                    csRender.transform, 0,
+                    HalfTop2 + self:getOffsetY(BattleEnum.JumpWorldType.PhysicsDefAddRight))
+            end
+        end
+    end
+end
+
+function M:HandlePhysicsDefSubJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local isLeft = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if not isLeft then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.PhysicsDefSub, csRender.transform, 0,
+                    tootTop1 + self:getOffsetY(BattleEnum.JumpWorldType.PhysicsDefSub))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.PhysicsDefSubRight,
+                    csRender.transform, 0,
+                    tootTop1 + self:getOffsetY(BattleEnum.JumpWorldType.PhysicsDefSubRight))
+            end
+        end
+    end
+end
+
+function M:HandleMagicDefAddJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local isLeft = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if isLeft then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.MagicDefAdd, csRender.transform, 0,
+                    HalfTop2 + self:getOffsetY(BattleEnum.JumpWorldType.MagicDefAdd))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.MagicDefAddRight, csRender.transform,
+                    0,
+                    HalfTop2 + self:getOffsetY(BattleEnum.JumpWorldType.MagicDefAddRight))
+            end
+        end
+    end
+end
+
+function M:HandleMagicDefSubJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local isLeft = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if not isLeft then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.MagicDefSub, csRender.transform, 0,
+                    tootTop1 + self:getOffsetY(BattleEnum.JumpWorldType.MagicDefSub))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.MagicDefSubRight, csRender.transform,
+                    0,
+                    tootTop1 + self:getOffsetY(BattleEnum.JumpWorldType.MagicDefSubRight))
+            end
+        end
+    end
+end
+
+function M:HandleAttSpeedAddJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local isLeft = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if isLeft then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AttSpeedAdd, csRender.transform, 0,
+                    HalfTop2 + self:getOffsetY(BattleEnum.JumpWorldType.AttSpeedAdd))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AttSpeedAddRight, csRender.transform,
+                    0,
+                    HalfTop2 + self:getOffsetY(BattleEnum.JumpWorldType.AttSpeedAddRight))
+            end
+        end
+    end
+end
+
+function M:HandleAttSpeedSubJW(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    local isLeft = data.isLeft
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        local HUDBehaviour = self:getHudBehaviour()
+        if HUDBehaviour and csRender then
+            if not isLeft then
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AttSpeedSub, csRender.transform, 0,
+                    tootTop1 + self:getOffsetY(BattleEnum.JumpWorldType.AttSpeedSub))
+            else
+                self:ShowJumpWorld(entityId, HUDBehaviour, BattleEnum.JumpWorldType.AttSpeedSubRight, csRender.transform,
+                    0,
+                    tootTop1 + self:getOffsetY(BattleEnum.JumpWorldType.AttSpeedSubRight))
+            end
+        end
+    end
+end
+
+function M:getHudBehaviour()
+    if self._systemManager._renderWord._resourceCache then
+        return self._systemManager._renderWord._resourceCache:GetHudBehaviour()
+    end
+end
+
+return M

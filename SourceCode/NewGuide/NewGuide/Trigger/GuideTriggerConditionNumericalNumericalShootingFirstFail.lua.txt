@@ -1,0 +1,9 @@
+---@class GuideTriggerConditionNumericalNumericalShootingFirstFail:GuideTriggerCondition
+local GuideTriggerConditionNumericalNumericalShootingFirstFail = class("GuideTriggerConditionNumericalNumericalShootingFirstFail", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionNumericalNumericalShootingFirstFail
+
+function M:equals(param)
+    return true
+end
+
+return M

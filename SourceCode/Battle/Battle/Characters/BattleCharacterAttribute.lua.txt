@@ -1,0 +1,211 @@
+----------------------------------------------------------------------
+--------- 2022年12月19日 11:14:28 星期一
+----------------------------------------------------------------------
+
+--[[
+    战斗角色的属性值
+    怒气值直接在BattleRageManager中管理了
+]]
+local AttributeData = require "GameLogic.Battle.Common.AttributeData"
+local BattleAttributeHandler = require "GameLogic.Battle.BattleAttribute.BattleAttributeHandler"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+---@class BattleCharacterAttribute
+local BattleCharacterAttribute = class("BattleCharacterAttribute")
+local M = BattleCharacterAttribute
+---@param character BattleCharacter
+function M:Ctor(character)
+    self.hostCharacter = character
+    ---@type AttributeData[]
+    self.att_map = {}
+    self:_initAtt()
+end
+
+function M:_initAtt()
+    local map = BattleAttributeHandler:GetAllAttEnum()
+    for _, att in pairs(map) do
+        self.att_map[att] = AttributeData.new(att, self)
+    end
+end
+
+------------------------------------------------------------------------------------------------------
+--- 初始化角色的属性值
+--- @param configData table 角色配置数据，包含了大部分角色属性初始值
+--- hpBase atkBase defBase mdefBase hpCoef atkCoef DefCoef mdefCoef
+function M:Initialize(data)
+    for att, attInfo in pairs(self.att_map) do
+        local value = data[att] or 0
+        attInfo:SetBaseValue(value)
+    end
+    self:_diffSummon()
+    self:logAttChange(" 初始化 *** ", "all")
+
+    -- for att, value in pairs(data) do
+    --     if self.att_map[att] == nil then
+    --         BattleLogger.log_error("????  此属性没有初始化 ", att)
+    --     end
+    --     self.att_map[att]:SetBaseValue(value)
+    -- end
+end
+
+function M:UpdateAttribute(data)
+    for att, attInfo in pairs(self.att_map) do
+        local value = data[att] or 0
+        attInfo:SetBaseValue(value)
+    end
+    self:_diffSummon()
+end
+
+function M:Clear()
+
+end
+
+function M:_diffSummon()
+    if self.hostCharacter:GetCharacterContext():GetIsSummon() then
+        local con_hero = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, self.hostCharacter:GetHeroConfigId())
+        if con_hero and con_hero.inheritAtt then
+            for _, info in pairs(con_hero.inheritAtt) do
+                local attId = info[1]
+                local p = info[2] * 0.0001
+                local attData = self:GetAttackData(attId)
+                local value = attData:GetCurrentValue() * p
+                attData:SetBaseValue(value)
+            end
+        end
+    end
+end
+
+------------------------------------------------------------------------------------------------------
+--- 属性值修改HP
+function M:UpdateHPOnBaseChange()
+    self.hostCharacter:GetBaseAtt():UpdateHPOnBaseChange()
+end
+
+-----------------------------------------------------------------------------------------------------------
+---@return AttributeData
+function M:GetAttackData(attEnum)
+    local attData = self.att_map[attEnum]
+    if attData == nil then
+        BattleLogger.log_error("???  未找到属性数据：", tostring(attEnum))
+        return AttributeData.new()
+    end
+    return attData
+end
+
+-- local isSummon = self.hostCharacter:GetCharacterContext():GetIsSummon()
+--     if isSummon then
+--         total = BattleHelper:ModifiedSummonEffValue_Shield(total)
+--     end
+---@return AttributeData
+function M:GetAttackCurrentValue(attEnum)
+    -- BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14
+    -- BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15
+
+    local attData = self.att_map[attEnum]
+    if attData == nil then
+        BattleLogger.log_error("???  未找到属性数据：", tostring(attEnum))
+        attData = AttributeData.new()
+    end
+    local value = attData:GetCurrentValue()
+    if attEnum == BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14
+        or attEnum == BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15 then
+        local isSummon = self.hostCharacter:GetCharacterContext():GetIsSummon()
+        if isSummon then
+            value = BattleHelper:ModifiedSummonEffValue_ReduceHarm(value)
+        end
+    end
+    return value
+end
+
+---@return AttributeData
+function M:GetAttackBaseValue(attEnum)
+    local attData = self.att_map[attEnum]
+    if attData then
+        return attData:GetBaseValue()
+    end
+    
+    return 0
+end
+
+function M:GetAttackSpeed()
+    local atkSpd = self:GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25)
+    local rapidSpd = self:GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16)
+    return atkSpd + rapidSpd
+end
+
+function M:GetCDAccelerate()
+    return self:GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26)
+        + self:GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16)
+end
+
+function M:GetMoveSpeed()
+    return self:GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27)
+        + self:GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16)
+end
+
+function M:logAttChange(str, attType, fromId, changeReason, oldValue, newValue)
+    if BattleLogger.IsOpenBattleIngProperty() then
+        local attMap = self.att_map
+        local attName = BattleEnum.BattleAttName[attType] or "所有属性"
+
+        local m_camp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+        local m_pos = self.hostCharacter:GetTransform():GetInitPos()
+        local m_str = m_camp == BattleEnum.BattleCamp.Attack and "左" or "右"
+        local s_str = ""
+        local s_pos = ""
+        if fromId and changeReason then
+            local s_character = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(fromId)
+            if s_character then
+                local s_camp = s_character:GetCharacterContext():GetBattleCamp()
+                s_pos = s_character:GetTransform():GetInitPos()
+                s_str = s_camp == BattleEnum.BattleCamp.Attack and "左" or "右"
+            end
+        end
+        BattleLogger.logBattleIngProperty(str, "   受：", m_str, m_pos, "   施法者：", s_str, s_pos,
+            "   skill_buffId:",
+            changeReason, "   变化属性名：", attName, "  old:", oldValue, "  newValue:", newValue,
+            "     \n    HP: ", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1]:GetCurrentValue() or 0,
+            "  ATK:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2]:GetCurrentValue() or 0,
+            "  DEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3]:GetCurrentValue() or 0,
+            "  MDEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4]:GetCurrentValue() or 0,
+            " 暴击:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11]:GetCurrentValue() or 0,
+            " 命中:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Hit_12]:GetCurrentValue() or 0,
+            " 闪避:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Dodge_13]:GetCurrentValue() or 0,
+            " 物理减伤:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14]:GetCurrentValue() or 0,
+            " 法术减伤:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15]:GetCurrentValue() or 0,
+            " 急速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16]:GetCurrentValue() or 0,
+            " 吸血:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17]:GetCurrentValue() or 0,
+            " 暴击效果:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21]:GetCurrentValue() or 0,
+            " 抗暴:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22]:GetCurrentValue() or 0,
+            " 物理增伤:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23]:GetCurrentValue() or 0,
+            " 法术增伤:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24]:GetCurrentValue() or 0,
+            " 攻击速度:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25]:GetCurrentValue() or 0,
+            " 冷却加速:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26]:GetCurrentValue() or 0,
+            " 移动速度:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27]:GetCurrentValue() or 0,
+            " 攻击怒气回复速度:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28]:GetCurrentValue() or 0,
+            " 受击怒气回复速度:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29]:GetCurrentValue() or 0,
+            " 生命恢复效果加成:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30]:GetCurrentValue() or 0,
+            " 治疗效果提升:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31]:GetCurrentValue() or 0,
+            " 相克额外系数A:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32]:GetCurrentValue() or 0,
+            " 相克额外系数B:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientB_33]:GetCurrentValue() or 0,
+            " 相克额外系数C:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientC_34]:GetCurrentValue() or 0
+        )
+    end
+end
+
+return M

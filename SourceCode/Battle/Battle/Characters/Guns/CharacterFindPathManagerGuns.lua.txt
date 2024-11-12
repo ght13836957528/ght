@@ -1,0 +1,16 @@
+local CharacterFindPathManager = require "GameLogic.Battle.Characters.CharacterFindPathManager"
+---@class CharacterFindPathManagerGuns:CharacterFindPathManager
+local CharacterFindPathManagerGuns = class("CharacterFindPathManagerGuns", CharacterFindPathManager)
+local M = CharacterFindPathManagerGuns
+
+
+function M:_initPos(initRotate, initPosIndex, initSceneId, initXZPos)
+    local logic_x, logic_z = self.hostCharacter:GetTransform():GetLogicGridIndexXZ()
+    local render_x, render_z = self.battleContext:GetMapController():XZLogicToRender(logic_x, logic_z)
+    self.hostCharacter:GetTransform():SetRenderGridIndexXZ(render_x, render_z)
+    local pos = self.battleContext:GetMapController():GetRenderPositionByLogicPos(logic_x, logic_z)
+    self.hostCharacter:GetTransform():SetRenderPos(pos)
+    self:SetObstacleSelf(false)
+end
+
+return M

@@ -1,0 +1,28 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:58:36 星期一
+----------------------------------------------------------------------
+---------- 不死
+-------------------------------------------------------------------------------------------------------------------------------------------------
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+---@class BuffNotDie:BasePersistentBuff
+local BuffNotDie = class("BuffNotDie", BasePersistentBuff)
+local M = BuffNotDie
+
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+   
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+
+end
+
+return M

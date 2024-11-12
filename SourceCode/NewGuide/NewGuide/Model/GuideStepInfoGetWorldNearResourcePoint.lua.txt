@@ -1,0 +1,12 @@
+---@class GuideStepInfoGetWorldNearResourcePoint:GuideStepBaseInfo 获取世界上最近的资源点
+---@field public monsterId string 怪物的id(field_monster表)
+local GuideStepInfoGetWorldNearResourcePoint = class("GuideStepInfoGetWorldNearResourcePoint",require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoGetWorldNearResourcePoint
+
+
+function M:onParse(params)
+   
+end
+
+
+return M

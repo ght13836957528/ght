@@ -1,0 +1,12 @@
+---@class GuideTriggerConditionReturnToCityWhenFinishRecruit:GuideTriggerCondition
+local GuideTriggerConditionReturnToCityWhenFinishRecruit = class("GuideTriggerConditionReturnToCityWhenFinishRecruit", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionReturnToCityWhenFinishRecruit
+
+function M:equals(param)
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return false
+    end
+    return true
+end
+
+return M

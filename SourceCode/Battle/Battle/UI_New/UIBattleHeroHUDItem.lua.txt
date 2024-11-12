@@ -1,0 +1,112 @@
+
+
+---@class UIBattleHeroHUDItem:UIWidget
+local UIBattleHeroHUDItem =  class("UIBattleHeroHUDItem",UIWidget)
+local M = UIBattleHeroHUDItem
+---@param battleTeam BattleTeam
+function M:Ctor(transform,battleTeam,rect_modelRoot,hudManager)
+    self._transform = transform
+    self._battleTeam = battleTeam
+    self._rect_modelRoot = rect_modelRoot
+    self._hudManager = hudManager
+    self._uiCamera = LC.GetUICamera()
+    self._isActive = false
+    self:initComponent(transform)
+end
+
+function M:refreshData(posIndex,data)
+     self._posIndex = posIndex
+     self._data = data
+end
+ 
+function M:Dispose()
+    self._index = 0
+    self._go = nil
+    
+end
+
+function M:initComponent(transform)
+    self._trans_top_root = transform:Find("m_go_top")
+    self._rect_root = transform:GetComponent("RectTransform")
+    self._trans_hp_bg =  transform:Find("m_go_top/m_img_hp_bg")
+    self._img_hp = transform:Find("m_go_top/m_img_hp_bg/m_img_hp"):GetComponent("Image")
+    self._img_anger = transform:Find("m_go_top/m_img_hp_bg/m_img_anger"):GetComponent("Image")
+
+    self._trans_shield_bg =  transform:Find("m_go_top/m_img_shield_bg").transform
+    self._img_shield = transform:Find("m_go_top/m_img_shield_bg/m_img_shield"):GetComponent("Image")
+    
+end
+
+function M:setData(type,posIndex,data)
+    self._posIndex = posIndex
+    self._isLeft = type == Enum.SetUpTeamEnum.TeamPos.left
+    self._data = data
+
+    self._model = self._battleTeam:getRoleModel(type,posIndex)
+    if self._model == nil then
+        Logger.Error("数据不对 未找到对应得模型   ",type,"    ",posIndex)
+        self:setActive(false)
+        return
+    end
+
+    self:initModel()
+    self:updateTopPos()
+    self:setScaleX(self._isLeft and 1 or -1)
+    self:setActive(true)
+end
+
+function M:initModel()
+    local pos = self:getInitPos(self._isLeft,self._posIndex)
+    BattleUtils:setInitPos(self._isLeft,self._posIndex,self._model,
+            self._isLeft and self._battleTeam._go_left.transform or self._battleTeam._go_right.transform,pos)
+    self._trans_model = self._model.gameObject.transform
+    self._pos_model_init = self._model.gameObject.transform.position
+    self._pos_target = self._model.gameObject.transform.position
+end
+
+function M:getInitPos(isSelf,index)
+    if index == 0 then
+        local v = Vector3_CS(CS.UnityEngine.Input.mousePosition.x, CS.UnityEngine.Input.mousePosition.y)
+        local ray = self._battleTeam._mainCamera:ScreenPointToRay(v)
+        return GameUtility.GetRayRaycastHitInfo(ray)
+    else
+        return BattleUtils:posMapToVec3(BattleUtils:getPositionByIndex(isSelf,index))
+    end
+end
+
+function M:updateTopPos()
+    if self._trans_model and  self._uiCamera then
+        local vecPos = self._trans_model.position
+        local uiPos = GameUtility.WorldPosToScreenLocalPos(self._battleTeam._mainCamera, self._uiCamera,self._rect_modelRoot,vecPos)
+        self:initPosition(uiPos)
+    end
+
+end
+
+function M:setHpRate(oldHp,nowHp,baseHp)
+    -- BattleLog.error("changeHp oldHp ==  ",oldHp,"  nowHp == ",nowHp," baseHp == ",baseHp)
+    self._img_hp.fillAmount = nowHp / baseHp
+    self._hudManager:ShowJumpWorld(1,self._trans_model,nowHp - oldHp,0 )
+end
+
+function M:update()
+    self:updateTopPos()
+end
+
+function M:initPosition(rectPos)
+    rectPos.y = rectPos.y - 120
+    self._rect_root.anchoredPosition = rectPos
+    self._transform:SetLocalPositionZ(0)
+end
+
+function M:setActive(isActive)
+    self._isActive = isActive
+   self._transform.gameObject:SetActiveVirtual(isActive)
+end
+
+function M:setScaleX(x)
+    self._scaleX = x
+    self._trans_top_root:SetLocalScaleX(x);
+end
+
+return M

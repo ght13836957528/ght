@@ -1,0 +1,186 @@
+---@class CWBallItem : UIWidget
+local CWBallItem = class("CWBallItem", UIWidget)
+local M = CWBallItem
+
+local maxBallId = 11
+local itemSize = 110 --item小球的直径
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/CombineWatermelon/Ball/BallItem.prefab"
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    if params then
+        self.index = params.index or self._gameObject:GetInstanceID() --存储小球字典的key
+        self.listIndex = params.listIndex or -1 --服务器生成小球的序号（ballList）。道具球都是-1。
+        self.ballId = params.ballId or 0 --小球id（道具球id）
+        ---@type CWBallType
+        self.ballType = params.ballType or CWBallType.Ball
+        ---@type CWBallCreateType
+        self.ballCreateType = params.ballCreateType or CWBallCreateType.Drop
+        self.callBackSelf = params.callBackSelf
+        self.combineCallBack = params.combineCallBack
+        self.triggerCallBack = params.triggerCallBack
+    end
+end
+
+function M:onCreate()
+
+    self.ballSize = 0
+    ---是否落下（用来最后计算分数用的） true：已经落下/合并产生  false：悬而未落
+    self.isDrop = false
+    if self.ballCreateType == CWBallCreateType.Drop then
+        self:dropBeforeSetting()
+        self.isDrop = false
+    elseif self.ballCreateType == CWBallCreateType.Combine then
+        self.isDrop = true
+        self:dropBeforeSetting()
+        self.timer = Timer.new(0, 0.1, false, false, function()
+            self:dropAfterSetting()
+        end)
+        self.timer:start()
+    end
+
+    self._waterMelonBall:SetItemId(CWBall.ColorBall, CWBall.BlastBall)
+    self._waterMelonBall.OnCombineCallBack = nil
+    self._waterMelonBall.OnCombineCallBack = function(lowBallIndex, highBallIndex, posX, posY)
+        --print_error("产生合并："..self.index.."   low:"..lowBallIndex.."    high:"..highBallIndex)
+        if self.callBackSelf and self.combineCallBack then
+            self.combineCallBack(self.callBackSelf, lowBallIndex, highBallIndex, posX, posY)
+        end
+    end
+
+    if self.ballType == CWBallType.Ball then
+        self._ballImage.enabled = true
+        self.ballSize = CombineWatermelonModel.getBallSize(self.ballId)
+        self._waterMelonBall:Init(self.index, self.ballId, maxBallId, self.ballSize)
+        GameGlobal.GameEntry.Resource:SetSpriteOfImage(self._ballImage,"UI/Expack_BallGame", "ballgame_item"..self.ballId)
+    elseif self.ballType == CWBallType.Color or self.ballType == CWBallType.Blast then
+        --创建道具球
+        self._ballImage.enabled = false
+        self.ballSize = itemSize
+        self._waterMelonBall:Init(self.index, self:_getItemBallId(self.ballId), maxBallId, self.ballSize)
+    end
+    
+    self._animation:Play("CWScale")
+end
+
+---切换成道具小球
+function M:changeToItem(itemId, ballType)
+    if self.ballId ~= itemId then
+        self._ballImage.enabled = false
+        self.ballId = itemId
+        self.ballType = ballType
+        if self.ballType ~= CWBallType.Ball then
+            self.listIndex = -1
+        end
+        self.ballSize = itemSize
+        self._waterMelonBall:Init(self.index, self:_getItemBallId(self.ballId), maxBallId, self.ballSize)
+    end
+end
+
+function M:dropBeforeSetting()
+    self:setColliderValid(false)
+    self:setRigidbody2DStatic()
+end
+
+function M:dropAfterSetting()
+    self.isDrop = true
+    self:setColliderValid(true)
+    self:setRigidbody2DDynamic()
+end
+
+---是否落下
+function M:isDropBall()
+    return self.isDrop
+end
+
+function M:getPositionY()
+    return self:getPosition().y
+end
+
+function M:getBallTopPointY()
+    return self:getPosition().y + self.ballSize / 2
+end
+
+---给一个向上的力
+function M:AddForceUp()
+    self._waterMelonBall:AddUpForce()
+end
+---给一个向下的力
+function M:AddForceDown()
+    self._waterMelonBall:AddDownForce()
+end
+
+---设置碰撞是否响应事件
+function M:setColliderValid(isValid)
+    self._waterMelonBall.ColliderValid = isValid
+end
+
+---设置为静态物理
+function M:setRigidbody2DStatic()
+    self._waterMelonBall:SetRigidbody2DStatic()
+end
+
+---设置为动态物理
+function M:setRigidbody2DDynamic()
+    self._waterMelonBall:SetRigidbody2DDynamic()
+end
+
+---获取小球大小（直径）
+function M:getBallSize()
+    return CombineWatermelonModel.getBallSize(self.ballId)
+end
+
+---获取合并后新小球id，如果最大返回本身。
+function M:getNextBallId()
+    if self.ballId == maxBallId then
+        return self.ballId
+    else
+        return self.ballId + 1
+    end
+end
+
+function M:getBallId()
+    return self.ballId
+end
+
+function M:getBallType()
+    return self.ballType
+end
+---获取小球服务器序号
+function M:getListIndex()
+    return self.listIndex
+end
+
+function M:_getItemBallId()
+    local id = 1
+    if self.ballType == CWBallType.Color then
+        id = CWBall.ColorBall
+        self._colorSpine:SetActiveEx(true)
+        self._blastSpine:SetActiveEx(false)
+    elseif self.ballType == CWBallType.Blast then
+        id = CWBall.BlastBall
+        self._colorSpine:SetActiveEx(false)
+        self._blastSpine:SetActiveEx(true)
+    end
+    return id
+end
+
+function M:onDispose()
+    if self.timer then
+        self.timer:stop()
+    end
+    if self._waterMelonBall then
+        self._waterMelonBall:OnClear()
+    end
+    self._ballImage.enabled = true
+    self._colorSpine:SetActiveEx(false)
+    self._blastSpine:SetActiveEx(false)
+end
+
+return M

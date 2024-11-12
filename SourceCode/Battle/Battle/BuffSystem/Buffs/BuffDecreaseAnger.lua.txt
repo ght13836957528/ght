@@ -1,0 +1,29 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 11:30:42 星期一
+------ 减怒气
+----------------------------------------------------------------------
+
+local BaseBuff = require "GameLogic.Battle.BuffSystem.BaseBuff"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class BuffDecreaseAnger:BaseBuff
+local BuffDecreaseAnger = class("BuffDecreaseAnger", BaseBuff)
+local M = BuffDecreaseAnger
+
+----------------------------------------------------------------------
+
+
+function M:_onEnter()
+    self:_doModify()
+end
+
+function M:_doModify()
+    local fromCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.fromId)
+    local result = self.buffParams[2] or 0
+    local a = self:GetAValue_integer(fromCharacter)
+    result = result + a
+    self.hostCharacter:GetLogicHandle():DoChangeValue(1, 1, result)
+    BattleEventUtils:DisPath_Diff_Rage_JW(self.hostCharacter:GetBattleId(), -result)
+    
+end
+
+return M

@@ -1,0 +1,104 @@
+---@class UIParticle : UIWidget UI粒子特效
+local UIParticle = class("UIParticle", UIWidget)
+local M = UIParticle
+
+function M:OnCreate()
+    self._sortingOrder = nil
+    self._particles = {}
+    
+    local system = self._gameObject:GetComponent("ParticleSystem")
+    if system then
+        local renderer = system:GetComponent("Renderer")
+        local t = {}
+        t.system = system
+        t.renderer = renderer
+        t.oldSortingOrder = renderer.sortingOrder
+        table.insert(self._particles, t)
+    end
+    
+    local systems =  self._gameObject:GetComponentsInChildren(UnityType.ParticleSystem)
+    for i = 0, systems.Length - 1 do
+        system = systems[i]
+        local t = {}
+        t.system = system
+        t.renderer = system:GetComponent("Renderer")
+        t.oldSortingOrder = t.renderer.sortingOrder
+        table.insert(self._particles, t)
+    end
+    
+    self:_refreshSortingOrder()
+end
+
+function M:SetSortingOrder(sortingOrder)
+    if self._sortingOrder == sortingOrder then
+        return
+    end
+    
+    self._sortingOrder = sortingOrder
+    if self:HasGameObject() then
+        self:_refreshSortingOrder()
+    end
+end
+
+function M:Play()
+    local isPlaying = self.bIsPlaying or false
+    if not isPlaying then
+        for _, value in pairs(self._particles) do
+            if value ~= nil and value.system ~= nil then
+                value.system:Play()
+            end
+        end
+        isPlaying = true
+    end
+end
+
+function M:Stop()
+    for _, value in pairs(self._particles) do
+        if value ~= nil and value.system ~= nil then
+            value.system:Stop()
+        end
+    end
+    self.bIsPlaying = false
+end
+
+function M:ShowParticle(bShow)
+    local show = bShow or false
+    self:_setVisible(show, true)
+end
+
+function M:SetParticleColor(color)
+    for _, value in pairs(self._particles) do
+        if value ~= nil and value.system ~= nil then
+            local mainModule = value.system.main
+            if mainModule ~= nil then
+                mainModule.startColor = color
+            end
+        end
+    end
+end
+
+function M:SetSibling(iIndex)
+    local index = iIndex or 0
+    if index <= 0 then
+        self._transform:SetAsFirstSibling()
+    else
+        self._transform:SetSiblingIndex(index)
+    end
+end
+
+function M:_refreshSortingOrder()
+    if not self._sortingOrder then
+        return
+    end
+    
+    for _, v in ipairs(self._particles) do
+        v.renderer.sortingOrder = v.oldSortingOrder + self._sortingOrder
+    end
+end
+
+function M:OnDispose()
+    self._sortingOrder = nil
+    self._particles = nil
+end
+
+return M

@@ -1,0 +1,362 @@
+local BattleRenderEntityBase = require "GameLogic.Battle.BattleRender.BattleRenderEntity.BattleRenderEntityBase"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+---@class BattleRenderCharacterEntity:BattleRenderEntityBase
+local BattleRenderCharacterEntity = class("BattleRenderCharacterEntity", BattleRenderEntityBase)
+local AssetPathMapEff = require "Framework.AssetConfigFiles.AssetPathMapEff"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local M = BattleRenderCharacterEntity
+local BattleEffEntity = CS.BattleEffEntity
+---@param resourceCache BattleResourceContainer
+function M:Initialize(model, resourceCache, camp, isShowHp)
+    -- log_Error(self)
+    self._go_model = model
+    self._isLeft = camp == 1
+    isShowHp = isShowHp == nil and true or isShowHp
+    self._isShowHp = isShowHp 
+    self._resourceCache = resourceCache
+    self._eff_map = {}
+    self._gUids = {}
+    self._animator = {}
+    self._arr_sortEff = {}
+    self._eff_switch = true
+    self:_initComponent()
+end
+
+function M:SetModelGUid(gUid)
+    self._modelGuid = gUid
+end
+
+function M:GetEntityType()
+    return BattleEnum.EntityRenderType.RenderCharacter
+end
+
+function M:GetForward()
+    if self._go_model and not self._go_model:IsNull() then
+        local v = self._go_model.transform.forward
+        return Vector3(v.x, v.y, v.z)
+    else
+        BattleLogger.log_error("model 对象已删除")
+        return Vector3(0, 0, 1)
+    end
+end
+
+function M:_initComponent()
+    self:_initRenderCharactor()
+    self:_initAnimationComponent()
+    self:_initAnimationInstanceCom()
+    self:_initAllSkinnedMeshRender()
+end
+
+function M:_initRenderCharactor()
+    if self._go_model == nil or self._go_model:IsNull() then
+        return
+    end
+    self._csCharacter = self._go_model:GetComponent(typeof(CS.BattleCharacter))
+    self._cs_bind = self._go_model:GetComponent(typeof(CS.BattleCharacterBind))
+    if self._csCharacter == nil then
+        self._csCharacter = self._go_model:AddComponent(typeof(CS.BattleCharacter))
+        local sceneManager = self._resourceCache:getSceneManager()
+        sceneManager:InitializedCharacter(self._csCharacter, self._isLeft, BattleHelper:GetBattleHpIsShow() and self._isShowHp)
+    else
+        self._csCharacter:SetIsShow(BattleHelper:GetBattleHpIsShow() and self._isShowHp)
+    end
+    if self._cs_bind == nil then
+        BattleLogger.log_error("???  没有 Bind 文件  ", self._go_model.name)
+    end
+    -- self._csCharacter:SetBattleId(self:GetEntityId())
+end
+
+---animation
+function M:_initAnimationComponent()
+    -- self._animator = self._go_model.transform:GetComponent("Animator")
+    -- self._animator = self._go_model:GetComponentsInChildren(typeof(CS.UnityEngine.Animator))
+    local animators = self._go_model:GetComponentsInChildren(typeof(CS.UnityEngine.Animator))
+    for i = 0, animators.Length - 1 do
+        local tmp = animators[i]
+        table.insert(self._animator, tmp)
+        -- BattleLogger.log_error(tmp.gameObject.name)
+    end
+
+    self._aniState = BattleEnum.AnimationClip.Idie
+
+    self._ani_speed = 1
+end
+
+function M:_initAnimationInstanceCom()
+    self._aniInstance = self._go_model:GetComponentInChildren(UnityType.AnimInstance)
+end
+
+function M:GetAniInstanceCom()
+    return self._aniInstance    
+end
+
+function M:HasAniInstance()
+    return self._aniInstance ~= nil
+end
+
+function M:_initAllSkinnedMeshRender()
+    -- self._csArray_allMeshRender = GameUtility.GetSkinnedMeshRenderersInChildren(self._go_model)
+    -- self._go_mask = self._go_model.transform:Find("mask").gameObject
+    -- if self._go_mask == nil then
+    --     BattleLogger.log_error("模型没有 mask 节点！！！！！ ", self._go_model.name)
+    -- end
+end
+
+function M:GetBindTransform(bindType)
+    if bindType and self._cs_bind then
+        if bindType == "P_Hand_L" then
+            return self._cs_bind.Hand_L
+        elseif bindType == "P_Hand_R" then
+            return self._cs_bind.Hand_R
+        elseif bindType == "P_Hit_Body" then
+            return self._cs_bind.Body
+        elseif bindType == "P_Head" then
+            return self._cs_bind.Head
+        elseif bindType == "P_Weapon_R" then
+            return self._cs_bind.Weapon_R
+        elseif bindType == "P_Weapon_L" then
+            return self._cs_bind.Weapon_L
+        elseif bindType == "root" then
+            return self._cs_bind.Root
+        end
+    end
+end
+
+function M:CreateEff_bind(effName, bindType, isNeedSort)
+    local effPath = AssetPathMapEff[effName]
+    if effPath == nil then
+        BattleLogger.log_error("???  战斗特效没有映射路径 ！！  : ", effName)
+    end
+    local bindTrans = self:GetBindTransform(bindType)
+    if effPath and bindTrans then
+        local tmp_effectObj = self._eff_map[effPath]
+        if tmp_effectObj then
+            tmp_effectObj.gameObject:SetActive(false)
+            tmp_effectObj.gameObject:SetActive(true)
+            if isNeedSort then
+                self:resetSortPos()
+            end
+        else
+            local gUid = self:GetEntityManager():PopAsset(effPath, function(effectObj, gUid)
+                if effectObj == nil then
+                    return
+                end
+                self._eff_map[effPath] = effectObj.gameObject:GetOrAddComponent(typeof(BattleEffEntity))
+                effectObj.transform:SetParent(bindTrans)
+                if isNeedSort then
+                    self:addSortEff(effectObj)
+                    self:resetSortPos()
+                else
+                    effectObj.transform.localPosition = Vector3.zero
+                end
+                effectObj.transform.localRotation = Quaternion.Euler(0, 0, 0)
+                effectObj.transform.localScale    = Vector3.one
+                effectObj.gameObject:SetActive(true)
+            end)
+            self._gUids[effPath] = gUid
+        end
+    end
+end
+
+function M:CreateEff_pos(pos, effName)
+    local effPath = AssetPathMapEff[effName]
+    if effPath == nil then
+        BattleLogger.log_error("???  战斗特效没有映射路径 ！！  : ", effName)
+    end
+    
+    if effPath then
+        local tmp_effectObj = self._eff_map[effPath]
+        if tmp_effectObj then
+            tmp_effectObj.gameObject:SetActive(false)
+            tmp_effectObj.gameObject:SetActive(true)
+            tmp_effectObj.gameObject:SetPositionEx(pos.x, pos.y, pos.z)
+        else
+            local gUid = self:GetEntityManager():PopAsset(effPath, function(effectObj, gUid)
+                if effectObj == nil then
+                    return
+                end
+                self._eff_map[effPath] = effectObj.gameObject:GetOrAddComponent(typeof(BattleEffEntity))
+                effectObj.transform:SetPositionEx(pos.x, pos.y, pos.z)
+                effectObj.transform.localRotation = Quaternion.Euler(0, 0, 0)
+                effectObj.transform.localScale    = Vector3.one
+                effectObj.gameObject:SetActive(true)
+            end)
+            self._gUids[effPath] = gUid
+        end
+    end
+end
+
+function M:addSortEff(effectObj)
+    table.insert(self._arr_sortEff, effectObj)
+end
+
+function M:removeSortEff(effectObj)
+    table.removebyvalue(self._arr_sortEff, effectObj)
+end
+
+local offX = 0.8
+function M:resetSortPos()
+    local len = #self._arr_sortEff
+    local num1, num2 = math.modf(len / 2)
+    num2 = num2 > 0 and 0 or 1
+    local head_x = -num1 * offX + 0.5 * offX * num2
+    for index, effObj in ipairs(self._arr_sortEff) do
+        effObj.transform.localPosition = Vector3((index - 1) * offX + head_x, 0, 0)
+    end
+end
+
+function M:DestroyEff_bind(effName)
+    self._eff_map = self._eff_map or {}
+    local effPath = AssetPathMapEff[effName]
+    if effPath == nil then
+        return
+    end
+    local effGo = self._eff_map[effPath]
+    if effGo then
+        self:removeSortEff(effGo.gameObject)
+    end
+    self._gUids = self._gUids or {}
+    local gUid = self._gUids[effPath]
+    if gUid then
+        self:GetEntityManager():PushAsset(gUid)
+    end
+    self._gUids[effPath] = nil
+    self._eff_map[effPath] = nil
+end
+
+function M:GetCSRenderComponent()
+    return self._csCharacter
+end
+
+function M:GetIsPlaySkill()
+    return self._isBlack
+end
+
+function M:SetIsPlaySkill(isBlack)
+    self._isBlack = isBlack
+end
+
+function M:GetAnimationComponent()
+    if self._aniCom == nil then
+        self._aniCom = {}
+    end
+    
+    self._aniCom.animator = self._animator
+    self._aniCom.aniState = self._aniState
+    self._aniCom.ani_speed = self._ani_speed
+    
+    return self._aniCom
+end
+
+function M:SetAnimationComponent(aniState, ani_speed)
+    if aniState then
+        self._aniState = aniState
+    end
+
+    if ani_speed then
+        self._ani_speed = ani_speed
+    end
+end
+
+function M:GetAniState()
+    return self._aniState
+end
+
+function M:SetAnimationSpeed(ani_speed)
+    if ani_speed then
+        self._ani_speed = ani_speed
+    end
+end
+
+function M:GetAniSpeed()
+    return self._ani_speed
+end
+
+function M:SetPosition(newPos)
+    self._pos = newPos
+    if newPos and self._go_model then
+        self._go_model:SetPositionEx(newPos.x, newPos.y, newPos.z)
+    end
+end
+
+function M:GetPosition()
+    return self._pos
+end
+
+function M:SetRotate(newPos)
+    if newPos and self._go_model and self._pos then
+        local target = newPos - self._pos
+        if target.x == 0 and target.y == 0 and target.z == 0 then
+            return
+        end
+        local forward = Vector3(target.x, target.y, target.z)
+        local mag = forward:Magnitude()
+        if mag < 1e-6 then
+            return nil
+        end
+        local tmp = Quaternion.LookRotation(forward)
+        self._go_model:SetRotationQEx(tmp.x, tmp.y, tmp.z, tmp.w)
+    end
+end
+
+function M:SetRotate_2(forward)
+    if self._go_model then
+        self._go_model:SetRotationQEx(forward.x, forward.y, forward.z, forward.w)
+    end
+end
+
+function M:SetScaleZ(z)
+    if z and self._go_model and self._go_model.transform then
+        self._go_model.transform:SetLocalScaleZ(z)
+    end
+end
+
+function M:SetGameObjectActive(isShow)
+    if self._go_model and self._go_model.transform then
+        GameObjectUtil.SafeSetActiveSelf(self._go_model, isShow)
+    end
+end
+
+function M:SetHpActive(isShow)
+    if isShow == self._isShowHp then
+        return
+    end
+    
+    self._isShowHp = isShow
+end
+
+function M:IsShowHp()
+    return self._isShowHp    
+end
+
+function M:HandleBattleSpeedChange(speed)
+    if self._cs_effEntity then
+        self._cs_effEntity:UpdateBattleSpeed(speed)
+    end
+end
+
+function M:GetEffSwitchComponent()
+    return self._eff_switch
+end
+
+function M:SetEffSwitchComponent(eff_switch)
+    self._eff_switch = eff_switch
+end
+
+function M:Clear()
+    if self._gUids then
+        for path, guid in pairs(self._gUids) do
+            self:GetEntityManager():PushAsset(guid)
+        end
+    end
+    if self._modelGuid and self._resourceCache then
+        self._resourceCache:unloadModel(self._modelGuid)
+    end
+
+    self._eff_map = {}
+    self._animator = {}
+    self._arr_sortEff = {}
+    self._eff_switch = true
+end
+
+return M

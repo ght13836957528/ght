@@ -1,0 +1,23 @@
+----------------------------------------------------------------------
+--------- 2022年12月15日 20:28:34 星期四
+----------------------------------------------------------------------
+
+local BaseBehaviorState = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+
+---@class NoneBehaviorState:BaseBehaviorState
+local NoneBehaviorState = class("NoneBehaviorState", BaseBehaviorState)
+local M = NoneBehaviorState
+
+-----------------生命周期-------------------
+-- 进入状态
+function M:OnEnter()
+end
+
+-- 退出状态
+function M:OnExit(callback)
+    if callback then
+        callback()
+    end
+end
+
+return M

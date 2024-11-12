@@ -1,0 +1,284 @@
+---@class BattleEventUtils
+local BattleEventUtils = {}
+
+local BroadcastEvent = BroadcastEvent
+local BattleEventId = BattleEventId
+local canPlayData = {}
+-- 创造Entity
+function BattleEventUtils:DisPath_CreateEntity(entityId, type, data)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateEntity, entityId, type, data)
+end
+
+-- 移除Entity
+function BattleEventUtils:DisPath_RemoveEntity(entityId)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_RemoveRenderEntity, entityId)
+end
+
+-- 同步位置消息
+function BattleEventUtils:DisPath_SynsPos(entityId, pos)
+    local data = { entityId = entityId, newPos = pos, time = 0 }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_Move_Line, data)
+end
+
+-- 同步角度
+function BattleEventUtils:DisPath_SynsRotate(entityId, pos)
+    local data = { entityId = entityId, newPos = pos, time = 0 }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_Rotate, data)
+end
+
+-- 同步角度
+function BattleEventUtils:DisPath_SynsRotate_2(entityId, rotation)
+    if rotation then
+        local data = { entityId = entityId, rotation = rotation, time = 0 }
+        BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_Rotate_2, data)
+    end
+end
+
+-- 位置创建特效
+function BattleEventUtils:DisPath_CreateEff_pos(entityId, pos, effName)
+    local data = { entityId = entityId, pos = pos, effName = effName }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateEff_Pos, data)
+end
+
+-- 绑点创建特效
+function BattleEventUtils:DisPath_CreateEff_bind(entityId, effName, bindType, isNeedSort)
+    local data = { bindPoint = bindType, entityId = entityId, effName = effName, isNeedSort = isNeedSort or false }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateEff_Bind, data)
+end
+
+-- 删除绑点特效
+function BattleEventUtils:DisPath_DestroyEff_bind(entityId, effName, bindType)
+    local data = { bindPoint = bindType, entityId = entityId, effName = effName }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_DestroyEff, data)
+end
+
+-- 绑点Fly特效创建(找目标)
+function BattleEventUtils:DisPath_CreateFlyTargetEff_bind(entityId, bindEntityId, targetEntityId, scale, initRootOffset)
+    local data = {
+        bindEntityId = bindEntityId,
+        entityId = entityId,
+        targetEntityId = targetEntityId,
+        scale = scale,
+        rootOffset =
+            initRootOffset
+    }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateFlyEff_bind, data)
+end
+
+-- 绑点Fly特效创建(朝前)
+function BattleEventUtils:DisPath_CreateFlyForwardEff_bind(entityId, startPos, frameMoveDic, normalForward)
+    local data = { entityId = entityId, startPos = startPos, frameMoveDic = frameMoveDic, normalForward = normalForward }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateFlyForwardEff_bind, data)
+end
+
+-- 切换动画
+function BattleEventUtils:DisPath_PlayAni(entityId, aniName, speed, isReset)
+    local data = { entityId = entityId, aniName = aniName, isReset = isReset or false, speed = speed }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_SwitchAni, data)
+end
+
+-- 切换效果动画
+function BattleEventUtils:DisPath_PlayEffAni(entityId, aniName, speed, isReset)
+    local data = { entityId = entityId, aniName = aniName, isReset = isReset or false, speed = speed }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_SwitchEffAni, data)
+end
+
+-- 切换动画播放速度
+function BattleEventUtils:DisPath_SetAniSpeed(entityId, speed)
+    local data = { entityId = entityId, speed = speed }
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_SetAniSpeed, data)
+end
+
+-- 震屏
+function BattleEventUtils:DisPath_ShockScene()
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_ShockScene)
+end
+
+-- Boss死亡震屏
+function BattleEventUtils:DisPath_BossShockScene()
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_BossShockScene)
+end
+
+-- UI血条冒字
+function BattleEventUtils:DisPath_Diff_Hp(entityId, fChangeValue, fCurrentValue, fMaxValue, isCritical, isBoss)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_HpChange,
+        {
+            entityId = entityId,
+            changeValue = fChangeValue,
+            currentValue = fCurrentValue,
+            maxValue = fMaxValue,
+            isCritical = isCritical,
+            isBoss = isBoss or false
+        })
+end
+
+function BattleEventUtils:DisPath_ActiveHp(entityId, isShow)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_HpActive,
+            {
+                entityId = entityId,
+                isShow = isShow,
+            })
+end
+
+-- UI护盾值修改
+function BattleEventUtils:DisPath_Diff_Shield(entityId, fChangeValue, fCurrentValue, fMaxValue, isBoss)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_ShieldChange,
+        {
+            entityId = entityId,
+            changeValue = fChangeValue,
+            currentValue = fCurrentValue,
+            maxValue = fMaxValue,
+            isBoss = isBoss
+        })
+end
+
+-- UI 怒气
+function BattleEventUtils:DisPath_Diff_Rage(entityId, fMaxRage, fCurrentRage, changRage, isBoss)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_RageChange,
+        { entityId = entityId, currentValue = fCurrentRage, maxValue = fMaxRage, changValue = changRage, isBoss = isBoss })
+end
+
+-- UI 怒气冒字
+function BattleEventUtils:DisPath_Diff_Rage_JW(entityId, changRage)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_RageChange_JumpWord,
+        { entityId = entityId, changValue = changRage })
+end
+
+-- UI Miss
+function BattleEventUtils:DisPath_Miss(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Miss_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+-- UI 格挡  9,
+function BattleEventUtils:DisPath_Parry(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Parry_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+-- UI 免疫 10
+function BattleEventUtils:DisPath_Immune(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Immune_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+-- UI
+function BattleEventUtils:DisPath_AttAdd(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_AttAdd_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+function BattleEventUtils:DisPath_AttSub(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_AttSub_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+function BattleEventUtils:DisPath_PhysicsDefAdd(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_PhysicsDefAdd_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+function BattleEventUtils:DisPath_PhysicsDefSub(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_PhysicsDefSub_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+function BattleEventUtils:DisPath_MagicDefAdd(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_MagicDefAdd_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+function BattleEventUtils:DisPath_MagicDefSub(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_MagicDefSub_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+function BattleEventUtils:DisPath_AttSpeedAdd(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_AttSpeedAdd_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+function BattleEventUtils:DisPath_AttSpeedSub(entityId, isLeft)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_AttSpeedSub_JumpWord,
+        { entityId = entityId, isLeft = isLeft })
+end
+
+-- 大招黑屏
+function BattleEventUtils:DisPath_BlackOut(entityId, openType, sceneBlack)
+    -- BattleLogger.log_error("************ 大招黑屏 Role: ", openType)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_BlackOut,
+        { entityId = entityId, openType = openType, sceneBlack = sceneBlack })
+end
+
+-- 大招黑屏
+function BattleEventUtils:DisPath_BlackOutScene(openType)
+    -- BattleLogger.log_error("************ 大招黑屏 Scene : ", openType)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_BlackOutScene, { openType = openType })
+end
+
+function BattleEventUtils:DisPath_EntityDied(entityId)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_Died, { entityId = entityId })
+end
+
+function BattleEventUtils:DisPath_SkillCanPlay(entityId, isCanPlay)
+    canPlayData.entityId = entityId
+    canPlayData.isCanPlay = isCanPlay
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_SkillCanPlay, canPlayData)
+end
+
+function BattleEventUtils:DisPath_TriggerEvent(triggerType, entityId, param1, param2, param3)
+    BroadcastEvent.dispatch(triggerType,
+        { entityId = entityId, param1 = param1, param2 = param2, param3 = param3 })
+end
+
+function BattleEventUtils:DisPath_Render_ShowHide(entityId, isShow)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_ShowHide,
+        { entityId = entityId, isShow = isShow })
+end
+
+function BattleEventUtils:DisPath_Mowing_Render_ShowHide(entityId, isShow)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Mowing_Render_ShowHide,
+        { entityId = entityId, isShow = isShow })
+end
+
+function BattleEventUtils:DisPath_Render_PlaySound(soundClipName)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_PlaySound,
+        { soundClipName = soundClipName })
+end
+
+function BattleEventUtils:DisPath_Render_BreakSound(soundId)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_BreakSound,
+        { soundId = soundId })
+end
+
+function BattleEventUtils:DisPath_Render_PlayBGM(soundClipName)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_PlayBGM,
+        { soundClipName = soundClipName })
+end
+
+function BattleEventUtils:DisPath_Render_BreakBGM()
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_BreakBGM)
+end
+
+function BattleEventUtils:DisPath_Render_HeroHideEffectSwitch(entityId, isOpen)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_HeroEffectSwitch, { entityId = entityId, isOpen = isOpen })
+end
+
+function BattleEventUtils:DisPath_Gun_FireMsg(entityId, camp)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_GunFire, { entityId = entityId, camp = camp })
+end
+
+function BattleEventUtils:DisPath_Gun_CD(entityId, camp, cd, baseCD)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_GunCD,
+        { entityId = entityId, camp = camp, cd = cd, baseCD = baseCD })
+end
+
+function BattleEventUtils:DisPath_CreateMowingEntity(entityId, data)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateMowingEntity, entityId, data)
+end
+
+function BattleEventUtils:DisPath_RemoveMowingEntity(entityId)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_RemoveMowingEntity, entityId)
+end
+
+return BattleEventUtils

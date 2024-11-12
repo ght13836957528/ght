@@ -1,0 +1,35 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:53:41 星期一
+---  沉默
+----------------------------------------------------------------------
+local BehaviorStateType  = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+---@class BuffSilence:BasePersistentBuff
+local BuffSilence        = class("BuffSilence", BasePersistentBuff)
+local M                  = BuffSilence
+
+function M:_onEnter()
+    ---@type BeControlledBehaviorState
+    local controlState = self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentState()
+    if controlState:GetStateID() == BehaviorStateType.PerformSkill then
+        if self.hostCharacter:GetSkillManager():IsPlayUltraSkill() then
+            self.hostCharacter:GetController().behaviorDecisionManager:Switch(BehaviorStateType.Idle, nil)
+        end
+    end
+    if self._showDelegate then
+        self._showDelegate()
+    end
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+    if self._hideDelegate then
+        self._hideDelegate()
+    end
+end
+
+return M

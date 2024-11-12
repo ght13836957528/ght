@@ -1,0 +1,30 @@
+local BattleMathUtil = {}
+local math = math
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+
+function BattleMathUtil:floatCalculate(floatA, floatB, calculateType)
+    local tmpA = math.floor(floatA * 10000)
+    local tmpB = math.floor(floatB * 10000)
+    local result = 0
+    if calculateType == BattleEnum.CalculateType.addition then
+        result = tmpA + tmpB
+        result = result * 0.0001
+    elseif calculateType == BattleEnum.CalculateType.subtraction then
+        result = tmpA - tmpB
+        result = result * 0.0001
+    elseif calculateType == BattleEnum.CalculateType.multiplication then
+        result = tmpA * tmpB
+        result = result * 0.0001 * 0.0001
+    elseif calculateType == BattleEnum.CalculateType.division then
+        if tmpB == 0 then
+            result = tmpA
+        else
+            result = tmpA // tmpB
+        end
+    else
+        BattleLogger.log_error("出现未处理类型 ：", calculateType)
+    end
+    return result
+end
+
+return BattleMathUtil

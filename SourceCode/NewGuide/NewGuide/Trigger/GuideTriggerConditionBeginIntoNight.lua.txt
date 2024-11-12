@@ -1,0 +1,15 @@
+---@class GuideTriggerConditionBeginIntoNight:GuideTriggerCondition
+local GuideTriggerConditionBeginIntoNight = class("GuideTriggerConditionBeginIntoNight", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionBeginIntoNight
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:equals(param)
+    local complete = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return complete
+    end
+    
+    return true
+end
+
+return M

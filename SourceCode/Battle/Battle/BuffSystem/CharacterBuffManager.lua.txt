@@ -1,0 +1,373 @@
+----------------------------------------------------------------------
+--------- 2023年02月03日 10:20:30 星期五
+----------------------------------------------------------------------
+
+--[[
+    BuffManager改为作为BattleCharacter的组件存在，也就是每个角色有自己的Buff管理
+    系统，添加、移除和查找Buff时可以获取BuffManager组件来处理。
+    约定：
+     BuffId对应Skill_Buff的buffId，相当于Buff组
+     BuffTypeId对应Skill_Buff中的eff字段的效果类型
+]]
+-- local InstantBuffGroup = require "GameLogic.Battle.BuffSystem.BuffContainer.InstantBuffGroup"
+-- local PersistBuffGroup = require "GameLogic.Battle.BuffSystem.BuffContainer.PersistBuffGroup"
+local BattleEventUtils     = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local TriggerTimeType      = require "GameLogic.Battle.Common.TriggerTimeType"
+local ConfigHandler        = ConfigHandler
+local BattleHelper         = require "GameLogic.Battle.BattleHelper"
+local BattleEnum           = require "GameLogic.Battle.BattleEnum"
+local GameDefine           = GameDefine
+local BattleEventId        = BattleEventId
+---@class CharacterBuffManager
+local CharacterBuffManager = class("CharacterBuffManager")
+local M                    = CharacterBuffManager
+---@param battleContext BattleContext
+---@param hostCharacter BattleCharacter
+function M:Ctor(hostCharacter, battleContext)
+    self.hostCharacter = hostCharacter
+    self.battleContext = battleContext
+    ---@type PersistBuffGroup[]
+    self.persistBuffList = { nil, nil, nil, nil }
+    ---@type PersistBuffGroup[]
+    self.removeBuffList = {}
+    ---@type PersistBuffGroup[]
+    self.readyRemoveBuffList = {}
+    self.initBuff = {}
+end
+
+function M:Initialize(buffs)
+    self:_clearBuffList()
+    self.initBuff = buffs or {}
+end
+
+--- 战斗开始时初始化
+function M:OnStartFight(...)
+    self:addInitBuffS()
+end
+
+function M:addInitBuffS()
+    for _, skillBuffId in ipairs(self.initBuff) do
+        self:AddBuff(self.hostCharacter:GetBattleId(), skillBuffId)
+    end
+end
+
+--- 战斗结束时处理
+function M:OnEndFight(...)
+
+end
+
+--- 临时
+function M:OnHpChange(fDamage)
+    for _, v in pairs(self.persistBuffList) do
+        if v ~= nil then
+            v:OnHpChange(fDamage)
+        end
+    end
+end
+
+function M:OnUpdate(fDeltaTime)
+    local persistBuffList = self.persistBuffList
+    local battleContext = self.battleContext
+    local readyRemoveBuffList = self.readyRemoveBuffList
+    local removeBuffList = self.removeBuffList or {}
+    for _, v in pairs(persistBuffList) do
+        v:Update(fDeltaTime)
+    end
+    for buffId, v in pairs(readyRemoveBuffList) do
+        local persistGroup = persistBuffList[buffId]
+        if persistGroup ~= nil then
+            persistBuffList[buffId] = nil
+            persistGroup:DoTransformBuff()
+            local buffLabel = persistGroup.buffLabel
+            -- local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, buffId)
+            -- local buffLabel = buffConfig.label or 0
+            BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_RemoveBuff_7, self.fromId, buffLabel)
+        end
+
+        if v ~= nil and v.UpdateReadyRemove then
+            v:UpdateReadyRemove(fDeltaTime)
+        end
+    end
+
+    for _, buffId in ipairs(removeBuffList) do
+        local persistGroup = persistBuffList[buffId]
+        if persistGroup ~= nil then
+            local buffLabel = persistGroup.buffLabel
+            persistGroup:DoTransformBuff()
+            persistGroup:Clear()
+            battleContext:GetBattlePoolManager():PushPersistBuffGroup(persistGroup)
+            persistBuffList[buffId] = nil
+            BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_RemoveBuff_7, self.fromId, buffLabel)
+        else
+            persistGroup = readyRemoveBuffList[buffId]
+            if persistGroup ~= nil then
+                persistGroup:ClearCloseArt()
+                battleContext:GetBattlePoolManager():PushPersistBuffGroup(persistGroup)
+                readyRemoveBuffList[buffId] = nil
+                -- local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, buffId)
+                -- local buffLabel = buffConfig.label or 0
+                -- BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_RemoveBuff_7, self.fromId, buffLabel)
+            end
+        end
+
+        BattleLogger.log(" 移除 buff ：", buffId)
+    end
+
+    self.removeBuffList = {}
+end
+
+--- 添加Buff，通过Skill_Buff配置表中取具体的Buff类型添加
+--- @param iBuffId number 对应Skill_Buff中的buffId
+--- @param onAddAction function 添加Buff时的操作
+function M:AddBuff(fromId, iBuffId, onAddAction)
+    if self.hostCharacter:CheckIsDied() then
+        -- 角色死亡，不用添加
+        return
+    end
+
+    local buffId = iBuffId
+    if buffId == nil then
+        BattleLogger.log_error("[AddBuff] - 添加buff的ID为空！")
+        return
+    end
+
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, buffId)
+    if buffConfig == nil then
+        BattleLogger.log_error("[AddBuff] - 给定的BuffId没有配置数据，请检查配置！ -- ",
+            tostring(buffId))
+        return
+    end
+
+    local buffEffects = buffConfig.eff or {}
+    -- if buffEffects == nil then
+    --     BattleLogger.log_error("[AddBuff] - 配置中没有eff字段，请检查配置！ -- ", tostring(buffId))
+    --     return
+    -- end
+
+    local bCanAddBuff = self:_checkCanAddBuff(buffConfig)
+    if not bCanAddBuff then
+        -- 判定不能添加Buff
+        BattleLogger.log("[AddBuff] - 判定不能添加当前Buff -- ", tostring(buffId))
+
+        return
+    end
+    local buffTypeIsLegal = self:_checkIsLegal(buffConfig)
+    if not buffTypeIsLegal then
+        return
+    end
+
+    local bCanAddByDomination = self:_checkIsNoDomination(buffConfig)
+    if not bCanAddByDomination then
+        BattleEventUtils:DisPath_Immune(self.hostCharacter:GetBattleId(),
+            self.hostCharacter:GetTransform():isLeftTeam())
+        return
+    end
+
+    local bIsInstant = self:_checkIsInstantBuff(buffConfig)
+    if bIsInstant then
+        self:_doAddInstantBuff(buffId, buffEffects, fromId)
+    else
+        local buffLabel = buffConfig.label or 0
+        BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_GetBuff_6, self.hostCharacter:GetBattleId(),
+            buffLabel)
+        self:_doAddPersistBuff(buffId, buffEffects, buffConfig, fromId)
+    end
+
+    --BattleLogger.log(" [AddBuff] - 添加当前Buff -- " .. tostring(self.hostCharacter:GetBattleId()) .. " ........  " .. tostring(buffId))
+    
+    if onAddAction ~= nil then
+        onAddAction(buffId)
+    end
+end
+
+function M:CheckAbnormalForAll()
+    local globalConfig = ConfigHandler:GetDataTable(GameDefine.TableName.Global)
+    local forbiddenList = globalConfig.BattleActionForbiddenBuff or {}
+    return self:_checkHasAbnormalBuff(forbiddenList)
+end
+
+function M:_checkHasAbnormalBuff(forbiddenBuffList)
+    for i, v in ipairs(forbiddenBuffList) do
+        local buffTypeId = v or 0
+        if self:CheckHasBuffType(buffTypeId, 1) then
+            return true
+        end
+    end
+
+    return false
+end
+
+--- 根据BuffID移除buff
+--- @param onRemoveAction function 移除的操作
+function M:RemoveBuff(iBuffId)
+    local buffId = iBuffId or 0
+    if buffId == nil then
+        return
+    end
+    table.insert(self.removeBuffList, buffId)
+    --log_Error(" [AddBuff] - 删除当前Buff -- " .. tostring(self.hostCharacter:GetBattleId()) .. " ........  " .. tostring(buffId))
+end
+
+--- 根据BuffID移除buff
+--- @param onRemoveAction function 移除的操作
+function M:ReadyRemoveBuff(iBuffId, buffInfo)
+    local buffId = iBuffId or 0
+    if buffId == nil then
+        return
+    end
+    self.readyRemoveBuffList[iBuffId] = buffInfo
+end
+
+function M:CheckHasBuffId(iBuffId, iLayerCount)
+    local buffId = iBuffId
+    if buffId == nil then
+        return false
+    end
+
+    local persistGroup = self.persistBuffList[buffId]
+    if persistGroup ~= nil then
+        return persistGroup:GetLayerNum() >= iLayerCount
+    else
+        return false
+    end
+end
+
+function M:CheckHasBuffType(iBuffTypeId, iBuffLayerCount)
+    for _, v in pairs(self.persistBuffList) do
+        if v ~= nil and v:CheckHasBuffType(iBuffTypeId, iBuffLayerCount) then
+            return true
+        end
+    end
+
+    return false
+end
+
+function M:Clear()
+    self:_clearBuffList()
+end
+
+function M:OnDied()
+    self:_clearBuffList()
+end
+
+---@return PersistBuffGroup
+function M:GetBuffById(buffId)
+    if buffId == nil then
+        return nil
+    end
+
+    local persistGroup = self.persistBuffList[buffId]
+    return persistGroup
+end
+
+----------------------------------------------------------------------
+
+function M:_checkIsNoDomination(buffConfig)
+    local unstoppable = buffConfig.unstoppable or 0 -- 0 - 需要判断   1 - 不需要判断
+    local bAddBuff = false
+    if unstoppable ~= 0 then
+        bAddBuff = true
+    else
+        local isHaveBuff = self:CheckHasBuffType(BattleEnum.BuffType.Buff_Dominant, 1)
+        if isHaveBuff then
+            local isControlBuff = BattleHelper:isControlBuffForDomination(buffConfig)
+            return not isControlBuff
+        else
+            return true
+        end
+    end
+    return bAddBuff
+end
+
+function M:_checkCanAddBuff(buffConfig)
+    local unstoppable = buffConfig.unstoppable or 0 -- 0 - 需要判断   1 - 不需要判断
+    local bAddBuff = false
+    if unstoppable ~= 0 then
+        bAddBuff = true
+    else
+        -- 计算概率
+        local probability = buffConfig.p or 1
+        -- probability = probability * 10000
+        -- 取[0, 100)之间的随机值
+        bAddBuff = self.battleContext:GetBattleRandom():IsWithinTheScopeOfFloat(probability, "  buff 命中 p ：",
+            self.hostCharacter:GetTransform():GetInitPos(), self.hostCharacter:GetCharacterContext():GetBattleCamp())
+        -- bAddBuff = randomValue <= probability
+    end
+
+    return bAddBuff
+end
+
+function M:_checkIsLegal(buffConfig)
+    local buffTimeType = buffConfig.timeType or 0
+    if buffTimeType == 1 then
+        return true
+    else
+        local buffTimeConfig = buffConfig.time or {}
+        local buffTime = buffTimeConfig[1] or 0
+        if buffTime == 0 then
+            BattleLogger.log_error(" buff time 列配置错误 ！！！ ", tostring(buffConfig.buffId))
+            return false
+        end
+
+        local overlay = buffConfig.overlayType or 0
+        if overlay == 0 then
+            BattleLogger.log_error(" buff overlayType 列配置错误 ！！！ ", tostring(buffConfig.buffId))
+            return false
+        end
+        return true
+    end
+end
+
+function M:_checkIsInstantBuff(buffConfig)
+    local buffTimeType = buffConfig.timeType or 0
+    return buffTimeType == 1
+end
+
+function M:_doAddInstantBuff(buffId, effects, fromId)
+    -- 瞬时Buff，不需要处理叠层
+    local buffGroup = self.battleContext:GetBattlePoolManager():PopInstantBuffGroup(self.hostCharacter, self,
+        self.battleContext)
+    buffGroup:Initialize(buffId, fromId)
+    buffGroup:AddEffects(effects)
+    buffGroup:Clear()
+    self.battleContext:GetBattlePoolManager():PushInstantBuffGroup(buffGroup)
+end
+
+function M:_doAddPersistBuff(buffId, effects, buffConfig, fromId)
+    local buffGroup = self.persistBuffList[buffId]
+    if buffGroup == nil then
+        buffGroup = self.battleContext:GetBattlePoolManager():PopPersistBuffGroup(self.hostCharacter, self,
+            self.battleContext)
+        -- 持续性buff的数据
+        local buffInfo = {
+            theTime        = buffConfig.time,        -- 持续时间
+            theOverlayType = buffConfig.overlayType, -- 叠加规则
+            theMaxLayer    = buffConfig.maxLayer,    -- 最大层数
+            theTransform   = buffConfig.transform    -- 满层转化buff
+        }
+        self.persistBuffList[buffId] = buffGroup
+        buffGroup:Initialize(buffId, buffInfo, fromId)
+    else
+        -- 如果已经有添加过，处理叠层
+        buffGroup:OverlayEffects(fromId)
+    end
+end
+
+function M:_clearBuffList()
+    for k in pairs(self.persistBuffList) do
+        if self.persistBuffList[k] ~= nil then
+            self.persistBuffList[k]:Clear()
+            self.battleContext:GetBattlePoolManager():PushPersistBuffGroup(self.persistBuffList[k])
+            self.persistBuffList[k] = nil
+        end
+    end
+    for k in pairs(self.readyRemoveBuffList) do
+        if self.readyRemoveBuffList[k] ~= nil then
+            self.readyRemoveBuffList[k]:Clear()
+            self.battleContext:GetBattlePoolManager():PushPersistBuffGroup(self.readyRemoveBuffList[k])
+            self.readyRemoveBuffList[k] = nil
+        end
+    end
+end
+
+return M

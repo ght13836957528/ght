@@ -1,0 +1,237 @@
+---------
+--[[
+   寻路逻辑地图
+   左下角是起始点
+     [0,3] [1,3] [2,3] [3,3]
+   [0,2] [1,2] [2,2] [3,2]
+     [0,1] [1,1] [2,1] [3,1]
+   [0,0] [1,0] [2,0] [3,0]
+]]
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+-- local PathFinderBridge = CS.UW.PathFinder.PathFinderBridge
+local PathFinderBridge = require "GameLogic.Battle.BattleAStar.PathFinderBridge"
+---@class BattleMapPathFinder
+local BattleMapPathFinder = class("BattleMapPathFinder")
+local DicMap = require "GameLogic.Battle.BattleScene.BattleDicMap"
+local M = BattleMapPathFinder
+
+local c_OuterRadius = BattleConstant.OuterRadius or 1
+local c_InnerRadius = c_OuterRadius * 0.866025404
+
+
+function M:Ctor()
+
+end
+
+function M:Initialize(x, z, cellSize, off_y, Obstacles, battlePointPos)
+    self.mapSize_x = z or 11
+    self.mapSize_z = x or 9
+    self.cellSize = cellSize
+    self.cellSizeMin = cellSize * 0.866025404
+    self.sceneOffs = self:AdjustPosition(x, z, off_y)
+    self.map_renderpos = {}
+    self.arr_Obstacles = Obstacles or {}
+    self.arr_battlePointPos = battlePointPos or {}
+    self.point_pos = {}
+end
+
+function M:OnStartFight()
+    self:_initializeMap()
+    self:_initDynamicObstacle(self.arr_Obstacles)
+    self:_initPointPos(self.arr_battlePointPos)
+end
+
+function M:OnEndFight()
+
+end
+
+function M:Clear()
+
+end
+
+function M:_initializeMap()
+    self:_initLogicMap()
+end
+
+function M:_initLogicMap()
+    self.hexStar = PathFinderBridge.CreateHexAStar()
+    -- self.cs_list_static_obs = PathFinderBridge.CreateListToLua()
+    -- self.cs_list_dynamic_obs = PathFinderBridge.CreateListToLua()
+    PathFinderBridge.InitPathFinder(self.hexStar, self.mapSize_x, self.mapSize_z, 1, 0, 0)
+end
+
+function M:_initPointPos(battlePointPos)
+    battlePointPos = battlePointPos or {}
+    for index, info in ipairs(battlePointPos) do
+        local x = info[1]
+        local z = info[2]
+        if x and z then
+            local logicX, logicZ = self:XZRenderToLogic(x, z)
+            self.point_pos[index] = self:GetRenderPositionByLogicPos(logicX, logicZ)
+        end
+    end
+end
+
+function M:GetScenePointPos(posIndex)
+    local int_pos = tonumber(posIndex)
+    local pos = self.point_pos[int_pos]
+    if pos then
+        return pos
+    else
+        return Vector3.zero
+    end
+end
+
+function M:_initDynamicObstacle(Obstacles)
+    Obstacles = Obstacles or {}
+    for _, info in pairs(Obstacles) do
+        local x = info[1]
+        local z = info[2]
+        if x and z then
+            local logicX, logicZ = self:XZRenderToLogic(x, z)
+            local index = self:GetLogicIndexByXZ(logicX, logicZ)
+            self:SetDynamicObstacle(index, true)
+        end
+    end
+end
+
+function M:SetDynamicObstacle(targetIndex, isObstacle)
+    PathFinderBridge.SetDynamicObstacleIndex(self.hexStar, targetIndex, isObstacle)
+end
+
+---@param targetIndexs cslist
+function M:SetDynamicObstacles(targetIndexs)
+    PathFinderBridge.SetDynamicObstacles(self.hexStar, targetIndexs)
+end
+
+function M:IsObstacle(x, z)
+    local index = x + (z - 1) * self.mapSize_x
+    return PathFinderBridge.IsObstacleIndex(self.hexStar, index)
+end
+
+function M:GetLogicIndexByXZ(x, z)
+    return (z - 1) * self.mapSize_x + x
+end
+
+function M:GetLogicXZByIndex(index)
+    local x, z = math.modf(index / self.mapSize_x)
+    return x + 1, z
+end
+
+function M:XZLogicToRender(x, z)
+    local _x = z -- + 1
+    local _z = x -- + 1
+    return _x, _z
+end
+
+function M:XZRenderToLogic(x, z)
+    local _x = z -- - 1
+    local _z = x -- - 1
+    return _x, _z
+end
+
+function M:GetRenderPositionByLogicIndex(logicIndex)
+    local x, z = self:GetLogicXZByIndex(logicIndex)
+    return self:GetRenderPositionByLogicPos(x, z)
+end
+
+function M:GetRenderPositionByLogicPos(logicX, logicZ)
+    local x, z = self:XZLogicToRender(logicX, logicZ)
+    return self:GetRenderPositionByRenderPos(x - 1, z - 1)
+end
+
+--- 此算法是来自 c# HexagonGrid 类
+function M:GetRenderPositionByRenderPos(renderX, renderZ)
+    if self.map_renderpos[renderX] and self.map_renderpos[renderX][renderZ] then
+        return self.map_renderpos[renderX][renderZ]
+    end
+    self.map_renderpos[renderX] = self.map_renderpos[renderX] or {}
+
+    local _x = renderX * self:_getOuterRadius() * 1.5 + self.sceneOffs.x
+    local _z = -(renderZ + (renderX * 0.5 - math.modf(renderX / 2))) * (self:_getInnerRadius() * 2) + self.sceneOffs.z
+    local pos = Vector3(_x, 0, _z)
+    self.map_renderpos[renderX][renderZ] = pos
+    return pos
+end
+
+--- 此算法是来自 c# HexagonGrid 类
+function M:AdjustPosition(x, z, off_y)
+    local centerX = x // 2
+    local centerY = z // 2
+    local m_OffsetX = -centerX * self:_getOuterRadius() * 1.5
+    local m_OffsetY = (centerY + (centerX * 0.5 - centerX // 2)) * (self:_getInnerRadius() * 2)
+    return Vector3(m_OffsetX, off_y, m_OffsetY)
+end
+
+function M:GetGunsLogicPos(index, camp)
+    if camp == BattleEnum.BattleCamp.Attack then
+        return self.mapSize_x - index + 1, self.mapSize_y
+    else
+        return index, 1
+    end
+end
+
+function M:_getOuterRadius()
+    return c_OuterRadius * self.cellSize
+end
+
+function M:_getInnerRadius()
+    return c_InnerRadius * self.cellSize
+end
+
+function M:FindPath(startIndex, endIndex)
+    return PathFinderBridge.FindPath(self.hexStar, startIndex, endIndex)
+end
+
+function M:FindPathHZ(startIndex, endIndex)
+    return PathFinderBridge.FindPathHZ(self.hexStar, startIndex, endIndex)
+end
+
+function M:GetSurroundList(x, z)
+    return self.hexStar:GetSurroundListByZ(z)
+end
+
+function M:GetCoordByIndex(x, y)
+    local corex = x - math.modf(y / 2)
+    local corey = y
+    return corex, corey
+end
+
+-- function M:Distance(x1,z1,x2,z2)
+--    local zAbs = math.abs(z1-z2)
+--    local xdis = math.abs(x1 - x2) - zAbs
+--    xdis = xdis <= 0 and 0 or xdis
+--    return xdis + zAbs
+-- --    local corex1,corez1 = self:GetCoordByIndex(x1,z1)
+-- --    local corex2,corez2 = self:GetCoordByIndex(x2,z2)
+-- --    return math.abs(corex1-corex2) +  math.abs(corez1-corez2)
+
+-- end
+
+function M:Distance(x1, z1, x2, z2)
+    -- do
+    --     return DicMap[x1 * 1000 + z1 * 100 + x2 * 10 + z2]
+    -- end
+
+    local zAbs = math.abs(z1 - z2)
+    local _, num2 = math.modf(z1 * 0.5)
+    local min = 0
+    local max = 0
+    if num2 ~= 0 then
+        min = x1 - math.modf((zAbs + 1) * 0.5)
+        max = x1 + math.modf(zAbs * 0.5)
+    else
+        min = x1 - math.modf(zAbs * 0.5)
+        max = x1 + math.modf((zAbs + 1) * 0.5)
+    end
+    if x2 < min then
+        return min - x2 + zAbs
+    elseif x2 > max then
+        return x2 - max + zAbs
+    else
+        return zAbs
+    end
+end
+
+return M

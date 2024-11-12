@@ -1,0 +1,126 @@
+----------------------------------------------------------------------
+--------- 2022年12月15日 18:23:40 星期四
+----------------------------------------------------------------------
+
+local BehaviorContext      = require "GameLogic.Battle.BehaviorDecision.BehaviorContext"
+local BehaviorStateType    = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+
+---@class DecisionStateManager
+local DecisionStateManager = class("DecisionStateManager")
+local M                    = DecisionStateManager
+
+--- @param ... self, battleCharacter
+function M:Ctor(...)
+    -- 取参数
+    local params = { ... }
+    self.hostCharacter = params[1]
+    -- 所有状态的集合
+    self.stateMap = {}
+    -- 当前状态
+    self.currentState = self:CreateState(BehaviorStateType.None)
+    -- 上一个状态
+    self.prevState = nil
+    -- 上一个状态id
+    self.prevStateID = nil
+
+    self.context = BehaviorContext.new(self)
+    self.context:Initialize()
+end
+
+-- 创建对应状态
+function M:CreateState(stateId)
+    local classPath = "GameLogic.Battle.BehaviorDecision.BehaviorStates." .. stateId .. "BehaviorState"
+    local StateClass = require(classPath)
+    local state = StateClass.new(stateId, self)
+    return state
+end
+
+function M:GetContext()
+    return self.context
+end
+
+function M:GetCurrentStateID()
+    if self.currentState == nil then
+        return nil
+    end
+
+    return self.currentState:GetStateID()
+end
+
+function M:GetCurrentState()
+    if self.currentState == nil then
+        return nil
+    end
+
+    return self.currentState
+end
+
+--- 切换状态
+function M:Switch(newStateId, userdata)
+    if newStateId == nil then
+        return
+    end
+    if self.currentState ~= nil and self.currentState:GetStateID() == newStateId then
+        BattleLogger.log_error("当前已经处于该状态，不允许再切换" , newStateId)
+        return
+    end
+
+    local param = {}
+    if userdata ~= nil then
+        if type(userdata) == "table" then
+            param = userdata
+        else
+            param = { userdata }
+        end
+    end
+
+    local newState = self.stateMap[newStateId]
+    if newState == nil then
+        newState = self:CreateState(newStateId)
+        self:RegisterState(newState)
+    end
+
+    local oldState = self.currentState
+    self.prevState = oldState
+    self.currentState = newState
+    BattleLogger.log("State Switch :" , self.prevState:GetStateID() , " =====>" , self.currentState:GetStateID())
+    self.prevState:OnExit(function()
+        self.currentState:OnInit(self.hostCharacter)
+        self.currentState:OnEnter(param)
+    end)
+end
+
+function M:OnUpdate(fDeltaTime)
+    --CS.UnityEngine.Profiling.Profiler.BeginSample(self.currentState:GetStateID())
+    --if self.hostCharacter.MowingCharacterType == 2 then
+    --    log_Error("state = "..self.currentState:GetStateID())
+    --end
+    
+    local currentState = self.currentState 
+    if currentState ~= nil then
+        currentState:OnUpdate(fDeltaTime)
+    end
+    --CS.UnityEngine.Profiling.Profiler.EndSample()
+end
+
+-- 注册一个状态
+function M:RegisterState(state)
+    if state == nil then
+        BattleLogger.log("DecisionStateManager.registerState state is null")
+    end
+    if self.stateMap[state:GetStateID()] then
+        BattleLogger.log("DecisionStateManager.registerState stateDic have this key key = " , state:GetStateID())
+    end
+    self.stateMap[state:GetStateID()] = state
+    return true
+end
+
+function M:InState(state)
+    return self.currentState and self.currentState:GetStateID() == state
+end
+
+function M:Clear()
+    self.context:Clear()
+end
+
+return M

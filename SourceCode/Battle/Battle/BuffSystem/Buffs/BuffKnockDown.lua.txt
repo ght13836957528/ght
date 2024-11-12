@@ -1,0 +1,78 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 11:33:40 星期一
+----------------------------------------------------------------------
+----打飞
+
+local BaseBuff = require "GameLogic.Battle.BuffSystem.BaseBuff"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BehaviorStateType = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class BuffKnockDown:BaseBuff
+local BuffKnockDown = class("BuffKnockDown", BaseBuff)
+local M = BuffKnockDown
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+    local battleContext = self.hostCharacter:GetBattleContext()
+    ---@type BeControlledBehaviorState
+    local controlState = self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentState()
+    if controlState:GetStateID() ~= BehaviorStateType.BeControlled then
+        self._ctrId = battleContext:GetControlPackId()
+        self.hostCharacter:GetLogicHandle():OnBeControl(self.fromId, self._ctrId,
+            {
+                type = BattleEnum.BuffType.Buff_KnockDown,
+                ani = function()
+                    self:_handleKnockDown()
+                end,
+                effOpen = self._showDelegate,
+                effClose = self._hideDelegate
+            })
+    else
+        local isCan = controlState:IsCanAdd(BattleEnum.BuffType.Buff_KnockDown)
+        if isCan then
+            self._ctrId = battleContext:GetControlPackId()
+            controlState:AddControlPack(self._ctrId, {
+                type = BattleEnum.BuffType.Buff_KnockDown,
+                ani = function()
+                    self:_handleKnockDown()
+                end,
+                effOpen = self._showDelegate,
+                effClose = self._hideDelegate
+            })
+        end
+    end
+
+    -- self.hostCharacter:GetLogicHandle():OnBeControl(self.fromId, BattleEnum.BuffType.Buff_KnockDown,
+    --     BattleConstant.BlowTime, self.buffParams[2])
+    -- BattleLogger.log("击飞 ：", self.buffParams[2])
+end
+
+function M:_handleKnockDown()
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Blow_01, aniSpeed)
+    self.hostCharacter:GetFindPathManager():RepelTo(self.fromId, BattleConstant.BlowTime_1, self.buffParams[2] or 0,
+        function()
+            BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Blow_02, aniSpeed)
+        end)
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+    if self._ctrId then
+        ---@type BeControlledBehaviorState
+        local controlState = self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentState()
+        if controlState:GetStateID() ~= BehaviorStateType.BeControlled then
+            -- Battle.log_Error("??? 控制buff没结束却 不在 控制状态 ")
+        else
+            controlState:RemoveControlPack(self._ctrId)
+        end
+    end
+end
+
+return M

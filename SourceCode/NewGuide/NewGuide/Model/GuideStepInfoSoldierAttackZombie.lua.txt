@@ -1,0 +1,10 @@
+---@class GuideStepInfoSoldierAttackZombie : GuideStepBaseInfo
+local Base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfoSoldierAttackZombie = class("GuideStepInfoSoldierAttackZombie", Base)
+local M = GuideStepInfoSoldierAttackZombie
+
+function M:onParse()
+
+end
+
+return M

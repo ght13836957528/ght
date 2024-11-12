@@ -1,0 +1,125 @@
+---@class BattleCharacterModelBase
+local BattleCharacterModelBase = class("BattleCharacterModelBase")
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+
+local M = BattleCharacterModelBase
+
+function M:Ctor()
+    self._heroUuid = 0
+    self._heroId = 0
+    self._level = 1
+    self._exp = 0
+    self._quality = 1
+    --- 站位index (1~5)
+    self._posIndex = 0
+    self._star = 1
+    --- 队伍index (1~4)
+    self._teamIndex = 0
+    self._buildingUuid = 0
+    ---
+    self._type = BattleEnum.DataType.Player
+    self._combat = 0
+    self._attMapBase = {}
+    self._soldiersMap = {}
+    self._attMap = {}
+
+    self._baseHp = -1
+    self._baseRage = 0
+    self._baseShield = 0
+
+    self._baseScale = 1
+    self._volumeRadius = 1
+    self._isBoss = false
+end
+
+function M:setBaseScale(scale)
+    scale = scale or 1
+    self._baseScale = scale 
+end
+
+function M:setVolumeRadius(volumeRadius)
+    volumeRadius = volumeRadius or 1
+    self._volumeRadius = volumeRadius 
+end
+
+function M:initBaseProperty(basePropertyMap, attMap)
+    if basePropertyMap and basePropertyMap.rage then
+        self._baseRage = basePropertyMap.rage
+    else
+        self._baseRage = 0
+    end
+    if attMap[99] then
+        local tmp = attMap[99]
+        for _, value in pairs(tmp) do
+            self._baseRage = self._baseRage + value
+        end
+    end
+    if basePropertyMap and basePropertyMap.hp then
+        self._baseHp = basePropertyMap.hp
+    else
+        self._baseHp = -1
+    end
+    if basePropertyMap and basePropertyMap.shield then
+        self._baseShield = basePropertyMap.shield
+    else
+        self._baseShield = 0
+    end
+end
+
+function M:initTeamCombat(soliderMap, infos)
+    local attMap = {}
+    for _, info in pairs(infos) do
+        attMap[info.id] = info.value
+    end
+    self._combat = self:initCombat(soliderMap, attMap)
+end
+
+function M:initTeamCombat_robot(soliderMap, attMap)
+    self._combat = self:initCombat(soliderMap, attMap)
+end
+
+function M:initCombat(soliderMap, attMap)
+    attMap = attMap or {}
+    local k, total = self:getSoldiersK(soliderMap)
+    local combat = 0
+    local NavyNum_Param = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_DMG_Formula_NavyNum_Param")
+    for attId, value in pairs(attMap) do
+        local con = ConfigHandler:GetEntry(GameDefine.TableName.Attribute, attId)
+        if con and con.bp and value > 0 then
+            local bp = con.bp
+            if attId == BattleEnum.BattleAttribute.AttributeType_HP_1 then
+                combat = combat + k * total * value * bp
+            elseif attId == BattleEnum.BattleAttribute.AttributeType_ATK_2 or
+                attId == BattleEnum.BattleAttribute.AttributeType_DEF_3 or
+                attId == BattleEnum.BattleAttribute.AttributeType_MDEF_4 then
+                combat = combat + k * value * bp * (total ^ NavyNum_Param)
+            else
+                combat = combat + value * bp
+            end
+        end
+    end
+    return math.floor(combat)
+end
+
+function M:getSoldiersK(soldierMap)
+    soldierMap = soldierMap or {}
+    local total = 0
+    local kTotal = 0
+    for level, value in pairs(soldierMap) do
+        total = total + value
+        local con_navy = CommonUtils:GetNavyConfigByLevel(level)
+        if con_navy and con_navy.attRate then
+            kTotal = kTotal + value * con_navy.attRate
+        end
+    end
+    --- 保底处理
+    if kTotal < 1 then
+        kTotal = 1
+        total = 1
+    end
+    local k = kTotal / total
+
+    return k, total
+end
+
+return M

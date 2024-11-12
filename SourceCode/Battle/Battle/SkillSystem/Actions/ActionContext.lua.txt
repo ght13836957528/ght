@@ -1,0 +1,44 @@
+----------------------------------------------------------------------
+--------- 2023年01月17日 11:26:11 星期二
+----------------------------------------------------------------------
+
+--[[
+    鉴于有些特殊参数，如movParam不能统一通过参数传递进Action处理，增加context作为
+    Action的黑板，也可以用于Action之间传递数据
+]]
+
+---@class ActionContext
+local ActionContext = class("ActionContext")
+local M = ActionContext
+
+function M:Ctor()
+    --
+end
+
+------------------------移动事件用的移动参数--------------------------
+--- 记录movParam参数，解析成table, index为key
+--- @param moveParam table {{102, 2, 4}, {103, 3, 4}}
+function M:SetMoveParam(moveParam)
+    --self.moveParam = moveParam
+    self.moveParamData = {}
+    local dataItems = moveParam or {}
+    for i, v in ipairs(dataItems) do
+        local item = {moveType = v[2], targetType = v[3]}
+        self.moveParamData[v[1]] = item
+    end
+end
+
+function M:GetMoveParamByIndex(iIndex)
+    local index = iIndex or 0
+    if index <= 0 then
+        return nil
+    end
+    
+    return self.moveParamData[index]
+end
+
+function M:Clear()
+    --
+end
+
+return M

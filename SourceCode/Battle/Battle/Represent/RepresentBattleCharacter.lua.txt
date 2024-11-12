@@ -1,0 +1,59 @@
+----------------------------------------------------------------------
+--------- 2023年02月07日 21:07:08 星期二
+----------------------------------------------------------------------
+
+local BaseRepresentCharacter = require "GameLogic.Battle.Represent.BaseRepresentCharacter"
+
+---@class RepresentBattleCharacter:BaseRepresentCharacter
+local RepresentBattleCharacter = class("RepresentBattleCharacter", BaseRepresentCharacter)
+local M = RepresentBattleCharacter
+
+function M:Ctor(battleId)
+    self.battleId = battleId
+end
+
+function M:Initialize(csBattleCharacter)
+    self.csBattleCharacter = csBattleCharacter
+    self.csBattleCharacter:SetBattleId(self.battleId)
+end
+
+function M:PlayAnimation(strAnimationName,isRest)
+    isRest = isRest or false
+    self.csBattleCharacter:PlayAnimation(strAnimationName,isRest,nil)
+end
+
+function M:PlayEffect(strEffectName, strRoot)
+    print("播放特效 ："..tostring(strEffectName).."   root  "..tostring(strRoot))
+end
+
+function M:PlaySound(strSoundName)
+   print("播放音效 ："..tostring(strSoundName))
+end
+
+function M:MoveTo(pos)
+    self.csBattleCharacter:MoveTo(pos)
+end
+
+function M:LookRotation(pos)
+    self.csBattleCharacter:LookRotation(pos)
+end
+
+function M:UpdateHpDisplay(fChangeValue, fCurrentValue, fMaxValue)
+    self.csBattleCharacter:UpdateHpDisplay(fChangeValue, fCurrentValue, fMaxValue)
+end
+
+function M:UpdateRageDisplay(fMaxRage, fCurrentRage)
+    self.csBattleCharacter:UpdateRageDisplay(fMaxRage, fCurrentRage)
+end
+
+function M:SetAnimationSpeed(speed)
+    -- log_Error("SetAnimationSpeed : ",speed)
+    self.csBattleCharacter:SetAnimationSpeed(speed)
+end
+
+function M:OnDied()
+    self.csBattleCharacter:OnDie()
+end
+
+
+return M

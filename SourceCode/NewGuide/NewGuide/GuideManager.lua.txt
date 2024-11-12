@@ -1,0 +1,517 @@
+require "GameLogic.NewGuide.GuideEvent"
+require "GameLogic.NewGuide.GuideStageType"
+require "GameLogic.NewGuide.GuideStepType"
+require "GameLogic.NewGuide.GuideFactory"
+require "GameLogic.NewGuide.Const.NewGuideConst"
+require "GameLogic.NewGuide.Const.NewGuideConst"
+require "GameLogic.CommonLightArea.CommonLightAreaManager"
+
+---------------------------Action处理类---------------------
+require "GameLogic.NewGuide.Manager.HandAndArrowGuideManager"
+require "GameLogic.NewGuide.Manager.CartoonManager"
+require "GameLogic.NewGuide.Manager.MainCityOperationManager"
+require "GameLogic.NewGuide.Manager.BuildingArrowManager"
+require "GameLogic.NewGuide.Manager.CarTimeManager"
+
+
+---@class GuideManager @引导管理器
+---@field _trigger GuideTriggerManager @触发器
+---@field _lightRing LightRingGuideManager @光圈引导管理器
+---@field guideRecord GuideRecord @光圈引导管理器
+---@field guideObject GuideObject @引导对象
+---@field _versionControl GuideVersionControl @引导版本控制对象
+---@field _lightArea LightAreaGuideManager @高光引导管理器
+---@field guideInfo GuideInfo @引导的数据结构
+---@field guideMiniGameControl GuideMiniGameControl @引导的小游戏控制类
+GuideManager = {}
+local M = GuideManager
+
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+local GameDataCenter = CS.GameDataCenter
+local SERVER_GUIDE_KEY = "SERVER_GUIDE_Completed_Key"
+
+function M.init()
+    M.addEventListener()
+    M.guideInfo = nil -- 引导的info对象
+    M.guideObject = nil -- 引导的action对象
+    M.guideRecord = nil -- 引导的记录对象
+    M.isNewGuide = false
+    
+    M._lightRing = require("GameLogic.NewGuide.Manager.LightRingGuideManager").new()
+    M._carTime = require("GameLogic.NewGuide.Manager.CarTimeManager").new()
+    M._versionControl = require("GameLogic.NewGuide.GuideVersionControl").new()
+    M._lightArea = require("GameLogic.NewGuide.Manager.LightAreaGuideManager").new()
+    M.guideRecord = require("GameLogic.NewGuide.GuideRecord").new()
+    M.guideInfo = require("GameLogic.NewGuide.Model.GuideInfo").new()
+    M._trigger = require("GameLogic.NewGuide.Trigger.GuideTriggerManager").new()
+    M.guideObject = require("GameLogic.NewGuide.GuideObject").new()
+    M.guideMiniGameControl = require("GameLogic.NewGuide.GuideMiniGameControl").new()
+    
+    HandAndArrowGuideManager.initHandGuideManager()
+    CartoonManager.initManager()
+    MainCityOperationManager.initManager()
+    BuildingArrowManager.initManager()
+end
+
+function M.initServerData(message) -- 获取initMessage的数据
+    if message and message.guideRecord then
+        local guideRecord = message.guideRecord.isNewGuid
+        if guideRecord then
+            M.isNewGuide = true
+        end
+        local keys = M.guideMiniGameControl:getAllMiniGameKeys()
+        for k,v in pairs(message.guideRecord) do
+            if k == "PlayerCurrentGuideStep" then
+                M.curGuideStep = tonumber(v)
+            elseif k== SERVER_GUIDE_KEY then
+                M.guideRecord:parse(v)
+            end
+            for m,n in pairs(keys) do
+                if k == n then
+                    M.guideMiniGameControl:setMiniGameComplete(k,v)
+                end
+            end
+        end
+        M._versionControl:initVersion()
+        M.guideInfo:initGuideStepTable()
+        M._trigger:initListener()
+        M.guideInfo:setAllGuideRecordMap(message.guideRecord)
+        M.guideObject:init()
+    end
+end
+
+function M.addEventListener()
+end
+
+function M.removeEventListener()
+end
+
+
+-- 获取guideInfo实例
+---@return GuideInfo
+function M.getGuideInfo()
+    return M.guideInfo
+end
+
+-- 获取guideObject实例
+function M.getGuideObject()
+    return M.guideObject
+end
+
+-- 获取versionControl实例
+function M.getGuideVersionControl()
+    return M._versionControl
+end
+--------------------------------------------------对外接口---------------------------------------------------------------------
+-- 重置当前数据
+function M.resetGuideData()
+    if M.guideObject then
+        M.guideObject:dispose()
+    end
+    if  M.guideRecord then
+        M.guideRecord:resetData()
+    end
+    if M._lightRing then
+        M._lightRing:clearConfigBtnName()
+    end
+    if M._versionControl then
+        M._versionControl:clear()
+    end
+    if M.guideInfo then
+        M.guideInfo:dispose()
+    end
+    if M._trigger then
+        M._trigger:dispose()
+    end
+    if M._lightArea then
+        M._lightArea:clearConfigBtnName()
+    end
+    if M.guideMiniGameControl then
+        M.guideMiniGameControl:clear()
+    end
+    M.isNewGuide = false
+    M.curGuideStep = nil
+    HandAndArrowGuideManager.clear()
+    CartoonManager.clear()
+    MainCityOperationManager.clear()
+    BuildingArrowManager.clear()
+end
+
+-- newGuide 
+function M.getIsNewGuide() 
+    return M.isNewGuide
+end
+
+---是否正在引导
+---@return boolean
+function M.isRunning()
+    if not M.guideInfo then
+        return false
+    end
+    return not M.guideInfo:isGuideOver()
+end
+
+---获取当前正在播放的引导步骤ID
+---@return number
+function M.getCurStepId()
+    if not M.isRunning() then
+        return -1
+    end
+    local index = M.guideInfo:getCurGuideIndex()
+    return index
+end
+
+---尝试播放第一段引导
+function M.tryPlayFirst()
+    -- 屏蔽引导
+    if CS.CommonUtils:CheckIsNewCity() then
+        return
+    end
+    
+    if not M.isNewGuide then
+        return
+    end
+    if string.isNilOrEmpty(M.curGuideStep) then
+        if not M._checkIfHadGuide() then
+            --只要引导先打开遮挡界面，防止点穿
+            UIManager.panel:open(UIPanelType.UIGuideMaskView,nil,function()
+            end)
+            local firstStep = M._versionControl:getCurGuideFirstStep()
+            if string.isNilOrEmpty(firstStep) then
+                print_error("fist step is nil")
+                return
+            end
+            print("fist step is "..firstStep)
+            M.play(firstStep)
+        else
+            --当前不在强制引导中
+            --UIManager.panel:open(UIPanelType.UIGuideMaskView,nil,function()
+            --    local view = UIManager.panel:getOpened(UIPanelType.UIGuideMaskView)
+            --    view:setBlackMaskActiveSelf(false)
+            --end)
+            return
+        end
+    else
+        local chapterId = GameEntry.Data.Quest.chapterTask.ChapterID
+        if chapterId == 0 or chapterId >= 3 then
+            return
+        end
+        local stepInfo = M.guideInfo:getStepInfoById(M.curGuideStep)
+        if not stepInfo then
+            print_error("curGuideStep info is nil")
+            return
+        end
+        if not stepInfo.jumpMark then
+            print_error("curGuideStep jumpMark is nil,id==="..stepInfo.id)
+            return
+        end
+        UIManager.panel:open(UIPanelType.UIGuideMaskView,nil,function()
+        end)
+        M._cover(stepInfo)
+    end
+end
+
+
+
+-- 判断当前是否已经经历过引导
+function M._checkIfHadGuide()
+    local result = M.checkHaveKeyRoad()
+    if M.isNewGuide then
+        if GameEntry.Data.Building.MainLv > 0 then
+            result = true
+        end
+    else
+        if not result then
+            for k,v in pairs(GameEntry.Data.Building.Buildings.Values) do
+                if v.type == "432000"  then --  FUN_BUILD_WATER = 432000;//净水处理站
+                    result = true
+                    break
+                end
+            end
+        end
+    end
+    return result
+end
+
+function M.checkHaveKeyRoad()
+    local roadPos = string.split(CS.GameDefines.GuideCustomConfig.CheckRoadTilePos,";")
+    local Vector2Int = CS.UnityEngine.Vector2Int
+    return GameEntry.Data.Building:HasRoad(Vector2Int(tonumber(roadPos[1]),tonumber(roadPos[2])));
+end
+
+--动态修改引导配置数据
+function M.modifyGuideData(guideId , parameter , target)
+    local guideInfo =  M.guideInfo:getStepInfoById(guideId)
+    if guideInfo then
+        if guideInfo[parameter] then
+            guideInfo[parameter] = target
+        end
+    end
+end
+
+---播放引导
+---@param id string 每段引导开始id
+---@return boolean 是否播放成功
+function M.play(id) 
+    M.guideObject:beginGuide(id)
+end
+
+function M:_moveNext()
+    M.guideObject:moveNext()
+end
+
+---恢复引导
+---@param stepInfo GuideStepBaseInfo 上次播放引导，执行到的步骤数据
+function M._cover(stepInfo)
+    print("cover id==="..stepInfo.id)
+    if stepInfo.type == GuideStepType.trigger then -- 判断断线重连过程中，如果是trigger类型，需要判断等待的操作是否已经完成
+        local isComplete = M._trigger:checkTriggerIfHasFinished(stepInfo)
+        if isComplete then  -- trigger检测到本步已经完成，则进行下一步
+            M.play(stepInfo.next)
+        else                -- trigger检测到本步未完成，则执行跳转步骤
+            M.play(stepInfo.jumpMark)
+        end
+        return
+    end
+    if stepInfo.jumpMark == 0 then
+        M.play(M.curGuideStep)
+    elseif stepInfo.jumpMark == 1 then
+        M.play(stepInfo.next)
+    else
+        M.play(stepInfo.jumpMark)
+    end
+end
+
+-- 向光圈引导Manager添加目标按钮
+function M.addBtnToLightRingList(name,btn)
+    M._lightRing:addBtnToTargetBtnList(name,btn)
+end
+
+-- 向光圈引导Manager添加目标Toggle
+function M.addToggleToLightRingList(name,toggle)
+    M._lightRing:addToggleToTargetList(name,toggle)
+end
+
+-- 获取光圈引导的按钮对象
+function M.getLightRingBtnByName(name)
+   return M._lightRing:getBtnByName(name)
+end
+
+-- 获取光圈引导的Toggle对象
+function M.getLightRingToggleByName(name)
+    return M._lightRing:getToggleByName(name)
+end
+
+function M.setConfigBtnName(name)
+    M._lightRing:setConfigBtnName(name)
+end
+
+function M.getConfigBtnName()
+    return M._lightRing:getCurConfigName()
+end
+
+-- 判断当前taskId在guide表中是否有对应的GuideId
+function M.getIfHaveGuideByTaskId(taskId)
+    return M._trigger:getIfHaveGuideByTaskId(taskId)
+end
+
+-- 获取当前引导数据
+function M.getCurGuideInfo()
+    return M.guideInfo:getCurGuideInfo()
+end
+
+-- 获取当前引导类型
+function M.getCurGuideType()
+    return M.guideInfo:getCurGuideType()
+end
+
+-- 存储引导步骤
+function M.recordStep(id)
+    M.guideRecord:recordKeyStepId(id)
+end
+
+
+-- 清除存储引导步骤
+function M.clearRecordStep()
+    M.guideRecord:resetData()
+end
+
+-- 判断stepId是否已经执行
+function M.ifStepHasExecuted(id)
+    return M.guideRecord:ifStepHasExecuted(id)
+end
+
+--设置用来遮挡的maskview
+function M.setMaskViewActiveSelf(state)
+    local UIGuideMaskView = UIManager.panel:getOpened(UIPanelType.UIGuideMaskView)
+    if UIGuideMaskView  then
+        UIGuideMaskView:setBlackMaskActiveSelf(state)
+    else
+        if state then
+            UIManager.panel:open(UIPanelType.UIGuideMaskView,nil,function()
+                local view = UIManager.panel:getOpened(UIPanelType.UIGuideMaskView)
+                view:setBlackMaskActiveSelf(state)
+            end)
+        end
+    end
+end
+
+function M.maskActive()
+    local UIGuideMaskView = UIManager.panel:getOpened(UIPanelType.UIGuideMaskView)
+    if not UIGuideMaskView then
+        return false
+    else
+        return UIGuideMaskView:maskActive()
+    end
+end
+
+--开启maskview 根据时间
+---@param time number
+function M.setMaskViewMaskTime(time)
+    local UIGuideMaskView = UIManager.panel:getOpened(UIPanelType.UIGuideMaskView)
+    if UIGuideMaskView == nil then
+        return 
+    end
+    UIGuideMaskView:setMaskViewTime(time)
+end
+
+---返回当前参数触发的carTime
+function M.checkParamCanTriggerGuide(param)
+    return M._carTime:checkCurParamCanTriggerGuide(param)
+end
+
+---添加物体到高光List中
+---@param name string 物体名称
+---@param obj UnityEngine.GameObject 物体的对象
+function M.addObjToLightAreaList(name,obj)
+    M._lightArea:addObjToList(name,obj)
+end
+
+---添加物体到高光List中
+---@param name string 物体名称
+function M.getObjFromLightAreaList(name)
+   return  M._lightArea:getObjByName(name)
+end
+
+function M.getIfOpenShooting()
+    return false
+end
+
+function M.getIfOpenTowerDefense()
+    return true
+end
+
+---获取启动的场景类型
+---@return CS.SceneContainer.SceneID 
+function M.getStartSceneType()
+    local BuildingTypes = require("GameLogic.FunBuild.Object.Build.Base.Model.BuildingTypes")
+    local result = CS.SceneContainer.SceneID.MainCity
+    local mainLevel = GameEntry.Data.Building:GetAllBuildingByType(BuildingTypes.FUN_BUILD_MAIN)[0].level
+    if (M._versionControl:getCurGuideVersionType() == NewGuideConst.GuideVersionType.guideType2 or M._versionControl:getCurGuideVersionType() == NewGuideConst.GuideVersionType.guideType4) and M.getIfOpenShooting() and mainLevel and mainLevel < 1 then
+        if not M.guideMiniGameControl:getShootOver() then  -- 未完成数值射击小游戏
+            print("go to shoot")
+            result = CS.SceneContainer.SceneID.NumericalShooting
+        end
+    end
+    if M._versionControl:getCurGuideVersionType() == NewGuideConst.GuideVersionType.guideType3 and M.getIfOpenTowerDefense() and mainLevel and mainLevel < 1 then
+        if not M.guideMiniGameControl:getTowerDefenseOver() then  -- 未完成塔防小游戏
+            print("go to towerDefence")
+            result = CS.SceneContainer.SceneID.TowerDefense
+        end
+    end
+    return result
+end
+
+-- 记录数值射击小游戏结束
+function M.recordShootOver()
+    M.guideMiniGameControl:recordShootOver()
+end
+
+-- 记录塔防游戏结束
+function M.recordTowerDefenseOver()
+    M.guideMiniGameControl:recordTowerDefenseOver()
+end
+
+
+
+--- 与cocos沟通是打点用，后端下发道具也与这个相关
+--- @param id string 当前引导id
+--- @param state number 引导开始为0，结束为1
+function M.recordCurStep(id,state)
+    local message = Protocol.GuideRecordCommand:new()
+    message.guideId = tostring(id)
+    message.type = tonumber(state)
+    Network.send(message, function(errorCode, response, request)
+        if not string.isNilOrEmpty(errorCode) then
+            print_error("GuideRecordCommand errorCode==="..errorCode)
+        end
+    end)
+end
+
+
+---@return boolean
+---是否使用本地lua配置（调试用）
+function M.ifUseLocalLuaConfig()
+    return false
+end
+
+
+-------------------------------------------C#调用-----------------------------------------------------------
+function IfIsNewGuide()
+    return M.getIsNewGuide()
+end
+
+function DoOneGuide(index)
+    return M.play(index)
+end
+
+function StartGuide()
+    M.tryPlayFirst()
+end
+
+function IfInGuide()
+    return M.isRunning()
+end
+
+
+function AddBtnToTargetBtnList(name,btn)
+    M.addBtnToLightRingList(name,btn)
+end
+
+function AddToggleToTargetList(name,btn)
+    M.addToggleToLightRingList(name,btn)
+end
+
+function GetIfHaveGuideByTaskId(taskId) 
+    return M.getIfHaveGuideByTaskId(taskId)
+end
+
+function GetSkillFastGrowState()
+    return M.getSkillFastGrowState()
+end
+
+function SetSkillFastGrowState(state)
+    M.setSkillFastGrowState(state)
+end
+
+function GetCurGuideInfo()
+    return M.getCurGuideInfo()
+end
+
+function CheckParamCanTriggerGuide(param)
+    return M.checkParamCanTriggerGuide(param)
+end
+
+function GetCurGuideType()
+    return M._versionControl:getCurGuideVersionType()
+end
+
+function AddObjToGuideLightAreaList(name,obj)
+    M.addObjToLightAreaList(name,obj)
+end
+
+function GetStartSceneTypeByGuide()
+    return M.getStartSceneType()
+end
+
+return M

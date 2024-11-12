@@ -1,0 +1,84 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:52:36 星期一
+----------------------------------------------------------------------
+--- 眩晕
+--------------------------------
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+local BehaviorStateType = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+---@class BuffStun:BasePersistentBuff
+local BuffStun = class("BuffStun", BasePersistentBuff)
+local M = BuffStun
+
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+    local battleContext = self.hostCharacter:GetBattleContext()
+    ---@type BeControlledBehaviorState
+    local controlState = self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentState()
+    if controlState:GetStateID() ~= BehaviorStateType.BeControlled then
+        self._ctrId = battleContext:GetControlPackId()
+        self.hostCharacter:GetLogicHandle():OnBeControl(self.fromId, self._ctrId,
+            {
+                type = BattleEnum.BuffType.Buff_Stun,
+                ani = function()
+                    self:_handleStunAni()
+                end,
+                effOpen = self._showDelegate,
+                effClose = self._hideDelegate
+            })
+    else
+        local isCan = controlState:IsCanAdd(BattleEnum.BuffType.Buff_Stun)
+        if isCan then
+            self._ctrId = battleContext:GetControlPackId()
+            controlState:AddControlPack(self._ctrId, {
+                type = BattleEnum.BuffType.Buff_Stun,
+                ani = function()
+                    self:_handleStunAni()
+                end,
+                effOpen = self._showDelegate,
+                effClose = self._hideDelegate
+            })
+        end
+    end
+
+    -- -- self.hostCharacter:GetLogicHandle():OnBeControl(self.fromId,BattleEnum.BuffType.Buff_Stun, self.buffParams[2])
+    -- if self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentStateID() ~= BehaviorStateType.BeControlled then
+    --     self.hostCharacter:GetController():OnBeControl(self.fromId, BattleEnum.BuffType.Buff_Stun, 0)
+    -- end
+    -- -- self.hostCharacter:GetRender():SetAnimationSpeed(0)
+    -- -- BattleEventUtils:DisPath_SetAniSpeed(self.hostCharacter:GetBattleId(),0)
+    -- local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    -- BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Stun, aniSpeed)
+end
+
+function M:_handleStunAni()
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Stun, aniSpeed)
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+    if self._ctrId then
+        ---@type BeControlledBehaviorState
+        local controlState = self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentState()
+        if controlState:GetStateID() ~= BehaviorStateType.BeControlled then
+            -- BattleLogger.log_Error("??? 控制buff没结束却 不在 控制状态 ")
+        else
+            controlState:RemoveControlPack(self._ctrId)
+        end
+    end
+    -- log_Error("*9******_onExit**********")
+    -- local time = self.hostCharacter:GetCharacterContext():GetBeControlledTime()
+    -- if time <= 0 then
+    --     self.hostCharacter:GetController().behaviorDecisionManager:Switch(BehaviorStateType.SkillSystem, nil)
+    -- end
+end
+
+return M

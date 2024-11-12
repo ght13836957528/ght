@@ -1,0 +1,86 @@
+----------------------------------------------------------------------
+--------- 2022年12月15日 20:34:55 星期四
+----------------------------------------------------------------------
+local BattleEventUtils  = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BaseBehaviorState = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+local BehaviorStateType = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEnum        = require "GameLogic.Battle.BattleEnum"
+---@class IdleBehaviorState:BaseBehaviorState
+local IdleBehaviorState = class("IdleBehaviorState", BaseBehaviorState)
+local M                 = IdleBehaviorState
+
+-- @param ... 切换场景时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    self.super.OnInit(self, ...)
+    -- idle 2s之后重新决策
+    self.idleDuration = 33
+    self.waitFrame = 1
+    self.frameCount = 0
+
+    self.skillManager = self.hostCharacter:GetSkillManager()
+    self.hatredManager = self.hostCharacter:GetHatredManager()
+    self.searcher = self.hostCharacter:GetSearcher()
+    self.normalRange = self.skillManager:GetNormalAtkRange()
+end
+
+-- 进入场景
+function M:OnEnter(...)
+    -- BattleLogger.log("in idle: " , tostring(self:_getCharacterBattleId()))
+    self.frameCount = 0
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    -- self.hostCharacter:GetRender():SetAnimationSpeed(aniSpeed)
+    -- self.hostCharacter:GetRender():PlayAnimation(BattleEnum.AnimationClip.Idie, nil)
+    BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Idie, aniSpeed)
+    self.isInIdle = true
+
+    if BattleStatic.isBattleDebug then
+        local id = self.hostCharacter.characterBattleId
+        local group = BattleStatic.debugEntityIDs
+        for _, entityID in pairs(group) do
+            if id == entityID then
+                self.isInIdle = false
+            end
+        end
+    end
+end
+
+function M:OnUpdate(fDeltaTime)
+    local inIdle = self.isInIdle or false
+    if not inIdle then
+        return
+    end
+
+    -- if self.frameCount >= self.waitFrame then
+    --     self._stateManager:Switch(BehaviorStateType.SkillSystem, nil)
+    -- end
+    -- self.frameCount = self.frameCount + 1
+    -- TODO: 处理其他事情
+    local skillId, skillTargets = self.skillManager:CheckAvailableSkill()
+    local _stateManager = self._stateManager
+    if skillId ~= -1 then
+        _stateManager:Switch(BehaviorStateType.PerformSkill,
+            { fromState = BehaviorStateType.SkillSystem, skillId = skillId, skillTargets = skillTargets })
+    else
+        if self.hostCharacter:GetCharacterType() ~= BattleEnum.BattleCharacterType.Gun then
+            local searchTargetId = self.hatredManager:GetHatredTarget()
+            if searchTargetId then
+                local distanceToTarget = self.searcher:DistanceTo(searchTargetId)
+                if self.normalRange < distanceToTarget then
+                    _stateManager:Switch(BehaviorStateType.Search,
+                            { fromState = BehaviorStateType.SkillSystem, searchTarget = searchTargetId })
+                end
+            end
+        end
+    end
+end
+
+-- 退出场景
+function M:OnExit(callback)
+    self.isInIdle = false
+    self.frameCount = 0
+    if callback ~= nil then
+        callback()
+    end
+end
+
+return M

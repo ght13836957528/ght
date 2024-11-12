@@ -1,0 +1,45 @@
+--先锋官描述
+---@class UIGuideSecondHeroDescView:UIPanel
+---
+local UIGuideSecondHeroDescView = class("UIGuideSecondHeroDescView", UIPanel)
+local M = UIGuideSecondHeroDescView
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UIGuideSecondHeroDescView.prefab"
+end
+
+function M:getConfigLayerType()
+    return UILayerType.Guide
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    self.mFrom = params
+end
+
+function M:onAddListener()
+    self.CloseButton:addEventListener(ButtonEvent.CLICK, self.closeSelf, self)
+end
+
+function M:onRemoveListener()
+    self.CloseButton:removeEventListener(ButtonEvent.CLICK, self.closeSelf, self)
+end
+
+function M:onCreate()
+    self.TxtName.text = GameEntry.Localization:GetString("90460025")
+
+    local desc = GameEntry.Localization:GetString("90460013")
+    self.TxtDesc.text = string.gsub(desc, '\\n', '\n')
+end
+
+function M:onClose()
+    if self.mFrom then
+        UIManager.panel:open(UIPanelType.UIGuideSecondGiveHeroView)
+    end
+end
+
+return M

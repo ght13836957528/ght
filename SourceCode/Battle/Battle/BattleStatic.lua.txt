@@ -1,0 +1,55 @@
+BattleStatic = {}
+
+BattleStatic.isBattleDebug = false
+--- 木桩id
+BattleStatic.debugEntityIDs = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }
+
+--- 是否进入固定关卡
+BattleStatic.debugPointIsOpen = false   
+--- 关卡id
+BattleStatic.debugPointID = 2015 --2
+--- 新手关卡id 没有开关
+BattleStatic.debugPointID2 = 111010 --2
+--- 裸体属性
+BattleStatic.isOpenBaseProperty = false
+--- 布阵属性
+BattleStatic.isOpenTeamProperty = false
+--- 进战斗属性
+BattleStatic.isOpenBattleProperty = false
+--- 战斗中属性计算
+BattleStatic.isOpenBattleIngProperty = false
+--- 战斗中即时血量
+BattleStatic.isOpenRealTimeProperty_Hp = false
+--- 战斗中即时怒气
+BattleStatic.isOpenRealTimeProperty_Rage = false
+--- 战斗中即时护盾
+BattleStatic.isOpenRealTimeProperty_Shield = false
+--- 战斗中技能逻辑帧率
+BattleStatic.isOpenSkillLogicFrame = false
+--- 战斗中随机数日志
+BattleStatic.isOpenRandomLog = false
+--- 战斗中仇恨值目标
+BattleStatic.isOpenHateLog = false
+--- 战斗作用号日志
+BattleStatic.isOpenEffectNumberLog = false
+--- 战斗秘境buff
+BattleStatic.isOpenMazeTest = false
+--- 战斗生效得秘境id
+BattleStatic.battleMazeRelicId = {}
+--- 战斗生效火炮
+BattleStatic.isOpenGuns = false
+--- 战斗生效的火炮
+BattleStatic.Guns = {
+    left = {
+        [181000] = { id = 101, level = 1 },
+        -- [182000] = { id = 102, level = 1 },
+        -- [183000] = { id = 103, level = 1 },
+        -- [184000] = { id = 104, level = 1 },
+    },
+    -- right = {
+    --     -- [181000] = { id = 101, level = 1 },
+    --     -- [182000] = { id = 102, level = 1 },
+    --     -- [183000] = { id = 103, level = 1 },
+    --     -- [184000] = { id = 104, level = 1 },
+    -- }
+}

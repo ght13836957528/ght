@@ -1,0 +1,10 @@
+---@class GuideStepInfoGetChapterReward : GuideStepBaseInfo @引导步骤光圈引导类型数据结构
+---@field public chapterNum string 当前第几章  
+local GuideStepInfoGetChapterReward = class("GuideStepInfoGetChapterReward", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoGetChapterReward
+
+function M:onParse(params)
+    self.chapterNum = params.chapterNum
+end
+
+return M

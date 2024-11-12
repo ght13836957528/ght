@@ -1,0 +1,14 @@
+---@class GuideTriggerConditionTowerDefenseFightFail:GuideTriggerCondition
+local GuideTriggerConditionTowerDefenseFightFail = class("GuideTriggerConditionTowerDefenseFightFail", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionTowerDefenseFightFail
+
+function M:equals(param)
+    local result = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return result
+    end
+    result = true
+    return result
+end
+
+return M

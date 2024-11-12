@@ -1,0 +1,12 @@
+---@class GuideStepInfoCartoon : GuideStepBaseInfo @引导步骤动画类型数据结构
+---@field public cartoonName string 动画名称
+---@field public cartoonPara1 string 动画类型第一个参数
+local GuideStepInfoCartoon = class("GuideStepInfoCartoon", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoCartoon
+
+function M:onParse(params)
+    self.cartoonName = params.cartoonName
+    self.cartoonPara1 = params.cartoonPara1
+end
+
+return M

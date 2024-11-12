@@ -1,0 +1,43 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:52:45 星期一
+--------- Dot
+----------------------------------------------------------------------
+
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+
+---@class BuffAotAnger:BasePersistentBuff
+local BuffAotAnger = class("BuffAotAnger", BasePersistentBuff)
+local M = BuffAotAnger
+
+function M:_onInitialize()
+    -- 其他初始化
+    self.timeCounter = 0
+    
+    self.interval = self.buffParams[2]
+    self.result = self.buffParams[3]
+end
+
+--- buff创建开始生效前的处理
+function M:_onEnter()
+    self:_doModify()
+end
+
+function M:_onUpdate(deltaTime)
+    self.timeCounter = self.timeCounter + deltaTime
+    if self.timeCounter >= self.interval then
+        self:_doModify()
+        self.timeCounter = 0
+    end
+end
+
+function M:_onExit()
+    self.result = 0
+end
+
+function M:_doModify()
+    self.hostCharacter:GetLogicHandle():DoChangeValue(2, 1, self.result)
+    BattleEventUtils:DisPath_Diff_Rage_JW(self.hostCharacter:GetBattleId(), self.result)
+end
+
+return M

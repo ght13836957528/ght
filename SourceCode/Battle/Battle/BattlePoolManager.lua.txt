@@ -1,0 +1,156 @@
+------
+------ 战斗内的对象池
+------
+---
+require "Framework.Common.ObjectPool"
+local BattleEnum                      = require "GameLogic.Battle.BattleEnum"
+local SkillStepActionLaunchAttackPack = require "GameLogic.Battle.SkillSystem.SkillSteps.SkillStepActionLaunchAttackPack"
+local FlyBullet                       = require "GameLogic.Battle.SkillSystem.Bullets.FlyBullet"
+local PositionBullet                  = require "GameLogic.Battle.SkillSystem.Bullets.PositionBullet"
+local TargetBullet                    = require "GameLogic.Battle.SkillSystem.Bullets.TargetBullet"
+local TargetBindBullet                = require "GameLogic.Battle.SkillSystem.Bullets.TargetBindBullet"
+local TargetBackBullet                = require "GameLogic.Battle.SkillSystem.Bullets.TargetBackBullet"
+local InstantBuffGroup                = require "GameLogic.Battle.BuffSystem.BuffContainer.InstantBuffGroup"
+local PersistBuffGroup                = require "GameLogic.Battle.BuffSystem.BuffContainer.PersistBuffGroup"
+
+
+---@class BattlePoolManager
+local BattlePoolManager = class("BattlePoolManager")
+local M = BattlePoolManager
+---@param battleContext BattleContext
+function M:Ctor(battleContext)
+    self.battleContext = battleContext
+    self.battleContext:SetBattlePoolManager(self)
+    self._entityIndex = 0
+end
+
+function M:Initialize()
+    self._flyBulletPool = ObjectPool.new(FlyBullet)
+    self._positionBulletPool = ObjectPool.new(PositionBullet)
+    self._targetBulletPool = ObjectPool.new(TargetBullet)
+    self._targetBindBulletPool = ObjectPool.new(TargetBindBullet)
+    self._targetBackBulletPool = ObjectPool.new(TargetBackBullet)
+    self._attackPool = ObjectPool.new(SkillStepActionLaunchAttackPack)
+    self._instantBuffGroupPool = ObjectPool.new(InstantBuffGroup)
+    self._persistBuffGroupPool = ObjectPool.new(PersistBuffGroup)
+end
+
+function M:Clear()
+    if self._flyBulletPool then
+        self._flyBulletPool:Dispose()
+    end
+    if self._positionBulletPool then
+        self._positionBulletPool:Dispose()
+    end
+    if self._targetBulletPool then
+        self._targetBulletPool:Dispose()
+    end
+    if self._targetBindBulletPool then
+        self._targetBindBulletPool:Dispose()
+    end
+    if self._targetBackBulletPool then
+        self._targetBackBulletPool:Dispose()
+    end
+
+    if self._attackPool then
+        self._attackPool:Dispose()
+    end
+    if self._instantBuffGroupPool then
+        self._instantBuffGroupPool:Dispose()
+    end
+    if self._persistBuffGroupPool then
+        self._persistBuffGroupPool:Dispose()
+    end
+end
+
+function M:GetEntityIndex()
+    self._entityIndex = self._entityIndex + 1
+    return self._entityIndex
+end
+
+---@return ObjectPool
+function M:GetBulletPool(type)
+    if type == BattleEnum.BulletMoveType.MoveForward then
+        return self._flyBulletPool
+    elseif type == BattleEnum.BulletMoveType.FindCharater then
+        return self._targetBulletPool
+    elseif type == BattleEnum.BulletMoveType.None then
+        return self._positionBulletPool
+    elseif type == BattleEnum.BulletMoveType.BindTarget then
+        return self._targetBindBulletPool
+    elseif type == BattleEnum.BulletMoveType.FindCharacterBack then
+        return self._targetBackBulletPool
+    else
+        return nil
+    end
+end
+
+---@return BulletBase
+function M:PopBullet(type, character, stepHandler, findRoot)
+    local entityId = self.battleContext:GetEntityId()
+    if type == BattleEnum.BulletMoveType.MoveForward then
+        return self._flyBulletPool:pop(entityId, character, stepHandler, findRoot)
+    elseif type == BattleEnum.BulletMoveType.FindCharater then
+        return self._targetBulletPool:pop(entityId, character, stepHandler, findRoot)
+    elseif type == BattleEnum.BulletMoveType.None then
+        return self._positionBulletPool:pop(entityId, character, stepHandler, findRoot)
+    elseif type == BattleEnum.BulletMoveType.BindTarget then
+        return self._targetBindBulletPool:pop(entityId, character, stepHandler, findRoot)
+    elseif type == BattleEnum.BulletMoveType.FindCharacterBack then
+        return self._targetBackBulletPool:pop(entityId, character, stepHandler, findRoot)
+    else
+        BattleLogger.log_error("无法创建对应类型的子弹，请检查配置项createPos!! ---- ", tostring(type))
+    end
+end
+
+---@return BulletBase
+function M:PushBullet(type, bullet)
+    if type == BattleEnum.BulletMoveType.MoveForward then
+        return self._flyBulletPool:push(bullet)
+    elseif type == BattleEnum.BulletMoveType.FindCharater then
+        return self._targetBulletPool:push(bullet)
+    elseif type == BattleEnum.BulletMoveType.None then
+        return self._positionBulletPool:push(bullet)
+    elseif type == BattleEnum.BulletMoveType.BindTarget then
+        return self._targetBindBulletPool:push(bullet)
+    elseif type == BattleEnum.BulletMoveType.FindCharacterBack then
+        return self._targetBackBulletPool:push(bullet)
+    else
+        BattleLogger.log_error("无法创建对应类型的子弹，请检查配置项createPos!! ---- ", tostring(type))
+    end
+end
+
+---@return ObjectPool
+function M:GetAttackPool()
+    return self._attackPool
+end
+
+---@return SkillStepActionLaunchAttackPack
+function M:PopAttack(...)
+    return self._attackPool:pop(...)
+end
+
+---@param object SkillStepActionLaunchAttackPack
+function M:PushAttack(object)
+    return self._attackPool:push(object)
+end
+
+---@return InstantBuffGroup
+function M:PopInstantBuffGroup(...)
+    return self._instantBuffGroupPool:pop(...)
+end
+
+function M:PushInstantBuffGroup(object)
+    self._instantBuffGroupPool:push(object)
+end
+
+---@return PersistBuffGroup
+function M:PopPersistBuffGroup(...)
+    return self._persistBuffGroupPool:pop(...)
+end
+
+function M:PushPersistBuffGroup(object)
+    self._persistBuffGroupPool:push(object)
+end
+
+return M

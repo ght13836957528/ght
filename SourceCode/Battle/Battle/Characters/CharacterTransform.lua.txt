@@ -1,0 +1,154 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 15:10:05 星期四
+----------------------------------------------------------------------
+
+--[[
+    逻辑上角色的位置，方向，缩放大小等
+    会包含在地图上的站位位置（六宫格索引地址），实际在地图中的坐标位置
+]]
+local BattleEnum         = require "GameLogic.Battle.BattleEnum"
+---@class CharacterTransform
+local CharacterTransform = class("CharacterTransform")
+local M                  = CharacterTransform
+---@param hostCharacter BattleCharacter
+---@param battleContext BattleContext
+function M:Ctor(hostCharacter, battleContext)
+    self.hostCharacter = hostCharacter
+    self.battleContext = battleContext
+    --- 六宫格 逻辑位置
+    self.gridLogicIndex_x = 0
+    self.gridLogicIndex_z = 0
+    --- 实际地图的位置 索引
+    self.gridRenderIndex_x = 0
+    self.gridRenderIndex_z = 0
+    --- 实际地图的位置
+    self.posRender_x = 0
+    self.posRender_z = 0
+
+    self.posRender = Vector3.zero
+
+    self.forward = Vector3.zero
+    self.initRotate = BattleEnum.InitRotate.Left
+
+    self._initPos = 0
+
+    self._initRenderOffset = Vector3.zero
+
+    self._volumeRadius = 1
+end
+
+function M:Clear()
+
+end
+
+function M:OnDied()
+
+end
+
+function M:GetInitPos()
+    return self._initPos
+end
+
+function M:GetWorldInitPos()
+    return self._worldInitPos    
+end
+
+function M:GetVolumeRadius()
+    return self._volumeRadius
+end
+
+function M:Initialize(initRotate, initPos, baseScale, heroId, volumeRadius, worldPos)
+    self._initPos = initPos
+    self._baseScale = baseScale or 1
+    self._volumeRadius = volumeRadius or 1
+    self._worldInitPos = worldPos
+    self:_initRotate(initRotate)
+    self:_initRenderRootOffset(heroId)
+end
+
+function M:_initRenderRootOffset(heroId)
+    if heroId then
+        local con = ConfigHandler:GetEntry("Hero_Show_Info", heroId)
+        if con and con.rootOffset then
+            self._initRenderOffset = Vector3(con.rootOffset[1], con.rootOffset[2], con.rootOffset[3])
+        end
+    end
+end
+
+function M:GetInitRootOffset()
+    return self._initRenderOffset
+end
+
+function M:GetLogicGridIndexXZ()
+    return self.gridLogicIndex_x, self.gridLogicIndex_z
+end
+
+function M:GetLogicGridIndex()
+    return self.battleContext:GetMapController():GetLogicIndexByXZ(self.gridLogicIndex_x, self.gridLogicIndex_z)
+end
+
+function M:SetLogicGridIndexXZ(x, z)
+    self.gridLogicIndex_x = x or 0
+    self.gridLogicIndex_z = z or 0
+end
+
+function M:SetRenderGridIndexXZ(x, z)
+    self.gridRenderIndex_x = x or 0
+    self.gridRenderIndex_z = z or 0
+end
+
+function M:SetRenderPos(pos)
+    self.posRender = pos
+end
+
+function M:GetRenderPos()
+    return self.posRender
+end
+
+function M:GetScale()
+    return self._baseScale or 1
+end
+
+function M:Forward()
+    return self.forward
+end
+
+function M:LookRotation(pos)
+    -- log_Error("//////////////////////////////////////////////")
+    local target = pos - self.posRender
+    -- log_Error(pos)
+    if target:Magnitude() <= 1e-6 then
+        return
+    end
+    local tmp = Quaternion.LookRotation(Vector3(target.x, target.y, target.z))
+    -- log_Error(tmp)
+    if tmp then
+        local x,y,z = Quaternion.MulVec3_XYZ(tmp, target.forward)
+        self.forward:Set(x,y,z)
+    end
+
+    -- log_Error( self.forward)
+    -- log_Error("//////////////////////////////////////////////")
+end
+
+function M:LookRotation_2(forward)
+    if forward then
+        --self.forward = forward
+        self.forward:Set(forward.x,forward.y,forward.z)
+    end    
+end
+
+function M:isLeftTeam()
+    return self.initRotate == BattleEnum.InitRotate.Left
+end
+
+function M:_initRotate(initRotate)
+    if initRotate == BattleEnum.InitRotate.Left then
+        self.forward:Set(0, 0, 1)
+    else
+        self.forward:Set(0, 0, -1)
+    end
+    self.initRotate = initRotate
+end
+
+return M

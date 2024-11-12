@@ -1,0 +1,126 @@
+----------------------------------------------------------------------
+--------- 2022年12月15日 20:34:43 星期四
+----------------------------------------------------------------------
+local BattleEnum          = require "GameLogic.Battle.BattleEnum"
+local BaseBehaviorState   = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+local BehaviorStateType   = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEventUtils    = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class SearchBehaviorState:BaseBehaviorState
+local SearchBehaviorState = class("SearchBehaviorState", BaseBehaviorState)
+local M                   = SearchBehaviorState
+
+-- @param ... 切换场景时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    self.super.OnInit(self, ...)
+end
+
+-- 进入场景
+--- @param ... {fromState = a, searchTarget = b} fromState是从哪个状态转换过来，searchTarget要索敌的目标
+function M:OnEnter(...)
+    -- BattleLogger.log("In search: " .. tostring(self:_getCharacterBattleId()))
+    --local params = ...
+    --self.fromState = params.fromState
+    --self.searchTarget = params.searchTarget
+    --
+    self:_checkToSearch()
+end
+
+function M:OnUpdate(fDeltaTime)
+    -- 每帧检查条件
+end
+
+-- 退出场景
+function M:OnExit(callback)
+    if callback ~= nil then
+        callback()
+    end
+end
+
+-----------------helpers-------------------
+--- 检查是否开始search
+function M:_checkToSearch()
+    local result = self:_checkCanSearch()
+    if result then
+        -- 索敌
+        -- BattleLogger.log("Search: check => true - " .. tostring(self:_getCharacterBattleId()))
+        local toSearchTarget = self.searchTarget or 0
+        if toSearchTarget > 0 then
+            self._stateManager:Switch(BehaviorStateType.Moving,
+                {
+                    fromState = BehaviorStateType.Search,
+                    toState = BehaviorStateType.SkillSystem,
+                    moveTarget = toSearchTarget
+                })
+        else
+            -- BattleLogger.log("Search: check，目标角色不存在，去idle - " ..
+            --     tostring(self:_getCharacterBattleId()))
+            self._stateManager:Switch(BehaviorStateType.Idle, nil)
+        end
+    else
+        -- 检查后续条件
+        -- BattleLogger.log("Search: check => false - " .. tostring(self:_getCharacterBattleId()))
+        self._stateManager:Switch(BehaviorStateType.Idle, nil)
+    end
+end
+
+function M:_checkCanSearch()
+    --local target = self.searchTarget or 0
+    --if target <= 0 then
+    --    -- 目标不存在，不能搜寻。目标是否死亡会在寻路开始前判断
+    --    return false
+    --end
+
+
+    -- test
+    -- if self.hostCharacter.characterBattleId == 3 or self.hostCharacter.characterBattleId == 2 then
+    --     return false
+    -- end
+
+    if BattleStatic.isBattleDebug then
+        local id = self.hostCharacter.characterBattleId
+        local group = BattleStatic.debugEntityIDs
+        for _, entityID in pairs(group) do
+            if id == entityID then
+                return false
+            end
+        end
+    end
+
+    if self.hostCharacter == nil or self.hostCharacter:CheckIsDied() then
+        -- 自身角色不存在或者死亡，不能搜寻
+        return false
+    end
+
+    -- 检查普攻目标在不在自己的普攻攻击范围内
+    local findResults = self.hostCharacter:GetSearcher():FindEnemyUnits()
+    if findResults == nil or #findResults <= 0 then
+        return false
+    end
+
+    local atkRange = self.hostCharacter:GetSkillManager():GetNormalAtkRange()
+    if atkRange <= 0 then
+        return false
+    end
+
+    local searchTargetId = self.hostCharacter.hatredManager:GetHatredTarget()
+    if searchTargetId then
+        local distanceToTarget = self.hostCharacter.searcher:DistanceTo(searchTargetId)
+        local normalAtt = self.hostCharacter:GetSkillManager():GetNormalAtkRange()
+        if normalAtt >= distanceToTarget then
+            if not self.hostCharacter:GetBuffManager():CheckHasBuffType(BattleEnum.BuffType.Buff_NoReturn) then
+                local targetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(
+                    searchTargetId)
+                local newPos = targetCharacter:GetTransform():GetRenderPos()
+                self.hostCharacter:GetTransform():LookRotation(newPos)
+                BattleEventUtils:DisPath_SynsRotate(self.hostCharacter:GetBattleId(), newPos)
+            end
+            return false
+        end
+    end
+
+    self.searchTarget = self.hostCharacter.hatredManager:GetHatredTarget()
+
+    return true
+end
+
+return M

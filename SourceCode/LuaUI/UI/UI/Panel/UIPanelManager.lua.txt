@@ -1,0 +1,591 @@
+require "Framework.UI.Panel.UIPanelType"
+
+local Stack = require "Framework.Common.Stack"
+
+---@class UIPanelManager @界面管理器
+UIPanelManager = class("UIPanelManager")
+local M        = UIPanelManager
+
+function M:Ctor()
+    self._cacheDict = {}
+    self.viewOpenStack = Stack.new(10)
+    self.tempStack = Stack.new(10)
+end
+
+function M:OnTick(elapsedTime, realElapsedTime)
+    for panelType, panel in pairs(self._cacheDict) do
+        if panel ~= nil  then
+            panel:OnTick(elapsedTime, realElapsedTime)
+        end
+    end
+end
+
+--- 打开界面
+---@param panelType string      对应的UI类
+---@param params    any         传入界面的参数
+---@param callback  function    完全打开后的回调
+---@param override  table       覆盖界面配置 {assetPath = 加载路径, layerType = 界面层级}
+---@return number 界面id
+function M:Open(panelType, params, callback, override)
+    if string.isNilOrEmpty(panelType) == nil then
+        print_error("open panel failed, panel type is nil")
+        return -1
+    end
+
+    local key = panelType
+
+    -- 如果界面正在关闭中，强制关闭，再打开
+    local panel = self:_get(key)
+    if panel ~= nil and (panel:GetState() == UIPanelState.Closing or panel:GetState() == UIPanelState.TweenClosing) then
+        self:_remove(key)
+        panel = nil
+    end
+    -- 如果界面已经打开或者正在打开中，直接刷新
+    if panel ~= nil and (panel:GetState() == UIPanelState.Opening or panel:GetState() == UIPanelState.Opened) then
+        panel:OnPreOpen()
+        self:_refresh(key, params)
+        if callback then callback() end
+        return panel:GetSerialID()
+    end
+
+    -- 打开新界面
+    panel = require(panelType).new(params)
+    panel:SetPanelKey(key)
+    panel:SetOverrideLayerType(override and override.layerType)
+    panel:SetParent(panel:GetLayer())
+
+    self:_add(key, panel)
+    panel:SetState(UIPanelState.Opening)
+    panel:OnPreOpen()
+    panel:Load(override and override.assetPath, handler(self, self._onPanelLoaded), panel, params, callback)
+    BroadcastEvent.dispatch(EnumLuaEventId.UI_BE_OPEN, panel:GetLayerType())
+    return panel:GetSerialID()
+end
+
+---关闭界面
+---@param panelType UIPanelType
+---@param force boolean 强制关闭，如果有动画的，不会播动画
+---@param callback function 界面完全关闭的回调
+function M:Close(panelType, force, callback)
+    if panelType == nil then
+        print_error("close panel failed, panel type is nil")
+        return
+    end
+
+    local panel = self:_get(panelType)
+    self:_close(panel, false, force, callback)
+end
+
+---关闭指定层所有界面
+---@param layerType UILayerType 指定层级
+---@param exclude string[] 排除的界面
+function M:CloseLayer(layerType, exclude)
+    local layer = UIManager.GetLayer(layerType)
+    if layer == nil then
+        return
+    end
+
+    local children = layer:GetChildren()
+    if children == nil then
+        return
+    end
+
+    local keys = {}
+    for _, panel in ipairs(children) do
+        local isExclude = false
+        local key = panel:GetPanelKey()
+        if exclude ~= nil then
+            for i, v in ipairs(exclude) do
+                if v == key then
+                    isExclude = true
+                    break
+                end
+            end
+        end
+
+        if not isExclude then
+            table.insert(keys, key)
+        end
+    end
+
+    for _, key in ipairs(keys) do
+        self:_close(self:_get(key))
+    end
+end
+
+function M:ShowByLayer(layerType)
+    local layer = UIManager.GetLayer(layerType)
+    if layer == nil then
+        return
+    end
+
+    local children = layer:GetChildren()
+    if children == nil then
+        return
+    end
+
+    for _, panel in ipairs(children) do
+        panel:FullReveal();
+    end
+end
+
+function M:HideByLayer(layerType)
+    local layer = UIManager.GetLayer(layerType)
+    if layer == nil then
+        return
+    end
+
+    local children = layer:GetChildren()
+    if children == nil then
+        return
+    end
+
+    for _, panel in ipairs(children) do
+        panel:FullCovered();
+    end
+end
+
+function M:CheckMainUIIsCovered()
+    local layer = UIManager.GetLayer(UILayerType.Default)
+    if layer == nil then
+        return false
+    end
+
+    local children = layer:GetChildren()
+    if children == nil then
+        return false
+    end
+    
+    for _, panel in ipairs(children) do
+        if(panel:IsHideSceneUI() and (panel:GetState() == UIPanelState.Opened or panel:GetState() == UIPanelState.Opening)) then
+            return true
+        end
+    end
+    
+    return false
+end
+
+function M:TryShowSceneUI()
+    SceneHelper.TryShowSceneUI()
+end
+
+function M:TryHideSceneUI()
+    SceneHelper.TryHideSceneUI()
+end
+
+---是否打开界面
+---@param panelType UIPanelType
+function M:IsOpen(panelType)
+    return self._cacheDict[panelType] ~= nil
+end
+
+--- 界面是否已经完全打开
+function M:IsOpened(panelType)
+    local panel = self:_get(panelType)
+    return panel ~= nil and panel:GetState() == UIPanelState.Opened
+end
+
+--- 界面正在打开中
+function M:IsOpening(panelType)
+    local panel = self:_get(panelType)
+    return panel ~= nil and panel:GetState() == UIPanelState.Opening
+end
+
+--- 获得已经打开的界面引用
+function M:GetOpened(panelType)
+    if not self:IsOpened(panelType) then
+        return nil
+    end
+
+    return self:_get(panelType)
+end
+
+function M:GetPanelBySerialID(serialId)
+    for panelType, panel in pairs(self._cacheDict) do
+        if panel ~= nil and panel:GetSerialID() == serialId then
+            return panel
+        end
+    end
+
+    return nil
+end
+
+---获取指定层级界面数量
+---@param layerType UILayerType 指定层级
+function M:GetLayerPanelCount(layerType)
+    local layer = UIManager.GetLayer(layerType)
+    if layer == nil then
+        return 0
+    end
+
+    local children = layer:GetChildren()
+    if children == nil then
+        return 0
+    end
+
+    return #children
+end
+
+---关闭所有界面
+function M:CloseAll()
+    local keys = {}
+    for key, _ in pairs(self._cacheDict) do
+        table.insert(keys, key)
+    end
+
+    for _, key in ipairs(keys) do
+        self:_close(self:_get(key))
+    end
+end
+
+function M:CloseAllExLayer(layer)
+    local keys = {}
+    for key, _ in pairs(self._cacheDict) do
+        table.insert(keys, key)
+    end
+
+    for _, key in ipairs(keys) do
+        local panel = self:_get(key)
+        if(panel and (panel:GetLayerType() ~= layer)) then
+            self:_close(panel)
+        end
+    end
+end
+
+function M:_close(panel, silent, force, callback)
+    if panel == nil then
+        if callback then callback() end
+        return
+    end
+
+    local oldState = panel:GetState()
+
+    --如果界面正在关闭，直接处理回调
+    if oldState == UIPanelState.Closing or oldState == UIPanelState.TweenClosing then
+        if callback then callback() end
+        return
+    end
+
+    panel:SetState(UIPanelState.Closing)
+
+    if self:_getPanelLayerType(panel) == UILayerType.Default then
+        self:_resumeCoverView(panel)
+    end
+
+    local pHideSceneUi = panel:IsHideSceneUI()
+    if(pHideSceneUi) then
+        self:TryShowSceneUI()
+    end
+    
+    local bPauseSceneCamera = self:_checkPanelPauseSceneCamera(panel)
+    if bPauseSceneCamera and Game.SceneManager ~= nil then
+        Game.SceneManager:EnableSceneCamera(true)
+    end
+    --print_error(string.format("=========== close : %s", key))
+    
+    panel:OnClose()
+
+    -- 如果界面已经打开
+    local key = panel:GetPanelKey()
+    if oldState == UIPanelState.Opened then
+        local panelType = self:_getPanelNodeType(panel)
+        --if (panelType == UINodeType.PanelAnimated or panelType == UINodeType.PanelAnimatedPopup) and not force then
+        if (panel:HasCloseAnimated() and not force) then
+            -- 带动画的播动画
+            panel:SetState(UIPanelState.TweenClosing)
+            panel:OnAnimatedClose(function()
+                self:_remove(key, silent)
+                if callback then
+                    callback()
+                end
+            end)
+        else
+            panel:SetState(UIPanelState.Closing)
+            self:_remove(key, silent)
+            if callback then
+                callback()
+            end
+        end
+        return
+    end
+
+    -- 如果界面正在打开中
+    if oldState == UIPanelState.Opening then
+        self:_remove(key, silent)
+        if callback then
+            callback()
+        end
+        return
+    end
+
+    if callback then
+        callback()
+    end
+end
+
+function M:_resumeCoverView(panel)
+    self.tempStack:Clear()
+
+    while (self.viewOpenStack:GetCount() > 0) do
+        local otherPanel = self.viewOpenStack:Pop()
+        if otherPanel == panel then
+            break
+        end
+        if otherPanel ~= nil and otherPanel ~= panel then
+            self.tempStack:Push(otherPanel)
+        end
+    end
+    while (self.tempStack:GetCount() > 0) do
+        self.viewOpenStack:Push(self.tempStack:Pop())
+    end
+
+    if self.viewOpenStack:GetCount() <= 0 then
+        return
+    end
+
+    local bIsFullScreen = self:_checkPanelFullscreen(panel)
+    if not bIsFullScreen then
+        return
+    end
+
+    -- local depth = panel:GetSortingOrder()
+    -- and item:GetSortingOrder() < depth
+    self.viewOpenStack:WalkFromTop(function(item)
+        if item ~= nil then
+            item:FullReveal()
+
+            local bItemIsFullScren = self:_checkPanelFullscreen(item)
+            if bItemIsFullScren then
+                return false
+            end
+        end
+
+        return true
+    end)
+end
+
+--- UI资源加载成功之后的处理
+--- @param panel    UIPanel     UI的lua代码
+--- @param params   any         传递给界面的参数
+--- @param callback function    完全打开后的回调
+--- @return void
+function M:_onPanelLoaded(panel, params, callback)
+    local _params = params
+    panel:SetState(UIPanelState.Opened)
+    panel:OnOpen(_params)
+    self:_checkBlock()
+
+    if self:_getPanelLayerType(panel) == UILayerType.Default then
+        -- 入栈
+        self.viewOpenStack:Push(panel)
+        self:_hideCoverView(panel)
+    end
+
+    local bPauseSceneCamera = self:_checkPanelPauseSceneCamera(panel)
+    if bPauseSceneCamera and Game.SceneManager ~= nil then
+        Game.SceneManager:EnableSceneCamera(false)
+    end
+    
+    local pHideSceneUi = panel:IsHideSceneUI()
+    if(pHideSceneUi) then
+        self:TryHideSceneUI()
+    end
+
+    if callback then
+        callback()
+    end
+
+    BroadcastEvent.dispatch(EnumLuaEventId.UI_BE_OPENED, panel:GetPanelKey())
+end
+
+
+function M:_hideCoverView(panel)
+    -- 当前界面不是全屏，不需要处理
+    local config = panel:GetPanelConfig()
+    if config == nil or (not config.bIsFullScreen) then
+        return
+    end
+
+    local key = panel:GetPanelKey()
+    self.viewOpenStack:WalkFromTop(function(item)
+        -- local depth = panel:GetSortingOrder()
+        -- and item:GetSortingOrder() < depth
+        if item ~= nil and item:GetPanelKey() ~= key then
+            item:FullCovered()
+        end
+        return true
+    end)
+end
+
+function M:_getPanelNodeType(panel)
+    local panelType = UINodeType.Panel -- 默认是Panel类型
+    if panel ~= nil and panel.GetPanelConfig ~= nil then
+        local panelConfig = panel:GetPanelConfig()
+        if panelConfig ~= nil then
+            panelType = panelConfig.nodeType
+        end
+    end
+    return panelType
+end
+
+function M:_getPanelLayerType(panel)
+    local layerType = UILayerType.Debug
+    if panel ~= nil and panel.GetPanelConfig ~= nil then
+        local panelConfig = panel:GetPanelConfig()
+        if panelConfig ~= nil then
+            layerType = panelConfig.panelLayerType
+        end
+    end
+    return layerType
+end
+
+function M:_checkPanelFullscreen(panel)
+    local bIsFullScreen = false
+    if panel ~= nil and panel.GetPanelConfig ~= nil then
+        local panelConfig = panel:GetPanelConfig()
+        if panelConfig ~= nil then
+            bIsFullScreen = panelConfig.bIsFullScreen
+        end
+    end
+    return bIsFullScreen
+end
+
+function M:_checkPanelPauseSceneCamera(panel)
+    local bPauseSceneCamera = false
+    if panel ~= nil and panel.GetPanelConfig ~= nil then
+        local panelConfig = panel:GetPanelConfig()
+        if panelConfig ~= nil then
+            bPauseSceneCamera = panelConfig.bPauseSceneCamera
+        end
+    end
+    return bPauseSceneCamera
+end
+
+function M:_add(panelKey, panel)
+    if self._cacheDict[panelKey] ~= nil then
+        print_error("exist more than two same panel")
+    end
+
+    self._cacheDict[panelKey] = panel
+    self:_triggerLayerSort(panel:GetLayerType())
+    self:_checkBlock()
+end
+
+function M:_remove(panelKey, silent)
+    local panel = self._cacheDict[panelKey]
+    if panel == nil then
+        return
+    end
+
+    local layerType = panel:GetLayerType()
+    self._cacheDict[panelKey] = nil
+    panel:Dispose()
+
+    if not silent then
+        self:_triggerLayerSort(layerType)
+        self:_checkBlock()
+    end
+
+    BroadcastEvent.dispatch(EnumLuaEventId.UI_BE_CLOSE, panel:GetLayerType())
+end
+
+function M:_refresh(panelKey, params)
+    local panel = self:_get(panelKey)
+    if panel == nil then
+        return
+    end
+
+    panel:Refresh(params)
+    self:_triggerLayerSort(panel:GetLayerType())
+end
+
+---@param layerType UILayerType
+function M:_triggerLayerSort(layerType)
+    local layer = UIManager.GetLayer(layerType)
+    if layer == nil then
+        print_error(string.format("not find layer %s", tostring(layerType)))
+        return
+    end
+
+    local children = layer:GetChildren()
+    if children == nil or #children < 1 then
+        return
+    end
+
+    local baseSortingOrder = layer:getOrder()
+    for i, child in ipairs(children) do
+        child:SetSortingOrder(baseSortingOrder + i)
+    end
+end
+
+--- 给动态界面进行排序
+local excludePanels = {
+}
+function M:_sortDynamicPanel(panel)
+
+end
+
+---@return UIPanel
+function M:_get(panelKey)
+    return self._cacheDict[panelKey]
+end
+
+--- 检查阻挡，防止点击UI组件打开界面，界面尚未完全打开时，仍可以点击组件导致出错
+function M:_checkBlock()
+    local hasOpening = false
+    for k, v in pairs(self._cacheDict) do
+        if v:GetState() == UIPanelState.Opening then
+            hasOpening = true
+            break
+        end
+    end
+
+    if hasOpening then
+        --UIManager.getBlock():SetActive(true)
+    else
+        --UIManager.getBlock():SetActive(false)
+    end
+end
+
+--======================================================================================================================
+--                                                       C#调用接口
+--======================================================================================================================
+--function CSharpCloseAll()
+--    UIManager.panel:CloseAll()
+--end
+--
+--function CSharpCloseLayer(layerType, filter)
+--    local exclude = {}
+--    if filter ~= nil then
+--        local count = filter.Length - 1
+--        for i = 0, count do
+--            table.insert(exclude, filter[i])
+--        end
+--    end
+--
+--    UIManager.panel:CloseLayer(layerType, exclude)
+--end
+--
+--function CSharpGetLayerCount(layerType)
+--    return UIManager.panel:GetLayerPanelCount(layerType)
+--end
+--
+--function CSharpIsLoading(panelKey)
+--    return UIManager.panel:IsOpening(panelKey)
+--end
+--
+--function CSharpHasUIForm(panelKey)
+--    return UIManager.panel:IsOpen(panelKey)
+--end
+--
+--function LuaUIOpen(panelType, userData)
+--    return UIManager.panel:Open(panelType, userData)
+--end
+--
+--function LuaUIClose(panelType)
+--    UIManager.panel:Close(panelType)
+--end
+
+
+
+return M

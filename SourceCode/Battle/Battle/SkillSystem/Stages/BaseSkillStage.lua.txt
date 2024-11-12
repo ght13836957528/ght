@@ -1,0 +1,37 @@
+----------------------------------------------------------------------
+--------- 2023年01月16日 15:11:12 星期一
+----------------------------------------------------------------------
+
+---@class BaseSkillStage
+local BaseSkillStage = class("BaseSkillStage")
+local M = BaseSkillStage
+
+function M:Ctor(params)
+    local data = params or {}
+    ---@type BattleCharacter
+    self.hostCharacter = data.character
+end
+
+function M:Enter(...)
+    self:_onEnter(...)
+end
+
+function M:Update(fDeltaTime)
+    self:_onUpdate(fDeltaTime)
+end
+
+function M:Exit()
+    self:_onExit()
+end
+
+----------------------------------------------------------------------
+function M:_onEnter(...)
+end
+
+function M:_onUpdate(fDeltaTime)
+end
+
+function M:_onExit()
+end
+
+return M

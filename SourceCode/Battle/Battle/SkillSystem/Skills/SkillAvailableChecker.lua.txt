@@ -1,0 +1,286 @@
+----------------------------------------------------------------------
+--------- 2023年02月01日 15:10:50 星期三
+----------------------------------------------------------------------
+
+--[[
+    检查技能当前是否可以释放
+    1. 检查异常状态
+    2. 配置中的特殊条件
+]]
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local ConfigHandler = ConfigHandler
+---@class SkillAvailableChecker
+local SkillAvailableChecker = class("SkillAvailableChecker")
+local M = SkillAvailableChecker
+
+--- 创建技能的时候创建这个检查器，检查过程中需要配置数据
+---@param hostCharacter BattleCharacter
+---@param skillManager CharacterSkillSystem
+function M:Ctor(hostCharacter, skillConfig)
+    self.hostCharacter      = hostCharacter
+    self.skillConfig        = skillConfig
+
+    self.globalConfig       = ConfigHandler:GetDataTable(GameDefine.TableName.Global)
+    self.isHandleSuperLogic = self:GetSkillIsSuper() and
+    (self.hostCharacter:GetCharacterContext():GetBattleCamp() == BattleEnum.BattleCamp.Attack)
+    self.isCanPlayEnum      = 1
+end
+
+function M:GetSkillIsSuper()
+    local skillType = self.skillConfig.type or 0
+    return skillType == 5
+end
+
+function M:disCanNotPlaySuperSkill(isCanPlay)
+    isCanPlay = isCanPlay or false
+    self.hostCharacter:GetSkillManager():SetCanPlayerSuperSkill(isCanPlay)
+    local enum = isCanPlay and 2 or 1
+    if self.isHandleSuperLogic then --BattleEventUtils:DisPath_SkillCanPlay(self.hostCharacter:GetBattleId(), false)
+        -- BattleLogger.log_error("disCanNotPlaySuperSkill  ************** ", tostring(isCanPlay))
+        BattleEventUtils:DisPath_SkillCanPlay(self.hostCharacter:GetBattleId(), isCanPlay)
+        self.isCanPlayEnum = enum
+    end
+end
+
+function M:CheckSkillAvailable(isInCd, isGcd)
+    local cdIsOk = not isInCd
+    if not cdIsOk then
+        if not isGcd then
+            self:disCanNotPlaySuperSkill()
+        end
+        return false
+    end
+
+    if self.skillConfig == nil then
+        self:disCanNotPlaySuperSkill()
+        return false
+    end
+
+
+    local costChecker = self:_costChecker()
+    if not costChecker then
+        self:disCanNotPlaySuperSkill()
+        -- 怒气值未满，不触发必杀
+        -- BattleLogger.log("技能消耗条件不足: ",
+        --     tostring(self:_getCharacterBattleId()), "  ", tostring(self.skillConfig.id))
+        return false
+    end
+
+    local iUnstoppable = self.skillConfig.unstoppable or 0
+    -- 否则需要检查异常状态
+    local hasAbnormalStatus = self:_checkAbnormalStatus()
+    if hasAbnormalStatus and iUnstoppable == 0 then
+        self:disCanNotPlaySuperSkill()
+        -- 有异常就直接返回技能不可用
+        -- BattleLogger.log("被控制不能放技能条件不足: ",
+        --     tostring(self:_getCharacterBattleId()), "  ", tostring(self.skillConfig.id))
+        return false
+    end
+
+    local bFullCondition = self:_checkSpecialCondition()
+    if not bFullCondition then
+        self:disCanNotPlaySuperSkill()
+        -- 不满足特殊条件，则判定技能不可用
+        return false
+    end
+
+    local hasTarget, resultTargets = self:_checkAvailableUnits()
+    if not hasTarget then
+        self:disCanNotPlaySuperSkill()
+        -- 没有可用单元，不触发必杀
+        -- BattleLogger.log("没有必杀目标: ", tostring(self:_getCharacterBattleId()))
+        return false
+    end
+
+    local markProfound = self:_checkProfoundMark()
+    if not markProfound then
+        -- 没有标记要触发必杀，直接跳过
+        -- BattleLogger.log("没有标记必杀: ", tostring(self:_getCharacterBattleId()))
+        return false
+    end
+
+    return true, resultTargets
+end
+
+function M:Clear()
+    self.skillConfig   = nil
+    self.globalConfig  = nil
+    self.hostCharacter = nil
+    self.isCanPlayEnum = 1
+end
+
+----------------------------------------------------------------------
+-------- private method
+
+--- 检查是否有异常状态
+function M:_checkAbnormalStatus()
+    local skillType = self.skillConfig.type or 0
+    if skillType == 5 then
+        -- 必杀有额外判定
+        local bHasUltraAbnormal = self:_checkUltraAbnormal()
+        if bHasUltraAbnormal then
+            return true
+        end
+    end
+
+    if skillType ~= 1 then
+        local isBeSneer = self:_checkIsBeSneer()
+        if isBeSneer then
+            return false
+        end
+    end
+    local bHasAbnormal = self:_checkAbnormalForAll()
+    if bHasAbnormal then
+        return true
+    end
+
+    return false
+end
+
+function M:_checkIsBeSneer()
+    if self.hostCharacter:GetLogicHandle():CheckHasBuff(BattleEnum.BuffType.Buff_Sneer) then
+        return true
+    else
+        return false
+    end
+end
+
+function M:_checkUltraAbnormal()
+    local ultraForbiddenList = self.globalConfig.BattleUltraForbiddenBuff or {}
+    return self:_checkHasAbnormalBuff(ultraForbiddenList)
+end
+
+function M:_checkAbnormalForAll()
+    local forbiddenList = self.globalConfig.BattleActionForbiddenBuff or {}
+    return self:_checkHasAbnormalBuff(forbiddenList)
+end
+
+function M:_checkHasAbnormalBuff(forbiddenBuffList)
+    for i, v in ipairs(forbiddenBuffList) do
+        local buffTypeId = v or 0
+        if self.hostCharacter:GetLogicHandle():CheckHasBuff(buffTypeId) then
+            return true
+        end
+    end
+
+    return false
+end
+
+--- 检查特殊条件是否满足
+function M:_checkSpecialCondition()
+    -- int[]
+    local conditionItem = self.skillConfig.condition
+    if conditionItem == nil then
+        -- 没有条件，直接是满足特殊条件
+        return true
+    end
+
+    return self:_checkConditionItem(conditionItem)
+end
+
+function M:_checkConditionItem(conditionItem)
+    local conditionType = conditionItem[1] or 0
+    if conditionType <= 0 then
+        return true
+    end
+
+    if conditionType == 1 then
+        -- 条件：周围没有敌人
+        local enemyList = self.hostCharacter:GetSearcher():FindEnemiesInRange(conditionItem[2])
+        local enemyCount = table_GetArrayLength(enemyList)
+        if enemyCount <= 0 then
+            return true
+        end
+    end
+
+    return false
+end
+
+function M:_getCharacterBattleId()
+    return self.hostCharacter:GetBattleId()
+end
+
+--- 大招检测
+function M:_checkProfoundMark()
+    local skillType = self.skillConfig.type or 0
+    if skillType ~= 5 then
+        return true
+    end
+    local isRobot = self.hostCharacter:IsRobot()
+    local isClick = self.hostCharacter:GetSkillManager():GetIsClickProfoundSkill()
+    if (not isRobot) and (not isClick) then
+        self:disCanNotPlaySuperSkill(true)
+    end
+    return isClick or self.hostCharacter:GetBattleContext():GetBattleAuto() or isRobot
+end
+
+function M:_costChecker()
+    if self.skillConfig and self.skillConfig.cost then
+        local cost = self.skillConfig.cost
+        local costValue = cost[2]
+        if costValue == nil then
+            BattleLogger.log_error("消耗参数配置 错误 skill Id == ", self.skillConfig.id)
+            return false
+        end
+        if cost[1] == BattleEnum.SkillCostType.Anger then
+            local rage = self.hostCharacter:GetRageManager():GetCurrentRage()
+            return rage >= costValue
+        elseif cost[1] == 2 then
+            BattleLogger.log_error(" todo  skill Id == ", self.skillConfig.id)
+            return false
+        elseif cost[1] == 3 then
+            BattleLogger.log_error(" todo  skill Id == ", self.skillConfig.id)
+            return false
+        else
+            BattleLogger.log_error(" todo  skill Id == ", self.skillConfig.id)
+            return false
+        end
+    else
+        return true
+    end
+end
+
+--- 检查怒气值
+function M:_checkMaxRage()
+    if self.skillConfig and self.skillConfig.cost and self.skillConfig.cost[1] == 1 then
+        if self.hostCharacter ~= nil and self.hostCharacter:GetRageManager():GetIsMaxRage() then
+            return true
+        end
+        return false
+    else
+        return true
+    end
+end
+
+--- 检查是否有可用单位
+function M:_checkAvailableUnits()
+    if self.hostCharacter ~= nil then
+        if self.skillConfig.rangeType and self.skillConfig.rangeType ~= BattleEnum.SkillRangeType.None then
+            --local findResults = self.hostCharacter:FindProfoundTargetUnits()
+            local findResults = self.hostCharacter:GetSearcher():FindAttackableTargetUnitInRange(self.skillConfig)
+            -- NOTE:findResults是数组型table，可以直接就计算长度
+            -- BattleLogger.log("必杀: 检查攻击目标: " .. tostring(self:_getCharacterBattleId()))
+
+            if findResults ~= nil and (#findResults > 1) then
+                -- 利用仇恨值排序
+                table.sort(findResults, function(a, b)
+                    local hat_a = self.hostCharacter:GetHatredManager():GetHatredValueById(a)
+                    local hat_b = self.hostCharacter:GetHatredManager():GetHatredValueById(b)
+                    return hat_a > hat_b
+                end)
+                -- for i, v in ipairs(findResults) do
+                --     BattleLogger.log("目标: " ..
+                --         tostring(v) .. " -  characterId: " .. tostring(self:_getCharacterBattleId()))
+                -- end
+            end
+            local isResult = findResults ~= nil and #findResults > 0
+            return isResult, findResults
+        else
+            return true, {}
+        end
+    end
+    return false
+end
+
+return M

@@ -1,0 +1,11 @@
+---@class GuideStepInfoCheckIfInAlliance:GuideStepBaseInfo 玩家是否在联盟中
+local GuideStepInfoCheckIfInAlliance = class("GuideStepInfoCheckIfInAlliance", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoCheckIfInAlliance
+
+function M:onParse(params)
+    self.yesId = params.yesId
+    self.noId  = params.noId
+end
+
+
+return M

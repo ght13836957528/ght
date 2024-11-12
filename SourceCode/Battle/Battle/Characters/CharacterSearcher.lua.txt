@@ -1,0 +1,1002 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 12:09:25 星期四
+----------------------------------------------------------------------
+
+--[[
+    鉴于有诸多需要以角色(BattleCharacter)为基准查找目标对象的功能需要，特意将这些
+    查找功能独立开来，使用时通过角色获取到查找器，然后通过查找器来处理查找功能。
+    1. 根据查找方式查找，如查找距离角色最近的角色，查找仇恨值最高的角色等
+    2. 根据给定范围以自身为基准查找周围目标等
+]]
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local Vector3 = Vector3
+-- local CharacterSelector = require "GameLogic.Battle.Characters.CharacterSelector"
+
+---@class CharacterSearcher
+local CharacterSearcher = class("CharacterSearcher")
+local M = CharacterSearcher
+
+--- 构造查找器
+--- @param hostCharacter BattleCharacter 查找需要以角色为基准
+--- @param battleContext BattleContext 战斗上下文，用于存取战斗级的数据
+function M:Ctor(hostCharacter, battleContext)
+    self.hostCharacter = hostCharacter
+    self.battleContext = battleContext
+    self.characterManager = self.battleContext:GetCharacterManager()
+    self.mapController = self.battleContext:GetMapController()
+end
+
+function M:Initialize()
+
+end
+
+--- 查找范围内敌对角色
+function M:FindEnemiesInRange(iRange)
+    -- local range = iRange or 0
+    -- if range <= 0 then
+    --     return nil
+    -- end
+
+    -- local units = self.selector:GetAllEnemies()
+
+    -- local targets = {}
+    -- for i, v in ipairs(units) do
+    --     local distance = self:DistanceTo(v:GetBattleId())
+    --     if distance < range then
+    --         table.insert(targets, v)
+    --     end
+    -- end
+
+    -- return targets
+    BattleLogger.log_error("???????????????  to do ")
+    return nil
+end
+
+function M:Clear()
+    self.hostCharacter = nil
+end
+
+function M:OnDied()
+
+end
+
+----------------------------------------------------------------------
+
+--- 计算两个角色直接的距离
+function M:DistanceTo(iTargetCharacterBattleId)
+    local targetCharacterBattleId = iTargetCharacterBattleId or 0
+    -- if targetCharacterBattleId <= 0 then
+    --     -- 未知
+    --     return -1
+    -- end
+
+    local characterManager = self.characterManager
+    if characterManager == nil then
+        return -1
+    end
+
+    -- 目标角色已经死亡
+    if characterManager:CheckCharacterDied(targetCharacterBattleId) then
+        return -1
+    end
+
+    return self:Distance(self.hostCharacter:GetBattleId(), targetCharacterBattleId)
+end
+
+function M:Distance(battleIdA, battleIdB)
+    local characterManager = self.characterManager
+    local characterA = characterManager:GetCharacterById(battleIdA)
+    local characterB = characterManager:GetCharacterById(battleIdB)
+    if characterA and characterB then
+        local index_a_x, index_a_z = characterA:GetTransform():GetLogicGridIndexXZ()
+        local index_b_x, index_b_z = characterB:GetTransform():GetLogicGridIndexXZ()
+        local dis = self.mapController:Distance(index_a_x, index_a_z, index_b_x, index_b_z)
+        local volumeRadiusA = characterA:GetTransform():GetVolumeRadius() or 1
+        local volumeRadiusB = characterB:GetTransform():GetVolumeRadius() or 1
+        volumeRadiusA = volumeRadiusA - 1
+        volumeRadiusB = volumeRadiusB - 1
+        return dis - volumeRadiusA - volumeRadiusB
+    else
+        BattleLogger.log_error("找不到 character ", tostring(battleIdA), tostring(battleIdB))
+        return 0
+    end
+end
+
+function M:Angle(battleIdA, battleIdB, isF)
+    if battleIdA == battleIdB then
+        return 0
+    end
+    
+    isF = isF or false
+    local f = isF and -1 or 1
+    local characterManager = self.characterManager
+    local characterA = characterManager:GetCharacterById(battleIdA)
+    local characterB = characterManager:GetCharacterById(battleIdB)
+    if characterA and characterB then
+        local tarVec = characterB:GetTransform():GetRenderPos() - characterA:GetTransform():GetRenderPos()
+        local angle = Vector3.Angle(tarVec, characterA:GetTransform():Forward() * f)
+        return angle
+    else
+        BattleLogger.log_error("找不到 character ", tostring(battleIdA), tostring(battleIdB))
+        return 0
+    end
+end
+
+--- 获取所有可攻击目标，全屏获取
+function M:FindEnemyUnits()
+    local enemyList = self:GetAllEnemies()
+
+    if enemyList == nil or #enemyList <= 0 then
+        return nil
+    end
+    local characterManager = self.battleContext:GetCharacterManager()
+    if characterManager == nil then
+        return nil
+    end
+    local list = {}
+    for i, v in ipairs(enemyList) do
+        if not characterManager:CheckCharacterDied(v) then
+            table.insert(list, v)
+        end
+    end
+    return list
+end
+
+--- Skill_Step筛选目标的范围选择
+---@return BattleCharacter[]
+function M:SearchByRange(iRangeType, arrRangeParam)
+    local characterManager = self.battleContext:GetCharacterManager()
+    if characterManager == nil then
+        return nil
+    end
+    local allCharacter = characterManager:GetAllCanCheckCharacters()
+    return self:_findTargetUnitsInRange(allCharacter, iRangeType, arrRangeParam)
+end
+
+function M:FindAttackableTargetUnitInRange(skillConfig)
+    local targetType = skillConfig.targetType
+    local rangeType = skillConfig.rangeType
+    local range = skillConfig.range
+    local characterManager = self.battleContext:GetCharacterManager()
+    if characterManager == nil then
+        return nil
+    end
+    local allCharacter = characterManager:GetAllCanCheckCharacters()
+    local count = table_GetMapLength(allCharacter)
+    if count <= 0 then
+        return
+    end
+    local rangeResult = self:_findTargetUnitsInRange(allCharacter, rangeType, range)
+    local targetUnits = self:_filterTargetByType(rangeResult, targetType)
+    if skillConfig.targetType and skillConfig.targetParam then
+        return self:_filterTargets(targetType, skillConfig.targetParam, targetUnits, self.hostCharacter)
+    else
+        return targetUnits
+    end
+end
+
+--------------------------targetType 搜索----------------------------------------------------------------------
+--- 全屏获取所有攻击目标
+function M:GetAllEnemies()
+    return self:_findAll(BattleEnum.SkillTargetType.Enemy)
+end
+
+--- 全局搜索（也就是获取全部）
+--- @param targetType number 目标类型 1=敌人 2=自己 3=友军非自己 4=友军含自己
+function M:_findAll(targetType)
+    local characterManager = self.battleContext:GetCharacterManager()
+    if characterManager == nil then
+        return nil
+    end
+
+    local result = characterManager:GetAllCanCheckCharacters()
+    local count = table_GetMapLength(result)
+    if count <= 0 then
+        return
+    end
+
+    -- 根据targetType筛选
+    return self:_filterTargetByType(result, targetType)
+end
+
+---@param tbSelection BattleCharacter[]
+function M:_filterTargetByType(tbSelection, targetType)
+    local targetUnits = {}
+    if targetType == BattleEnum.SkillTargetType.Enemy then
+        for i, v in ipairs(tbSelection) do
+            if self.hostCharacter:GetCharacterContext():GetBattleCamp() ~= v:GetCharacterContext():GetBattleCamp() and not v:CheckIsDied() then
+                -- 是敌对关系，就加入列表
+                table.insert(targetUnits, v.characterBattleId)
+            end
+        end
+    elseif targetType == BattleEnum.SkillTargetType.Myself then
+        for i, v in ipairs(tbSelection) do
+            if self.hostCharacter:GetBattleId() == v.characterBattleId and not v:CheckIsDied() then
+                -- 是自己
+                table.insert(targetUnits, v.characterBattleId)
+            end
+        end
+    elseif targetType == BattleEnum.SkillTargetType.FriendNoSelf then
+        for i, v in ipairs(tbSelection) do
+            if self.hostCharacter:GetCharacterContext():GetBattleCamp() == v:GetCharacterContext():GetBattleCamp()
+                and self.hostCharacter:GetBattleId() ~= v.characterBattleId and not v:CheckIsDied() then
+                -- 友军非自己
+                table.insert(targetUnits, v.characterBattleId)
+            end
+        end
+    elseif targetType == BattleEnum.SkillTargetType.Friend then
+        for i, v in ipairs(tbSelection) do
+            if self.hostCharacter:GetCharacterContext():GetBattleCamp() == v:GetCharacterContext():GetBattleCamp() and not v:CheckIsDied() then
+                -- 友军且包含自己
+                table.insert(targetUnits, v.characterBattleId)
+            end
+        end
+    end
+    return targetUnits
+end
+
+--------------------------------------------------------------------------------------------
+
+--- 从范围内查找在角色范围内的角色
+---@param tbTargetList BattleCharacter[]
+---@return BattleCharacter[]
+function M:_findTargetUnitsInRange(tbTargetList, rangeType, tbRange)
+    rangeType = rangeType or 0
+    if rangeType == BattleEnum.SkillRangeType.Circle then
+        return self:_findInCircle(tbTargetList, tbRange[1])
+    elseif rangeType == BattleEnum.SkillRangeType.FullScreen then
+        return tbTargetList
+    elseif rangeType == BattleEnum.SkillRangeType.Rectangle then
+        return self:_findInRectangle(tbTargetList, tbRange[1])
+    elseif rangeType == BattleEnum.SkillRangeType.Sector then
+        return self:_findInSector(tbTargetList, tbRange[1], tbRange[2])
+    elseif rangeType == BattleEnum.SkillRangeType.RectangleMore then
+        BattleLogger.log_error("TODO: 留待后续处理   BattleEnum.SkillRangeType.RectangleMore ")
+        return {}
+    elseif rangeType == BattleEnum.SkillRangeType.None then
+        return tbTargetList
+    elseif rangeType == BattleEnum.SkillRangeType.Rectangle_f then
+        return self:_findInRectangle_f(tbTargetList, tbRange[1])
+    else
+        BattleLogger.log_error("????  类型枚举错误  ！！！  rangeType == ", tostring(rangeType))
+        return {}
+    end
+end
+
+---@param tbTargetList BattleCharacter[]
+---@return BattleCharacter[]
+function M:_findInCircle(tbTargetList, iRange)
+    local range = iRange or 0
+    if range <= 0 then
+        return nil
+    end
+    local resultList = {}
+    for _, v in ipairs(tbTargetList) do
+        local distanceToTarget = self:DistanceTo(v:GetBattleId())
+        if distanceToTarget <= range then
+            table.insert(resultList, v)
+        end
+    end
+    return resultList
+end
+
+---@param tbTargetList BattleCharacter[]
+---@return BattleCharacter[]
+function M:_findInRectangle(tbTargetList, iRange)
+    local range = iRange or 0
+    if range <= 0 then
+        return nil
+    end
+    local resultList = {}
+    
+    for _, v in ipairs(tbTargetList) do
+        local distanceToTarget = self:DistanceTo(v:GetBattleId())
+        local angle = self:Angle(self.hostCharacter:GetBattleId(), v:GetBattleId())
+        
+        if distanceToTarget <= range and angle <= 30 then
+            table.insert(resultList, v)
+        end
+    end
+    return resultList
+end
+
+---@param tbTargetList BattleCharacter[]
+---@return BattleCharacter[]
+function M:_findInRectangle_f(tbTargetList, iRange)
+    local range = iRange or 0
+    if range <= 0 then
+        return nil
+    end
+    local resultList = {}
+    for _, v in ipairs(tbTargetList) do
+        local distanceToTarget = self:DistanceTo(v:GetBattleId())
+        local angle = self:Angle(self.hostCharacter:GetBattleId(), v:GetBattleId(), true)
+        -- BattleLogger.log_error("angle == ",angle)
+        if distanceToTarget <= range and angle <= 30 then
+            table.insert(resultList, v)
+        end
+    end
+    return resultList
+end
+
+---@param tbTargetList BattleCharacter[]
+---@return BattleCharacter[]
+function M:_findInSector(tbTargetList, iRange, iAnger)
+    iAnger = iAnger or 65
+    local range = iRange or 0
+    if range <= 0 then
+        return nil
+    end
+    local resultList = {}
+    for _, v in ipairs(tbTargetList) do
+        local distanceToTarget = self:DistanceTo(v:GetBattleId())
+        local angle = self:Angle(self.hostCharacter:GetBattleId(), v:GetBattleId())
+        -- BattleLogger.log_error("angle == ",angle)
+        if distanceToTarget <= range and angle < iAnger then
+            table.insert(resultList, v)
+        end
+    end
+    return resultList
+end
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------
+local filMap = {
+    [BattleEnum.StepFiltParamType.All]          = "_paramFilter_All",
+    [BattleEnum.StepFiltParamType.Hatred]       = "_paramFilter_Hatred",
+    [BattleEnum.StepFiltParamType.Nearest]      = "_paramFilter_Nearest",
+    [BattleEnum.StepFiltParamType.Farthest]     = "_paramFilter_Farthest",
+    [BattleEnum.StepFiltParamType.AttackMax]    = "_paramFilter_AttackMax",
+    [BattleEnum.StepFiltParamType.Random_RD]    = "_paramFilter_Random_RD",
+    [BattleEnum.StepFiltParamType.DefenseMin]   = "_paramFilter_DefenseMin",
+    [BattleEnum.StepFiltParamType.Random]       = "_paramFilter_Random",
+    [BattleEnum.StepFiltParamType.FrontRow]     = "_paramFilter_FrontRow",
+    [BattleEnum.StepFiltParamType.BackRow]      = "_paramFilter_BackRow",
+    [BattleEnum.StepFiltParamType.HPMin]        = "_paramFilter_HPMin",
+    [BattleEnum.StepFiltParamType.HPMax]        = "_paramFilter_HPMax",
+    [BattleEnum.StepFiltParamType.HPRatioMin]   = "_paramFilter_HPRatioMin",
+    [BattleEnum.StepFiltParamType.ShortRange]   = "_paramFilter_ShortRange",
+    [BattleEnum.StepFiltParamType.FarRange]     = "_paramFilter_FarRange",
+    [BattleEnum.StepFiltParamType.Intelligence] = "_paramFilter_Intelligence",
+    [BattleEnum.StepFiltParamType.Agility]      = "_paramFilter_Agility",
+    [BattleEnum.StepFiltParamType.Strength]     = "_paramFilter_Strength",
+    [BattleEnum.StepFiltParamType.Race_1]       = "_paramFilter_Race_1",
+    [BattleEnum.StepFiltParamType.Race_2]       = "_paramFilter_Race_2",
+    [BattleEnum.StepFiltParamType.Race_3]       = "_paramFilter_Race_3",
+    [BattleEnum.StepFiltParamType.Race_4]       = "_paramFilter_Race_4",
+    [BattleEnum.StepFiltParamType.Summons]      = "_paramFilter_Summons",
+    [BattleEnum.StepFiltParamType.Masters]      = "_paramFilter_Masters",
+
+}
+
+--- 根据条件过滤出需要的目标
+---@param filterType number 目标类型
+---@param filterParam table 过滤参数
+---@param targetes BattleCharacter[]
+---@param findRootCharacter BattleCharacter
+---@param baseCharacter BattleCharacter
+function M:_filterTargets(filterType, filterParam, ranResult, findRootCharacter)
+    if filterType == BattleEnum.SkillTargetType.Myself then
+        return ranResult
+    end
+    local paramCount = table_GetMapLength(filterParam)
+    -- 参数中包含两个参数 1. 筛选方式    2. 目标数量
+    if paramCount < 2 then
+        return
+    end
+    local ftype = filterParam[1] or 0
+    local count = filterParam[2] or 0
+
+    if ftype > 0 and count > 0 then
+        if filMap[ftype] and self[filMap[ftype]] then
+            return self[filMap[ftype]](self, count, ranResult, findRootCharacter)
+        else
+            BattleLogger.log_error("todo 扩展 目标筛选 方法！！ ", tostring(ftype))
+            return {}
+        end
+    end
+end
+
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Hatred(count, tmpResult, findRootCharacter)
+    if count ~= 1 then
+        BattleLogger.log_error("配置错误 仇恨值 筛选 只能是单一目标！！ count == ", tostring(count))
+    end
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local id = findRootCharacter:GetHatredManager():GetMaxHatredOnIds(tmpResult)
+    if id > 0 then
+        table.insert(tmp, id)
+    end
+    return tmp
+end
+
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_AttackMax(count, tmpResult, findRootCharacter)
+    if count ~= 1 then
+        BattleLogger.log_error("配置错误 攻击力最强 筛选 只能是单一目标！！ count == ",
+            tostring(count))
+    end
+    count = 1
+    local attack = -1
+    local tmp = {}
+    local resultId = -1
+    tmpResult = tmpResult or {}
+    for _, battleId in ipairs(tmpResult) do
+        local character = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if character then
+            local atk = character:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+                .AttributeType_ATK_2)
+            if atk > attack then
+                resultId = battleId
+                attack = atk
+            end
+        end
+    end
+    if resultId > 0 then
+        table.insert(tmp, resultId)
+    end
+    return tmp
+end
+
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Nearest(count, tmpResult, findRootCharacter)
+    tmpResult = tmpResult or {}
+    local tmp = {}
+    local dis = 1000000
+    for _, battleId in ipairs(tmpResult) do
+        local tmpDis = findRootCharacter:GetSearcher():Distance(findRootCharacter:GetBattleId(), battleId)
+        if tmpDis < dis then
+            dis = tmpDis
+            tmp = {}
+            table.insert(tmp, battleId)
+        elseif tmpDis == dis then
+            if #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        else
+            -- mothing to do
+        end
+    end
+    return tmp
+end
+
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Farthest(count, tmpResult, findRootCharacter)
+    tmpResult = tmpResult or {}
+    local tmp = {}
+    local dis = -1
+    for _, battleId in ipairs(tmpResult) do
+        local tmpDis = findRootCharacter:GetSearcher():Distance(findRootCharacter:GetBattleId(), battleId)
+        if tmpDis > dis then
+            dis = tmpDis
+            tmp = {}
+            table.insert(tmp, battleId)
+        elseif tmpDis == dis then
+            if #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        else
+            -- mothing to do
+        end
+    end
+    return tmp
+end
+
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Random_RD(count, tmpResult, findRootCharacter)
+    return self:_paramFilter_Random_RD_ipairs(count, tmpResult, nil, findRootCharacter)
+end
+
+---@param findRootCharacter BattleCharacter
+function M:_paramFilter_Random_RD_ipairs(count, tmpResult, targets, findRootCharacter)
+    targets = targets or {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 or #targets >= count then
+        return targets
+    else
+        local index = self.battleContext:GetBattleRandom():RandomRange(1, len, " 筛选目标--> 随机排重：",
+            findRootCharacter:GetTransform():GetInitPos(), findRootCharacter:GetCharacterContext():GetBattleCamp())
+        local battleId = tmpResult[index]
+        table.insert(targets, battleId)
+        table.remove(tmpResult, index)
+        return self:_paramFilter_Random_RD_ipairs(count, tmpResult, targets, findRootCharacter)
+    end
+end
+
+--- 防御力最低
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_DefenseMin(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+
+    if count > 0 then
+        local IsMagic = findRootCharacter:IsMagic()
+        local att = IsMagic and BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4 or
+            BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3
+        table.sort(tmpResult, function(a, b)
+            local characterA = self.battleContext:GetCharacterManager():GetCharacterById(a)
+            local characterB = self.battleContext:GetCharacterManager():GetCharacterById(b)
+            if characterA and characterB then
+                local va = characterA:GetAttribute():GetAttackCurrentValue(att)
+                local vb = characterB:GetAttribute():GetAttackCurrentValue(att)
+                if va == vb then
+                    return false
+                else
+                    return va < vb
+                end
+            else
+                return false
+            end
+        end)
+        for i = 1, count do
+            local id = tmpResult[i] or tmpResult[1]
+            table.insert(tmp, id)
+        end
+        return tmp
+    else
+        return {}
+    end
+end
+
+--- 随机
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Random(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, count do
+        local index = self.battleContext:GetBattleRandom():RandomRange(1, len, " 筛选目标--> 随机不排重：",
+            findRootCharacter:GetTransform():GetInitPos(), findRootCharacter:GetCharacterContext():GetBattleCamp())
+        local battleId = tmpResult[index]
+        if battleId then
+            table.insert(tmp, battleId)
+        end
+    end
+    return tmp
+end
+
+--- 前排
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_FrontRow(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    local tmpTarget = {}
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local pos = characterA:GetTransform():GetInitPos()
+            if pos > 0 and pos <= 2 then
+                table.insert(tmpTarget, battleId)
+            end
+        end
+    end
+    len = #tmpTarget
+    for i = 1, len do
+        local tmpLen = #tmpTarget
+        local index = self.battleContext:GetBattleRandom():RandomRange(1, tmpLen, " 筛选目标-->  后排排重：",
+            findRootCharacter:GetTransform():GetInitPos(), findRootCharacter:GetCharacterContext():GetBattleCamp())
+        local battleId = table.remove(tmpTarget, index)
+        if battleId then
+            local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+            if characterA then
+                table.insert(tmp, battleId)
+                if #tmp >= count then
+                    return tmp
+                end
+            end
+        end
+    end
+    return tmp
+end
+
+--- 后排
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_BackRow(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    local tmpTarget = {}
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local pos = characterA:GetTransform():GetInitPos()
+            if pos > 2 and pos <= 5 then
+                table.insert(tmpTarget, battleId)
+            end
+        end
+    end
+    len = #tmpTarget
+    for i = 1, len do
+        local tmpLen = #tmpTarget
+        local index = self.battleContext:GetBattleRandom():RandomRange(1, tmpLen, " 筛选目标-->  后排排重：",
+            findRootCharacter:GetTransform():GetInitPos(), findRootCharacter:GetCharacterContext():GetBattleCamp())
+        local battleId = table.remove(tmpTarget, index)
+        if battleId then
+            local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+            if characterA then
+                table.insert(tmp, battleId)
+                if #tmp >= count then
+                    return tmp
+                end
+            end
+        end
+    end
+    return tmp
+end
+
+--- 血量最低得
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_HPMin(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    table.sort(tmpResult, function(a, b)
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(a)
+        local hp_a = characterA:GetBaseAtt():GetCurrentHpValue()
+        local characterB = self.battleContext:GetCharacterManager():GetCharacterById(b)
+        local hp_b = characterB:GetBaseAtt():GetCurrentHpValue()
+        if hp_a == hp_b then
+            return a < b
+        else
+            return hp_a < hp_b
+        end
+    end)
+
+    for i = 1, count do
+        local battleId = tmpResult[i]
+        table.insert(tmp, battleId)
+    end
+    return tmp
+end
+
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_All(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    for i = 1, count do
+        local battleId = tmpResult[i]
+        if battleId then
+            table.insert(tmp, battleId)
+        end
+    end
+    return tmp
+end
+
+--- 血量最高得
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_HPMax(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    table.sort(tmpResult, function(a, b)
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(a)
+        local hp_a = characterA:GetBaseAtt():GetCurrentHpValue()
+        local characterB = self.battleContext:GetCharacterManager():GetCharacterById(b)
+        local hp_b = characterB:GetBaseAtt():GetCurrentHpValue()
+        if hp_a == hp_b then
+            return a < b
+        else
+            return hp_a > hp_b
+        end
+    end)
+
+    for i = 1, count do
+        local battleId = tmpResult[i]
+        table.insert(tmp, battleId)
+    end
+    return tmp
+end
+
+--- 血量百分比最低得
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_HPRatioMin(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    table.sort(tmpResult, function(a, b)
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(a)
+        local hp_a = characterA:GetBaseAtt():GetHpRate()
+        local characterB = self.battleContext:GetCharacterManager():GetCharacterById(b)
+        local hp_b = characterB:GetBaseAtt():GetHpRate()
+        if hp_a == hp_b then
+            return a < b
+        else
+            return hp_a < hp_b
+        end
+    end)
+
+    for i = 1, count do
+        local battleId = tmpResult[i]
+        table.insert(tmp, battleId)
+    end
+    return tmp
+end
+
+--- 近程
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_ShortRange(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local con = characterA:GetConfigData()
+            if con and con.range == 1 and #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+--- 远程
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_FarRange(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local con = characterA:GetConfigData()
+            if con and con.range == 2 and #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+--- 智力
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Intelligence(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local con = characterA:GetConfigData()
+            if con and con.type == 3 and #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+--- 敏捷
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Agility(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local con = characterA:GetConfigData()
+            if con and con.type == 2 and #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+--- 力量
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Strength(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local con = characterA:GetConfigData()
+            if con and con.type == 1 and #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+--- race == 1
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Race_1(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local con = characterA:GetConfigData()
+            if con and con.race == 1 and #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+--- race == 1
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Race_2(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local con = characterA:GetConfigData()
+            if con and con.race == 2 and #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+--- race == 1
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Race_3(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local con = characterA:GetConfigData()
+            if con and con.race == 3 and #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+--- race == 1
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Race_4(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA then
+            local con = characterA:GetConfigData()
+            if con and con.race == 4 and #tmp < count then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+---
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Summons(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    local masterId = findRootCharacter:GetBattleId()
+    for i = 1, len do
+        local battleId = tmpResult[i]
+        local characterA = self.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if characterA and characterA:GetCharacterContext():GetParentEntityId() then
+            if masterId == characterA:GetCharacterContext():GetParentEntityId() then
+                table.insert(tmp, battleId)
+            end
+        end
+    end
+    return tmp
+end
+
+---
+---@param findRootCharacter BattleCharacter
+---@param tmpResult string[] battleIds
+function M:_paramFilter_Masters(count, tmpResult, findRootCharacter)
+    local tmp = {}
+    tmpResult = tmpResult or {}
+    local len = #tmpResult
+    if len <= 0 then
+        return tmp
+    end
+    local masterId = findRootCharacter:GetCharacterContext():GetParentEntityId()
+    if masterId then
+        table.insert(tmp, masterId)
+    end
+    return tmp
+end
+
+return M

@@ -1,0 +1,27 @@
+---@class GuideStepInfoCamera : GuideStepBaseInfo @引导步骤相机类型数据结构
+---@field public operationType number 操作类型 :1 = 跳转  2 = 切换  0 = 非跳转与切换
+---@field public jumpType number 跳转类型：1=建筑 2=指定地块
+---@field public jumpTime number 跳转时间
+---@field public jumpSpeed number 跳转速度
+---@field public jumpParam number 建筑id/地块坐标：0,1
+---@field public zoom number 相机缩放 1 = 需要缩放； 0 = 不需要缩放
+---@field public zoomTime number 相机完成缩放的时间
+---@field public zoomScale number 相机缩放倍数
+local GuideStepInfoCamera = class("GuideStepInfoCamera", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoCamera
+
+---说明：1.这里operationType和zoom并不是互斥的；
+---     2.跳转的时间与速度，先判定是否规定时间，有时间使用时间；没有时间，读取速度字段；
+
+function M:onParse(params)
+    self.operationType = params.operationType
+    self.jumpType = params.jumpType
+    self.jumpTime  = params.jumpTime
+    self.jumpSpeed = params.jumpSpeed
+    self.jumpParam = params.jumpParam
+    self.zoom = params.zoom
+    self.zoomTime = params.zoomTime
+    self.zoomScale = params.zoomScale
+end
+
+return M

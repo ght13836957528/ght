@@ -1,0 +1,630 @@
+----------------------------------------------------------------------
+--------- 2022年11月30日 18:30:11 星期三
+----------------------------------------------------------------------
+
+-- 管理战斗中的角色
+-- 因为账号中有多个角色，但是选入参加战斗的有限制，所以设置为战斗角色管理
+-- 玩家选择n个英雄加入战斗，enemy从配置中获取
+local BattleAttributeHandler = require "GameLogic.Battle.BattleAttribute.BattleAttributeHandler"
+local BattleCharacter        = require "GameLogic.Battle.Characters.BattleCharacter"
+local BattleCharacterGuns    = require "GameLogic.Battle.Characters.Guns.BattleCharacterGuns"
+local BattleCharacterPendant = require "GameLogic.Battle.CharacterPendant.BattleCharacterPendant"
+local BattleConstant         = require "GameLogic.Battle.BattleConstant"
+local BattleCharacterSummons = require "GameLogic.Battle.Characters.Summons.BattleCharacterSummons"
+local MowingPlayerSummon     = require "GameLogic.MowingGame.GameModule.CharacterModule.Character.MowingPlayerSummon"
+
+-- local RepresentBattleCharacter  = require "GameLogic.Battle.Represent.RepresentBattleCharacter"
+-- local DefaultRepresentCharacter = require "GameLogic.Battle.Represent.DefaultRepresentCharacter"
+local BattleEventUtils       = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local ConfigHandler          = ConfigHandler
+local BattleEnum             = require "GameLogic.Battle.BattleEnum"
+local BattleWorldDataBox     = require "GameLogic.Battle.BattleStatistics.BattleWorldDataBox"
+---@class BattleCharacterManager
+local BattleCharacterManager = class("BattleCharacterManager")
+local M                      = BattleCharacterManager
+local updateOrder            = {
+    3, 4, 5, 8, 9, 10, 1, 2, 6, 7
+}
+local endDelayTime           = 1.5
+---@param battleContext BattleContext
+function M:Ctor(battleContext, isClient)
+    self.isClient = isClient or false
+
+    self.battleContext = battleContext
+
+    -- 设置为全局，供其他使用
+    self.battleContext:SetCharacterManager(self)
+
+
+    -- 所有参与战斗的角色
+    ---@type BattleCharacter[]
+    self.characters = {}
+    -- 所有参与战斗的角色
+    self.charactersMap = {}
+    ---@type BattleCharacter[]
+    self.liveCharacters = {}
+    ---@type BattleCharacter[]
+    self.canCheckCharacters = {}
+    ---@type BattleCharacterGuns[]
+    self.gunCharacterList = {}
+    self.gunCharacterMap = {}
+    self.pos_index = {}
+    -- 路径到本地ID的一个映射，主要是异步之后要确定对应的ID
+    self.srcToIdMap = {}
+
+    self.characterConfigMap = {}
+
+    self.endCallbacks = {}
+
+    -- 玩家角色死亡列表
+    self.playerCharacterDieList = {}
+    -- 怪物角色死亡列表
+    self.enemyCharacterDieList = {}
+
+    self.playerCharacterCount = 0
+    self.enemyCharacterCount = 0
+
+    self.globalConfig = ConfigHandler:GetDataTable(GameDefine.TableName.Global)
+
+    self.worldDataBox = BattleWorldDataBox.new(self)
+
+    self._pendantCharacter_left = nil
+end
+
+function M:Initialize()
+    BroadcastEvent.subscribe(BattleEventId.MSG_BATTLE_TRIGGER_PROFOUND, self._onTriggerProfound, self)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Refresh_Hatred, self._RefreshHatred, self)
+end
+
+--- @param battleData battleData 战斗数据
+--- @param resourceCache BattleResourceContainer
+---@param leftTeamList BattleCharacterPlayerModel[]
+---@param rightTeamList BattleCharacterRobotModel[]
+function M:OnStartFight(battleData, leftTeamList, rightTeamList, resourceCache)
+    self:_initCharacter(leftTeamList, rightTeamList)
+    self:_initPendantCharacter()
+    self:CheckUpdateLiveCharacter()
+    self:_initGunCharacter(leftTeamList, rightTeamList)
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_EnterBattle_1, -1)
+    for _, order in ipairs(updateOrder) do
+        local index = self.pos_index[order]
+        local character = self.characters[index]
+        if character then
+            character:OnStartFight()
+        end
+    end
+
+    -- for _, v in ipairs(self.characters) do
+    --     if v ~= nil then
+    --         v:OnStartFight()
+    --     end
+    -- end
+
+    -- BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_EnterBattle_1, -1)
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_HpChange_13, -1)
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_CharacterNumberChange_15, -1)
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_PosChange_16, -1)
+end
+
+function M:_initCharacter(leftTeamList, rightTeamList)
+    for i = 1, 5 do
+        if leftTeamList[i] then
+            self:_createAtkBattleCharacter(leftTeamList[i])
+            self.pos_index[i] = #self.characters
+        end
+    end
+    for i = 1, 5 do
+        if rightTeamList[i] then
+            self:_createDefBattleCharacter(rightTeamList[i])
+            self.pos_index[5 + i] = #self.characters
+        end
+    end
+end
+
+function M:_initGunCharacter(leftTeamList, rightTeamList)
+    ---@type BattleCharacterGunModel[]
+    local leftGunsList = leftTeamList.gunList or {}
+    local posOffset = 100
+    for index, gunCharacterInfo in ipairs(leftGunsList) do
+        self:CreateGunsCharacter(gunCharacterInfo, BattleEnum.BattleCamp.Attack, index + posOffset)
+    end
+    ---@type BattleCharacterGunModel[]
+    local rightGunList = rightTeamList.gunList or {}
+    for index, gunCharacterInfo in ipairs(rightGunList) do
+        self:CreateGunsCharacter(gunCharacterInfo, BattleEnum.BattleCamp.Defend, index + posOffset)
+    end
+end
+
+function M:OnEndFight()
+    --
+end
+
+--- 获取角色数量
+--- @param iCountType number 0 - 全部（默认） 1 - 己方 2 - 敌方
+function M:GetCharacterCount(iCountType)
+    local countType = iCountType or 0
+    if countType == 0 then
+        local allCount = self.playerCharacterCount + self.enemyCharacterCount
+        return allCount
+    elseif countType == 1 then
+        return self.playerCharacterCount
+    elseif countType == 2 then
+        return self.enemyCharacterCount
+    end
+
+    return 0
+end
+
+--- 获取所有的角色，包括玩家角色和敌对角色
+function M:GetAllCharacters()
+    return self.characters
+end
+
+---@return BattleCharacter[]
+function M:GetAllLiveCharacters()
+    return self.liveCharacters
+end
+
+---@return BattleCharacter[]
+function M:GetAllCanCheckCharacters()
+    local liveCharacters = self.liveCharacters
+    local result = {}
+    for _, character in ipairs(liveCharacters) do
+        if character and character:GetLogicHandle():CheckIsCanBeFind() then
+            table.insert(result, character)
+        end
+    end
+    return result
+end
+
+function M:CheckUpdateLiveCharacter()
+    self.liveCharacters = {}
+    for id, character in ipairs(self.characters) do
+        if character and not character:CheckIsDied() then
+            table.insert(self.liveCharacters, character)
+        end
+    end
+end
+
+--- 获取所有的角色，包括玩家角色和敌对角色
+function M:GetAllCharacterIds()
+    local tmp = {}
+    for _, value in ipairs(self.characters) do
+        table.insert(tmp, value:GetBattleId())
+    end
+    return tmp
+end
+
+---@return BattleCharacter
+function M:GetCharacterById(iCharacterBattleId)
+    -- local characterBattleId = iCharacterBattleId or 0
+    -- if characterBattleId <= 0 then
+    --     return nil
+    -- end
+    local character = self.charactersMap[iCharacterBattleId]
+    if character then
+        return character
+    else
+        if self._pendantCharacter_left and self._pendantCharacter_left:GetBattleId() == iCharacterBattleId then
+            return self._pendantCharacter_left
+        else
+            if self.gunCharacterMap and self.gunCharacterMap[iCharacterBattleId] then
+                return self.gunCharacterMap[iCharacterBattleId]
+            end
+        end
+    end
+    -- for _, character in ipairs(self.characters) do
+    --     if character.characterBattleId == iCharacterBattleId then
+    --         return character
+    --     end
+    -- end
+    -- return nil
+end
+
+--- 角色死亡的处理
+---@param character BattleCharacter
+function M:OnCharacterDie(character)
+    local characterBattleId = character:GetBattleId()
+    local isSummon = character:GetCharacterContext():GetIsSummon()
+    if not isSummon then
+        if character:GetCharacterContext():GetBattleCamp() == BattleEnum.BattleCamp.Attack then
+            table.insert(self.playerCharacterDieList, characterBattleId)
+            if #self.playerCharacterDieList == self.playerCharacterCount then
+                self:PlayEndAni(false)
+            end
+        else
+            table.insert(self.enemyCharacterDieList, characterBattleId)
+            if #self.enemyCharacterDieList == self.enemyCharacterCount then
+                self:PlayEndAni(true)
+            end
+        end
+    else
+
+    end
+    self:CheckUpdateLiveCharacter()
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_OnOtherDied_11, character:GetBattleId(),
+        character:GetCharacterContext():GetBattleCamp())
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_CharacterNumberChange_15, character:GetBattleId(),
+        character:GetCharacterContext():GetBattleCamp())
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_PosChange_16, character:GetBattleId(),
+        character:GetCharacterContext():GetBattleCamp())
+end
+
+function M:getBattleEndData(result)
+    local battleData = {}
+    battleData.gamePlayType = self.battleContext:GetPlayType()
+    battleData.result = result
+    battleData.battleSceneUUId = self.battleContext:GetBattleSceneUUId()
+    battleData.clientFrame = self.battleContext:GetFrameControl():getBattleFrameData()
+    battleData.worldData = self.worldDataBox:cloneData()
+    battleData.left = {
+        teamSet = {},
+    }
+
+    battleData.right = {
+        teamSet = {},
+    }
+    for _, value in ipairs(self.characters) do
+        if not value:GetIsSummoner() then
+            local camp = value:GetCharacterContext():GetBattleCamp()
+            local data = {}
+            data.battlePos = value:GetTransform():GetInitPos()
+            data.battleData = value.battleData
+            data.statisticalData = value:GetBattleNumericalBox():cloneData()
+            data.troopsLoss = value:GetBaseAtt():cloneTroopLossData()
+            data.soldiersMap = value.battleData._soldiersMap or {}
+            data.hpBase = value:GetBaseAtt():GetHpTotal()
+            data.hpCurrent = value:GetBaseAtt():GetCurrentHpValue()
+            data.power = value:GetRageManager():GetCurrentRage()
+            if camp == BattleEnum.BattleCamp.Attack then
+                table.insert(battleData.left.teamSet, data)
+            else
+                table.insert(battleData.right.teamSet, data)
+            end
+        end
+    end
+    for _, value in ipairs(self.gunCharacterList) do
+        local camp = value:GetCharacterContext():GetBattleCamp()
+        local data = {}
+        data.battlePos = value:GetTransform():GetInitPos()
+        data.battleData = value.battleData
+        data.statisticalData = value:GetBattleNumericalBox():cloneData()
+        data.troopsLoss = value:GetBaseAtt():cloneTroopLossData()
+        data.soldiersMap = value.battleData._soldiersMap or {}
+        data.hpBase = value:GetBaseAtt():GetHpTotal()
+        data.hpCurrent = value:GetBaseAtt():GetCurrentHpValue()
+        data.power = value:GetRageManager():GetCurrentRage()
+        if camp == BattleEnum.BattleCamp.Attack then
+            table.insert(battleData.left.teamSet, data)
+        else
+            table.insert(battleData.right.teamSet, data)
+        end
+    end
+    return battleData
+end
+
+function M:PlayEndAni(isWin, isBoss)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_LogicEnd)
+    local playType = self.battleContext:GetPlayType()
+    if playType == BattleEnum.BattlePlayType.World_Pve_Boss_Win then
+        isWin = true
+    end
+    -- print(" 最终逻辑帧数  : " .. self.battleContext:GetFrameControl()._frameCount)
+    local cb = function()
+        local battleEndData = self:getBattleEndData(isWin and 1 or 2)
+        -- 敌对方角色死亡，玩家获胜
+        BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_FIGHT_END, battleEndData)
+    end
+    if self.battleContext:GetBattleStageId() ~= BattleConstant.BattleGuideBossId then
+        if isWin then
+            -- local aniSpeed = self.battleContext:GetBattleSpeed()
+            for _, characterInfo in pairs(self.characters) do
+                if characterInfo:GetCharacterContext():GetBattleCamp() == BattleEnum.BattleCamp.Attack and not characterInfo:CheckIsDied() then
+                    characterInfo:GetController():OnVictory()
+                end
+            end
+        else
+            -- local aniSpeed = self.battleContext:GetBattleSpeed()
+            for _, characterInfo in pairs(self.characters) do
+                if characterInfo:GetCharacterContext():GetBattleCamp() == BattleEnum.BattleCamp.Defend and not characterInfo:CheckIsDied() then
+                    characterInfo:GetController():OnVictory()
+                end
+            end
+        end
+    end
+
+    if self.isClient then
+        if self.battleContext:GetBattleStageId() == BattleConstant.BattleGuideBossId then
+            if self.delayTimer ~= nil then
+                self.delayTimer:reset(0.5, 0, false, false, cb, self)
+            else
+                self.delayTimer = Timer.new(0.5, 0, false, false, cb, self)
+            end
+            self.delayTimer:start()
+        else
+            local battleSpeed = self.battleContext:GetBattleSpeed() or 1
+            if self.delayTimer ~= nil then
+                self.delayTimer:reset(endDelayTime / battleSpeed, 0, false, false, cb, self)
+            else
+                self.delayTimer = Timer.new(endDelayTime / battleSpeed, 0, false, false, cb, self)
+            end
+            self.delayTimer:start()
+        end
+    else
+        local battleEndData = self:getBattleEndData(isWin and 1 or 2)
+        self.battleContext:GetBattleManager():OnEndFight(isWin and 1 or 2, battleEndData)
+    end
+end
+
+--- 判断角色是否死亡（角色不存在或者为空也判定为死亡）
+function M:CheckCharacterDied(iCharacterBattleId)
+    local characterBattleId = iCharacterBattleId or 0
+    if characterBattleId <= 0 then
+        return true
+    end
+
+    local character = self:GetCharacterById(characterBattleId)
+    if character == nil or character:CheckIsDied() then
+        return true
+    end
+
+    return false
+end
+
+function M:SetBattleAuto(isAuto)
+    if isAuto then
+        for _, characterInfo in ipairs(self.characters) do
+            if not characterInfo:IsRobot() and not characterInfo:CheckIsDied() then
+                local isCanPlay = characterInfo:GetSkillManager():GetCanPlayerSuperSkill()
+                if isCanPlay then
+                    characterInfo:GetController():InterruptToProfound()
+                end
+            end
+        end
+    end
+end
+
+----------------------------------------------------------------------
+local name = "battle Man update"
+local name2 = "battle man update 2"
+function M:Update(fDeltaTime)
+    --CS.UnityEngine.Profiling.Profiler.BeginSample(name)
+    
+    if self._pendantCharacter_left then
+        self._pendantCharacter_left:OnUpdate(fDeltaTime)
+    end
+    local len = 0
+    for _, order in ipairs(updateOrder) do
+        local index = self.pos_index[order]
+        local character = self.characters[index]
+        if character then
+            len = len + 1
+            character:OnUpdate(fDeltaTime)
+        end
+    end
+    
+    --CS.UnityEngine.Profiling.Profiler.BeginSample(name2)
+    local allLen = #self.characters
+    for i = len + 1, allLen do
+        local character = self.characters[i]
+        if character then
+            --CS.UnityEngine.Profiling.Profiler.BeginSample(character.__cname)
+            character:OnUpdate(fDeltaTime)
+            --CS.UnityEngine.Profiling.Profiler.EndSample()
+        end
+    end
+    --CS.UnityEngine.Profiling.Profiler.EndSample()
+    
+    local allLenGun = #self.gunCharacterList
+    for i = 1, allLenGun do
+        ---@type BattleCharacterGuns
+        local character = self.gunCharacterList[i]
+        if character then
+            character:OnUpdate(fDeltaTime)
+        end
+    end
+    if self.worldDataBox and self.worldDataBox.OnUpdate then
+        self.worldDataBox:OnUpdate(fDeltaTime)
+    end
+    --CS.UnityEngine.Profiling.Profiler.EndSample()
+    -- for i, v in ipairs(self.characters) do
+    --     if v ~= nil then
+    --         v:OnUpdate(fDeltaTime)
+    --     end
+    -- end
+end
+
+function M:Clear()
+    if self.delayTimer then
+        self.delayTimer:Dispose()
+        self.delayTimer = nil
+    end
+    self.liveCharacters = {}
+    self.canCheckCharacters = {}
+    if self.characters ~= nil then
+        for k, v in ipairs(self.characters) do
+            if v ~= nil then
+                v:Clear()
+            end
+        end
+    end
+    self.characters = {}
+    self.charactersMap = {}
+    if self.gunCharacterList ~= nil then
+        for k, v in ipairs(self.gunCharacterList) do
+            if v ~= nil then
+                v:Clear()
+            end
+        end
+    end
+    self.gunCharacterList = {}
+    self.gunCharacterMap = {}
+    if self.endCallbacks ~= nil then
+        for k, _ in pairs(self.endCallbacks) do
+            if self.endCallbacks[k] ~= nil then
+                self.endCallbacks[k] = nil
+            end
+        end
+    end
+
+    self.srcToIdMap             = {}
+    self.characterConfigMap     = {}
+    self.playerCharacterDieList = {}
+    self.enemyCharacterDieList  = {}
+
+
+    self.playerCharacterCount = 0
+    self.enemyCharacterCount  = 0
+    if self.worldDataBox and self.worldDataBox.Clear then
+        self.worldDataBox:Clear()
+    end
+
+    BroadcastEvent.unsubscribe(BattleEventId.MSG_BATTLE_TRIGGER_PROFOUND, self._onTriggerProfound, self)
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Refresh_Hatred, self._RefreshHatred, self)
+end
+
+function M:_onTriggerProfound(iCharacterBattleId)
+    local characterBattleId = iCharacterBattleId or 0
+    if characterBattleId <= 0 then
+        return
+    end
+
+    local character = self:GetCharacterById(iCharacterBattleId)
+    if character == nil or character.controller == nil then
+        return
+    end
+    if not self.battleContext:isCanOperation() then
+        return
+    end
+    character.controller:InterruptToProfound()
+end
+
+function M:_RefreshHatred()
+    for _, character in ipairs(self.liveCharacters) do
+        character:GetHatredManager():RefreshHatred()
+    end
+end
+
+----------------------------------------------------------------------
+--- private
+---@param characterData BattleCharacterPlayerMode
+function M:_createAtkBattleCharacter(characterData)
+    local characterBattleId = self.battleContext:GetEntityId()
+    self:_doCreateCharacter(characterBattleId, characterData, BattleEnum.BattleCamp.Attack)
+    self.playerCharacterCount = self.playerCharacterCount + 1
+end
+
+---@param characterData BattleCharacterRobotModel
+function M:_createDefBattleCharacter(characterData)
+    local characterBattleId = self.battleContext:GetEntityId()
+    self:_doCreateCharacter(characterBattleId, characterData, BattleEnum.BattleCamp.Defend)
+    self.enemyCharacterCount = self.enemyCharacterCount + 1
+end
+
+---@return BattleCharacterSummons
+---@param characterData BattleCharacterGunModel
+function M:CreateGunsCharacter(characterData, camp, index)
+    local entityId = self.battleContext:GetEntityId()
+    local battleCharacter = BattleCharacterGuns.new(entityId, characterData, self.battleContext, camp)
+    battleCharacter:Initialize(index)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateGunCell,
+        { camp = camp, index = index, entityId = entityId, gunId = characterData._heroId })
+    table.insert(self.gunCharacterList, battleCharacter)
+    self.gunCharacterMap[entityId] = battleCharacter
+    battleCharacter:CheckInitDied()
+    battleCharacter:OnStartFight()
+    return battleCharacter
+end
+
+---@return BattleCharacterSummons
+---@param character BattleCharacter
+---@param summonId string  召唤物id
+---@param initPos {x,z,pos}
+function M:CreateAttackSummonCharacter(character, summonId, initXZPos)
+    local entityId = self.battleContext:GetEntityId()
+    local baseCharacter = character
+    local baseEntityId = baseCharacter:GetBattleId()
+    local camp = baseCharacter:GetCharacterContext():GetBattleCamp()
+    BattleEventUtils:DisPath_CreateEntity(entityId, BattleEnum.EntityRenderType.RenderSummonCharacter,
+        { camp = camp, heroId = summonId, initPos = initXZPos.pos })
+    local battleData = baseCharacter:GetBattleDataClone()
+    battleData._heroId = summonId
+    battleData._heroUuid = -1
+    local battleCharacter = BattleCharacterSummons.new(entityId, battleData, self.battleContext, camp)
+    battleCharacter:Initialize(baseEntityId, initXZPos)
+    -- BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateUIHeadCell, battleCharacter)
+    table.insert(self.characters, battleCharacter)
+    self.charactersMap[entityId] = battleCharacter
+    battleCharacter:CheckInitDied()
+    battleCharacter:OnStartFight()
+    self:CheckUpdateLiveCharacter()
+    return battleCharacter
+end
+
+---@return BattleCharacterSummons
+---@param character BattleCharacter
+---@param summonId string  召唤物id
+---@param initPos {x,z,pos}
+function M:CreateMowingAttackSummonCharacter(character, summonId, initXZPos)
+    local entityId = self.battleContext:GetEntityId()
+    local baseCharacter = character
+    local baseEntityId = baseCharacter:GetBattleId()
+    local camp = baseCharacter:GetCharacterContext():GetBattleCamp()
+    BattleEventUtils:DisPath_CreateEntity(entityId, BattleEnum.EntityRenderType.RenderSummonCharacter,
+        { camp = camp, heroId = summonId, initPos = initXZPos.pos })
+    local battleData = baseCharacter:GetBattleDataClone()
+    battleData._heroId = summonId
+    battleData._heroUuid = -1
+    local battleCharacter = MowingPlayerSummon.new(entityId, battleData, self.battleContext, camp)
+    battleCharacter:Initialize(baseEntityId, initXZPos.pos)
+    local gameLauncher = MowingGameUtils:GetMowingGameLauncher()
+    if gameLauncher then
+        gameLauncher.CharacterModule.PlayerCharacterMan:TryAddSummonCharacter(entityId, battleCharacter)
+    end
+    
+    -- BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateUIHeadCell, battleCharacter)
+    table.insert(self.characters, battleCharacter)
+    self.charactersMap[entityId] = battleCharacter
+    battleCharacter:CheckInitDied()
+    battleCharacter:OnStartFight()
+    self:CheckUpdateLiveCharacter()
+    return battleCharacter
+end
+
+---@param characterData BattleCharacterRobotModel
+function M:_doCreateCharacter(entityId, characterData, battleCamp)
+    BattleEventUtils:DisPath_CreateEntity(entityId, BattleEnum.EntityRenderType.RenderCharacter,
+        { camp = battleCamp, posIndex = characterData._posIndex, isShowHp = not (characterData._isBoss or false) })
+
+    local battleCharacter = BattleCharacter.new(entityId, characterData, self.battleContext, battleCamp)
+    battleCharacter:Initialize()
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateUIHeadCell, battleCharacter)
+    table.insert(self.characters, battleCharacter)
+    self.charactersMap[entityId] = battleCharacter
+    battleCharacter:CheckInitDied()
+end
+
+function M:_initPendantCharacter()
+    local characterBattleId = self.battleContext:GetEntityId()
+    local battleCharacter = BattleCharacterPendant.new(characterBattleId, {}, self.battleContext,
+        BattleEnum.BattleCamp.Attack)
+    battleCharacter:Initialize()
+    self._pendantCharacter_left = battleCharacter
+end
+
+function M:AddMowingCharacter(entityId, character)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_CreateUIHeadCell, character)
+    table.insert(self.characters, character)
+    self.charactersMap[entityId] = character
+    self:CheckUpdateLiveCharacter()
+end
+
+function M:RemoveMowingCharacter(character)
+    if character then
+        self.charactersMap[character:GetBattleId()] = nil
+        table_removebyvalue(self.liveCharacters, character)
+    end
+    self:CheckUpdateLiveCharacter()
+end
+
+return M

@@ -1,0 +1,86 @@
+----------------------------------------------------------------------
+--------- 2023年01月04日 10:55:52 星期三
+----------------------------------------------------------------------
+---@class UIGuideMoveView:UIWidget
+local UIGuideMoveView = class("UIGuideMoveView", UIWidget)
+local M = UIGuideMoveView
+
+function M:GetConfigAssetPath()
+    return UIPanelAsset.UIGuideMoveView
+end
+
+------UIPanel生命周期 start------
+-- { customId = self.battleData.targetId, battleContext = self.battleContext })
+function M:OnParse(params)
+
+end
+
+function M:OnCreate()
+    self._transform.localPosition = Vector3(-1038, 276, 0)
+end
+
+function M:OnAddListener()
+    -- BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_LoadFinish, self.LoadFinish, self)
+end
+
+function M:OnRemoveListener()
+    -- BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_LoadFinish, self.LoadFinish, self)
+end
+
+------UIPanel生命周期 end------
+function M:OnShow()
+
+end
+
+---销毁前清理
+function M:OnDispose()
+    if self.delayTimer then
+        self.delayTimer:Dispose()
+        self.delayTimer = nil
+    end
+end
+
+function M:OnRefresh()
+    self:Init()
+end
+
+function M:Init()
+
+end
+
+function M:OnOpen()
+    self:OpenAni()
+end
+
+function M:OpenAni()
+    -- self._Main:Play("UIBattleOpening")
+end
+
+function M:CloseAni()
+
+end
+
+function M:CloseSelf(cb)
+    -- self:AniPlayEnd()
+    -- self:DelayPlayFireVideo()
+end
+
+function M:DelayPlayFireVideo()
+    -- if self.delayTimerVideo ~= nil then
+    --     self.delayTimerVideo:reset(0.9, 0, false, false, self.PlayFireVideo, self)
+    -- else
+    --     self.delayTimerVideo = Timer.new(0.9, 0, false, false, self.PlayFireVideo, self)
+    -- end
+    -- self.delayTimerVideo:start()
+end
+
+function M:AniPlayEnd()
+    -- if self.delayTimer ~= nil then
+    --     self.delayTimer:reset(1.6, 0, false, false, self.OnStartAniPlayFinish, self)
+    -- else
+    --     self.delayTimer = Timer.new(1.6, 0, false, false, self.OnStartAniPlayFinish, self)
+    -- end
+    -- self.delayTimer:start()
+end
+
+return M

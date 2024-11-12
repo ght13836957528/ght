@@ -1,0 +1,91 @@
+---@class GuideVersionControl @引导版本控制对象
+---当前的引导通过leaderState去控制，leaderState本身是键值对，kn = "m"类型，leaderState本身对应的一系列表，例如 k5="inner_city_map_u3d|unlock_parcel_4_u3d|building_b_u3d|chapter_1_e;chapter_2"，也就是当前的建筑；章节表等
+---当新增leaderState时，需要修改LeaderStateMap，GuideMiniGameControl,GuideVersionType
+local GuideVersionControl = class("GuideVersionControl")
+local M = GuideVersionControl
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+local guideVersionMap ={
+    [NewGuideConst.GuideVersionType.guideType1] = {guideTableName = "guide_2022",  firstStep = "10000000" },
+    [NewGuideConst.GuideVersionType.guideType2] = {guideTableName = "guide_2022_b",firstStep = "99810000" },
+    [NewGuideConst.GuideVersionType.guideType3] = {guideTableName = "guide_2022_c",firstStep = "99810000" },
+    [NewGuideConst.GuideVersionType.guideType4] = {guideTableName = "guide_2022_b_questui",firstStep = "99810000" },
+    [NewGuideConst.GuideVersionType.guideType5] = {guideTableName = "guide_2022_c_questui",firstStep = "99810000" },
+}
+
+function M:ctor()
+    self.curGuideVersion = ""
+end
+
+function M:initVersion()
+    local leaderState = DataConfigModel.getLeaderState()
+    if not leaderState then
+        self.curGuideVersion = NewGuideConst.GuideVersionType.guideType1
+        print_error("leaderState is nil")
+        return
+    end
+    if leaderState == "k1" then
+        self.curGuideVersion = NewGuideConst.GuideVersionType.guideType1
+    elseif leaderState == "k3" then
+        self.curGuideVersion = NewGuideConst.GuideVersionType.guideType3
+    elseif leaderState == "k4" then
+        self.curGuideVersion = NewGuideConst.GuideVersionType.guideType2
+    elseif leaderState == "k2" then
+        self.curGuideVersion = NewGuideConst.GuideVersionType.guideType2
+    elseif leaderState == "k5" then
+        self.curGuideVersion = NewGuideConst.GuideVersionType.guideType5
+    elseif leaderState == "k6" then
+        self.curGuideVersion = NewGuideConst.GuideVersionType.guideType4
+    end
+end
+
+---@return number  NewGuideConst.GuideVersionType类型 
+function M:getCurGuideVersionType()
+    return self.curGuideVersion
+end
+
+---@return string 引导表明
+function M:getCurGuideName()
+    return guideVersionMap[self.curGuideVersion].guideTableName
+end
+
+---@return string 第一步
+function M:getCurGuideFirstStep()
+    if self.curGuideVersion == NewGuideConst.GuideVersionType.guideType2 or self.curGuideVersion == NewGuideConst.GuideVersionType.guideType4 then
+        if GuideManager.getIfOpenShooting() then
+            return guideVersionMap[self.curGuideVersion].firstStep
+        else
+            return "20000000"
+        end
+    end
+    if self.curGuideVersion == NewGuideConst.GuideVersionType.guideType3 or self.curGuideVersion == NewGuideConst.GuideVersionType.guideType5 then
+        if GuideManager.getIfOpenTowerDefense() then
+            return guideVersionMap[self.curGuideVersion].firstStep
+        else
+            return "20000000"
+        end
+    end
+end
+
+---@return GuideStageType 引导关卡类型
+function M:getCurGuideStageType()
+    local leaderState = DataConfigModel.getLeaderState()
+    if not leaderState then
+        print_error("leaderState is nil")
+        return GuideStageType.None
+    end
+    if leaderState == "k3" or leaderState == "k5"then--塔防
+        return GuideStageType.Tower
+    elseif leaderState == "k4" or leaderState == "k6" then--数值射击
+        return GuideStageType.Shoot
+    else
+        return GuideStageType.None
+    end
+end
+
+function M:clear()
+    self.curGuideVersion = ""
+end
+
+
+return M

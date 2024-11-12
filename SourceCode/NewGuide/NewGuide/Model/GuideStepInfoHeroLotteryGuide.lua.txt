@@ -1,0 +1,9 @@
+---@class GuideStepInfoHeroLotteryGuide : GuideStepBaseInfo @引导英雄招募类型
+local GuideStepInfoHeroLotteryGuide = class("GuideStepInfoHeroLotteryGuide", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoHeroLotteryGuide
+
+function M:onParse()
+    
+end
+
+return M

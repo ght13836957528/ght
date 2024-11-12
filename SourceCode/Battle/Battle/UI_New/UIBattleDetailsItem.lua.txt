@@ -1,0 +1,198 @@
+---@class UIBattleDetailsItem:UIWidget
+local UIBattleDetailsItem = class("UIBattleDetailsItem", UIWidget)
+local M                   = UIBattleDetailsItem
+local UIUtils             = UIUtils
+local GameObjectUtil      = GameObjectUtil
+local ConfigHandler       = ConfigHandler
+local StringUtls          = CS.StringUtls
+local BattleEnum          = require "GameLogic.Battle.BattleEnum"
+local GameObject          = CS.UnityEngine.GameObject
+local BattleHelper        = require "GameLogic.Battle.BattleHelper"
+---处理参数
+---@param params any 传入的任意参数
+function M:OnParse(params)
+    if params == nil then
+        return
+    end
+    self.denominatorMap = params.denominatorMap
+
+    self.isGun = params.isGun or false
+    ---@type DeploymentInfo
+    self.info = params.info
+    ---@type PosStatisticData
+    self.statisticData = params.statisticData
+end
+
+-- _UITeamArtilleryHeadCell
+-- _UITeamHeroHeadCell
+
+---创建逻辑
+function M:OnCreate()
+
+end
+
+---显示逻辑
+function M:OnShow()
+end
+
+---隐藏逻辑
+function M:OnHide()
+end
+
+---添加事件监听
+function M:OnAddListener()
+
+end
+
+---移除事件监听
+function M:OnRemoveListener()
+
+end
+
+-----添加动态事件监听
+--function M:onAddDynamicListener()
+--end
+--
+-----移除动态事件监听
+--function M:onRemoveDynamicListener()
+--end
+---刷新逻辑
+function M:OnRefresh()
+    self:refreshItemIconData()
+
+    self:setSolider()
+    -- self:testLog()
+    self:setActive(true)
+end
+
+function M:onBgClick()
+
+end
+
+---销毁前清理
+function M:OnDispose()
+    GameObject.Destroy(self._gameObject)
+end
+
+function M:refreshItemIconData()
+    if not self.isGun then
+        self:refreshHeroBaseData()
+    else
+        self:refreshGunData()
+    end
+end
+
+function M:refreshGunData()
+    GameObjectUtil.SafeSetActiveSelf(self._UITeamArtilleryHeadCell, true)
+    GameObjectUtil.SafeSetActiveSelf(self._UITeamHeroHeadCell, false)
+    local gunId = self.info.id
+    local con = ConfigHandler:GetEntry(GameDefine.TableName.Ship_Cabin_Gun_Detail, gunId)
+    if con then
+        UIUtils:setImage2(con.icon, self._imgIcon)
+    end
+    self._txtLevel.text = self.info.level
+    -- _imgIcon
+    -- _txtLevel
+end
+
+function M:refreshHeroBaseData()
+    GameObjectUtil.SafeSetActiveSelf(self._UITeamArtilleryHeadCell, false)
+    GameObjectUtil.SafeSetActiveSelf(self._UITeamHeroHeadCell, true)
+
+    local heroId = self.info.heroInfo.heroId
+    local heroCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, heroId)
+    if heroCon == nil then
+        log_Error("Hero_Detail 查无此将 ！！ ", heroId)
+        return
+    end
+    local heroShowCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+    if heroShowCon == nil then
+        log_Error("Hero_Show_Info 查无此将 ！！ ", heroId)
+        return
+    end
+
+    --------------------
+    local icon = BattleHelper:getHeroModelIcon(heroId, Game.BusinessManager.PlayerInfoManager:GetMySex())
+    UIUtils:setImage2(icon, self._imgHead)
+    self._m_txt_level.text = self.info.heroInfo.level
+
+    --------------------
+    local sp = UIUtils:getRaceSpriteName_2(heroCon.race)
+    UIUtils:setImage2(sp, self._icon)
+    --------------------
+    -- self._m_img_quality_add
+    --------------------
+    local quality = self.info.heroInfo.quality
+    local color = UIUtils:getQualityColor_bt(quality)
+    self._ActivequalityBg.color = color
+    -- self._qualityTopFrame_1.color = color
+    -- self._qualityTopFrame_2.color = color
+    -- self._qualityTopFrame.color = color
+    local con_quality = Game.SystemManager.DataTableManager:GetEntry(GameDefine.TableName.Hero_Quality, quality)
+    UIUtils:setImage2(con_quality.heroFrame, self._qualityTopFrame)
+
+    --------------------
+    -- local star = 0
+    -- GameObjectUtil.SetActiveByScale(self._star1, star == 1, 0.54)
+    -- GameObjectUtil.SetActiveByScale(self._star2, star == 2, 0.54)
+    -- GameObjectUtil.SetActiveByScale(self._star3, star == 3, 0.54)
+    -- GameObjectUtil.SetActiveByScale(self._star4, star == 4, 0.54)
+    -- GameObjectUtil.SetActiveByScale(self._star5, star == 5, 0.54)
+end
+
+function M:showMvp()
+    self._imgMvp.gameObject:SetActive(true)
+end
+
+function M:setSolider()
+    local ks = BattleEnum.NumericalTypeToString or {}
+    local harm = self.statisticData[ks[BattleEnum.NumericalType.AllHarm]] or 0
+    local harmBase = self.denominatorMap.hitMax <= 0 and 1 or self.denominatorMap.hitMax
+    self._TexAttack.text = StringUtls.GetFormattedLong(harm)
+    self._barAttack.fillAmount = harm / harmBase
+
+    local cure = self.statisticData[ks[BattleEnum.NumericalType.AllCure]] or 0
+    local cureBase = self.denominatorMap.cureMax <= 0 and 1 or self.denominatorMap.cureMax
+    self._TexTreatment.text = StringUtls.GetFormattedLong(cure)
+    self._barTreatment.fillAmount = cure / cureBase
+
+
+    -- local shield = self.statisticalData[BattleEnum.NumericalType.AllShield] or 0
+    -- local shieldBase = self.denominatorMap.shieldMax <= 0 and 1 or self.denominatorMap.shieldMax
+    -- self._TexDefense.text = StringUtls.GetFormattedLong(shield)
+    -- self._barDefense.fillAmount = shield / shieldBase
+
+
+    local damage = self.statisticData[ks[BattleEnum.NumericalType.AllTakeDamage]] or 0
+    local damageBase = self.denominatorMap.damageMax <= 0 and 1 or self.denominatorMap.damageMax
+    self._TexDefense.text = StringUtls.GetFormattedLong(damage)
+    self._barDefense.fillAmount = damage / damageBase
+end
+
+-- function M:testLog()
+--     local totalTroop = 0
+--     for _, value in pairs(self.soldiersMap) do
+--         totalTroop = totalTroop + value
+--     end
+--     local onceHp = self.hpBase // totalTroop
+--     local severeWound = self.troopsLoss.severeWound
+--     local minorCure = self.troopsLoss.minorCure
+--     local minorWound = self.troopsLoss.minorWound
+--     local total = severeWound + minorWound - minorCure
+--     local totalNum = math.ceil(total / onceHp)
+--     local severeWoundNum = math.ceil(severeWound / onceHp)
+--     local minorWoundNum = totalNum - severeWoundNum
+--     if self.isLeft then
+--         BattleLogger.logBattleTroop("  左:", self.indexUI, "   重伤：", severeWoundNum, "  轻伤：",
+--             minorWoundNum)
+--     else
+--         BattleLogger.logBattleTroop("  右:", self.indexUI, "   重伤：", severeWoundNum, "  轻伤：",
+--             minorWoundNum)
+--     end
+-- end
+
+function M:setActive(isActive)
+    GameObjectUtil.SafeSetActiveSelf(self._gameObject, isActive)
+end
+
+return M

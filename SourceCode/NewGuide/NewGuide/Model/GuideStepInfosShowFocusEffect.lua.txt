@@ -1,0 +1,21 @@
+---@class GuideStepInfosShowFocusEffect:GuideStepBaseInfo 显示聚焦效果
+---@field public focusType number 1 = 方形 0 = 圆形
+---@field public effectTime number 完成效果的时间
+---@field public closeTime number 关闭掉遮罩的时间，要求大于完成效果的时间
+---@field public focusObjName string 聚焦的节点名称
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfosShowFocusEffect = class("GuideStepInfosShowFocusEffect", base)
+local M = GuideStepInfosShowFocusEffect
+
+function M:onParse(params)
+    if not params.focusObjName then
+        print_error("lightAreaObjName cannot be null")
+        return
+    end
+    self.focusType = params.focusType
+    self.effectTime = params.effectTime
+    self.closeTime = params.closeTime
+    self.focusObjName = params.focusObjName
+end
+
+return M

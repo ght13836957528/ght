@@ -1,0 +1,68 @@
+----------------------------------------------------------------------
+--------- 2023年01月31日 16:01:28 星期二
+----------------------------------------------------------------------
+
+--[[
+    处理美术效果呈现：播放特效
+]]
+local BaseAction = require "GameLogic.Battle.SkillSystem.Actions.BaseAction"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class PlayArtAction:BaseAction
+local PlayArtAction = class("PlayArtAction", BaseAction)
+local M = PlayArtAction
+
+----------------------------------------------------------------------
+
+--- 初始化, self.actionData = {effectName = "effectName", root = "root"} 
+function M:_onInitialize()
+    local data      = self.actionData or {}
+    self.effectName = data.effectName
+    self.root       = data.root
+end
+
+function M:_onExecute(...)
+    local param = { ... }
+    local effect = self.effectName or ""
+    if effect == "" then
+        BattleLogger.log_error("没有对应的效果名，请检查配置!!")
+        return
+    end
+
+    local root = self.root or ""
+    local targetEntityId = param[1]
+    self.targetEntityId = targetEntityId
+    self:_playEffect(effect, root, targetEntityId)
+end
+
+function M:_onClear()
+    -- log_Error("destroy eff ", self.effectName)
+    if self.targetEntityId then
+        BattleEventUtils:DisPath_DestroyEff_bind(self.targetEntityId, self.effectName, self.root)
+    else
+        BattleEventUtils:DisPath_DestroyEff_bind(self.hostCharacter:GetBattleId(), self.effectName, self.root)
+    end
+    self.effectName = nil
+    self.root       = nil
+end
+
+function M:_onExit()
+    if self.targetEntityId then
+        BattleEventUtils:DisPath_DestroyEff_bind(self.targetEntityId, self.effectName, self.root)
+    else
+        BattleEventUtils:DisPath_DestroyEff_bind(self.hostCharacter:GetBattleId(), self.effectName, self.root)
+    end
+end
+
+----------------------------------------------------------------------
+
+function M:_playEffect(effect, root, targetEntityId)
+    if targetEntityId then
+        BattleEventUtils:DisPath_CreateEff_bind(targetEntityId, effect, root)
+    else
+        BattleEventUtils:DisPath_CreateEff_bind(self.hostCharacter:GetBattleId(), effect, root)
+    end
+
+    -- BattleLogger.log_error("实例化特效 ")
+end
+
+return M

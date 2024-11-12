@@ -1,0 +1,58 @@
+----------------------------------------------------------------------
+--------- 2022年12月15日 20:34:55 星期四
+----------------------------------------------------------------------
+local BattleEventUtils  = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BaseBehaviorState = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+local BehaviorStateType = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEnum        = require "GameLogic.Battle.BattleEnum"
+local BattleHelper      = require "GameLogic.Battle.BattleHelper"
+---@class DiedBehaviorState:BaseBehaviorState
+local DiedBehaviorState = class("DiedBehaviorState", BaseBehaviorState)
+local M                 = DiedBehaviorState
+
+
+-- @param ... 切换场景时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    self.super.OnInit(self, ...)
+
+    self.waitFrame = 60
+    self.frameCount = 0
+end
+
+-- 进入场景
+function M:OnEnter(...)
+    -- BattleLogger.log("in Died: " , tostring(self:_getCharacterBattleId()))
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    -- self.hostCharacter:GetRender():SetAnimationSpeed(aniSpeed)
+    -- self.hostCharacter:GetRender():PlayAnimation(BattleEnum.AnimationClip.Die,  nil)
+    BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Die, aniSpeed)
+    BattleEventUtils:DisPath_EntityDied(self.hostCharacter:GetBattleId())
+    BattleEventUtils:DisPath_CreateEff_bind(self.hostCharacter:GetBattleId(),
+        BattleHelper:getDiedEff(self.hostCharacter:GetHeroConfigId()), "root", false)
+    self:TryPlayDiedEff(self.hostCharacter:GetHeroConfigId(), aniSpeed)
+end
+
+function M:TryPlayDiedEff(heroId, aniSpeed)
+    local config = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+    if config and config.dieAnim then
+        BattleEventUtils:DisPath_PlayEffAni(self.hostCharacter:GetBattleId(), config.dieAnim, aniSpeed)
+    end
+end
+
+function M:OnUpdate(fDeltaTime)
+    -- if self.frameCount >= self.waitFrame then
+    --     self.hostCharacter:GetLogicHandle():DoDiedAniEnd()
+    --     BattleEventUtils:DisPath_EntityDied(self.hostCharacter:GetBattleId())
+    -- else
+    --     self.frameCount = self.frameCount + 1
+    -- end
+end
+
+-- 退出场景
+function M:OnExit(callback)
+    if callback ~= nil then
+        callback()
+    end
+end
+
+return M

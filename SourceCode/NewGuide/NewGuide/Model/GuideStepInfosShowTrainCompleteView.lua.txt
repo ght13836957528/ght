@@ -1,0 +1,10 @@
+---@class GuideStepInfosShowTrainCompleteView:GuideStepBaseInfo
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfosShowTrainCompleteView = class("GuideStepInfosShowTrainCompleteView", base)
+local M = GuideStepInfosShowTrainCompleteView
+
+function M:onParse(params)
+   
+end
+
+return M

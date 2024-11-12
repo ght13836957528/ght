@@ -1,0 +1,36 @@
+----------------------------------------------------------------------
+--------- 2022年12月15日 20:34:55 星期四
+----------------------------------------------------------------------
+local BattleEventUtils     = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BaseBehaviorState    = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+local BehaviorStateType    = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEnum           = require "GameLogic.Battle.BattleEnum"
+---@class VictoryBehaviorState:BaseBehaviorState
+local VictoryBehaviorState = class("VictoryBehaviorState", BaseBehaviorState)
+local M                    = VictoryBehaviorState
+
+-- @param ... 切换场景时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    self.super.OnInit(self, ...)
+end
+
+-- 进入场景
+function M:OnEnter(...)
+    -- BattleLogger.log("in Victory: " .. tostring(self:_getCharacterBattleId()))
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Victory, aniSpeed)
+  
+end
+
+function M:OnUpdate(fDeltaTime)
+  
+end
+
+-- 退出场景
+function M:OnExit(callback)
+    if callback ~= nil then
+        callback()
+    end
+end
+
+return M

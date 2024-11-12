@@ -1,0 +1,41 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 11:42:31 星期四
+----------------------------------------------------------------------
+
+---@class StepContext
+local StepContext = class("StepContext")
+local M = StepContext
+
+function M:Ctor()
+    -- 记录发送攻击包过程中需要被屏蔽的攻击目标，用于后续被踢出列表而不被重复处理
+    self.stepKickAttackList = {}
+end
+
+function M:Initialize()
+
+end
+
+function M:AddKickAttack(target)
+    if target ~= nil then
+        self.stepKickAttackList[target] = self.stepKickAttackList[target] or 0
+        self.stepKickAttackList[target] = self.stepKickAttackList[target] + 1
+    end
+end
+
+function M:Clear()
+    self:_clearAttackList()
+end
+
+function M:IsApplyThisEntity(entityId)
+    return self.stepKickAttackList[entityId] ~= nil
+end
+
+----------------------------------------------------------------------
+
+function M:_clearAttackList()
+    for k in pairs(self.stepKickAttackList) do
+        self.stepKickAttackList[k] = nil
+    end
+end
+
+return M

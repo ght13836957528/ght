@@ -1,0 +1,9 @@
+---@class GuideTriggerConditionAgreeNotKillAida:GuideTriggerCondition
+local GuideTriggerConditionAgreeNotKillAida = class("GuideTriggerConditionAgreeNotKillAida", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionAgreeNotKillAida
+
+function M:equals(param)
+    return true
+end
+
+return M

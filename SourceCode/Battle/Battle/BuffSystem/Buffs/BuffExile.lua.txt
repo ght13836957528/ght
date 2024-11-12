@@ -1,0 +1,79 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:53:30 星期一
+----------------------------------------------------------------------
+
+--[[
+    放逐
+]]
+
+local BehaviorStateType = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+---@class BuffExile:BasePersistentBuff
+local BuffExile = class("BuffExile", BasePersistentBuff)
+local M = BuffExile
+function M:_onEnter()
+    local battleContext = self.hostCharacter:GetBattleContext()
+    ---@type BeControlledBehaviorState
+    local controlState = self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentState()
+    if controlState:GetStateID() ~= BehaviorStateType.BeControlled then
+        self._ctrId = battleContext:GetControlPackId()
+        self.hostCharacter:GetLogicHandle():OnBeControl(self.fromId, self._ctrId,
+            {
+                type = BattleEnum.BuffType.Buff_Exile,
+                ani = function()
+                    self:_handleExileAni()
+                end,
+                effOpen = self._showDelegate,
+                effClose = self._hideDelegate
+            })
+    else
+        local isCan = controlState:IsCanAdd(BattleEnum.BuffType.Buff_Exile)
+        if isCan then
+            self._ctrId = battleContext:GetControlPackId()
+            controlState:AddControlPack(self._ctrId, {
+                type = BattleEnum.BuffType.Buff_Exile,
+                ani = function()
+                    self:_handleExileAni()
+                end,
+                effOpen = self._showDelegate,
+                effClose = self._hideDelegate
+            })
+        end
+    end
+    BattleEventUtils:DisPath_Render_ShowHide(self.hostCharacter:GetBattleId(), false)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Refresh_Hatred)
+    
+
+    -- local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    -- BattleEventUtils:DisPath_PlayEffAni(self.hostCharacter:GetBattleId(), BattleEnum.BattleCommonEffAniClip.CommonHurt, aniSpeed)
+end
+
+function M:_handleExileAni()
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Idie, aniSpeed)
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+    if self._ctrId then
+        ---@type BeControlledBehaviorState
+        local controlState = self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentState()
+        if controlState:GetStateID() ~= BehaviorStateType.BeControlled then
+            -- BattleLogger.log_Error("??? 控制buff没结束却 不在 控制状态 ")
+        else
+            controlState:RemoveControlPack(self._ctrId)
+        end
+        BattleEventUtils:DisPath_Render_ShowHide(self.hostCharacter:GetBattleId(), true)
+       
+    end
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Refresh_Hatred)
+end
+
+return M

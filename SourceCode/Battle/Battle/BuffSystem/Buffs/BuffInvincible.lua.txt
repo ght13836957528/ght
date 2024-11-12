@@ -1,0 +1,13 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:58:25 星期一
+----------------------------------------------------------------------
+--- 无敌
+----------------------------------------------------------------------
+
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+---@class BuffInvincible:BasePersistentBuff
+local BuffInvincible = class("BuffInvincible", BasePersistentBuff)
+local M = BuffInvincible
+
+return M

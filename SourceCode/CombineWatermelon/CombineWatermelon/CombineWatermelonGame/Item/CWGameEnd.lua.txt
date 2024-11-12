@@ -1,0 +1,110 @@
+---@class CWGameEnd : UIWidget  可以做成通用的
+local CWGameEnd = class("CWGameEnd", UIWidget)
+local M = CWGameEnd
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    if params then
+        self.gamerate = params.gamerate
+        self.score = params.score
+    end
+end
+
+function M:onAddListener()
+    self._continueBtn:addEventListener(ButtonEvent.CLICK, self.onClickContinueBtn, self)
+    self._shareBtn:addEventListener(ButtonEvent.CLICK, self.onClickShareBtn, self)
+    self._gotoReward:addEventListener(ButtonEvent.CLICK, self.onClickGotoRewardBtn, self)
+    self._closeBtn:addEventListener(ButtonEvent.CLICK, self.onClickCloseBtn, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GetAward, self.onRefreshGotoRewardBtn, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GetDailyAward, self.onRefreshGotoRewardBtn, self)
+end
+
+function M:onRemoveListener()
+    self._continueBtn:removeEventListener(ButtonEvent.CLICK, self.onClickContinueBtn, self)
+    self._shareBtn:removeEventListener(ButtonEvent.CLICK, self.onClickShareBtn, self)
+    self._gotoReward:removeEventListener(ButtonEvent.CLICK, self.onClickGotoRewardBtn, self)
+    self._closeBtn:removeEventListener(ButtonEvent.CLICK, self.onClickCloseBtn, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GetAward, self.onRefreshGotoRewardBtn, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GetDailyAward, self.onRefreshGotoRewardBtn, self)
+end
+
+function M:onCreate()
+    self._continueBtn:setText(GameGlobal.GameEntry.Localization:GetString("5505019"))
+    self._shareBtn:setText(GameGlobal.GameEntry.Localization:GetString("5505020"))
+    self._gotoReward:setText(GameGlobal.GameEntry.Localization:GetString("5505021"))
+end
+
+function M:onRefresh()
+    if not self.gamerate then
+        return
+    end
+    local str1 = GameGlobal.GameEntry.Localization:GetString("5505012", GameGlobal.GameEntry.Data.Player.Name)
+    local str2 = GameGlobal.GameEntry.Localization:GetString("5505013", self.score)
+    local str3 = GameGlobal.GameEntry.Localization:GetString("5505014", self.gamerate.."%")
+    self._desc.text = str1.."\n"..str2.."\n"..str3
+
+    local title = "5600517" --运动萌新
+    local topColor = Color(38/255, 175/255, 70/255, 1)
+    local bottomColor = Color(193/255, 253/255, 164/255, 1)
+    if self.gamerate >= 20 and self.gamerate < 60 then
+        title = "5600516" --潜力份子
+        topColor = Color(59/255, 118/255, 199/255, 1)
+        bottomColor = Color(164/255, 220/255, 253/255, 1)
+    elseif self.gamerate >= 60 and self.gamerate < 80 then
+        title = "5600515" --中坚球员
+        topColor = Color(138/255, 59/255, 199/255, 1)
+        bottomColor = Color(197/255, 164/255, 253/255, 1)
+    elseif self.gamerate >= 80 then
+        title = "5600514" --废土球星
+        topColor = Color(255/255, 230/255, 150/255, 1)
+        bottomColor = Color(154/255, 116/255, 67/255, 1)
+    end
+    self.gamerateStr = GameGlobal.GameEntry.Localization:GetString(title)
+    self._title.text =  self.gamerateStr
+    self._gradient:SetColor(topColor, bottomColor)
+
+    self:onRefreshGotoRewardBtn()
+
+end
+
+function M:onRefreshGotoRewardBtn()
+    if CombineWatermelonModel.getTaskScoreRedPoint() or CombineWatermelonModel.getDailyAwardRedPoint() then
+        self._gotoReward:show()
+    else
+        self._gotoReward:hide()
+    end
+end
+
+---继续游戏
+function M:onClickContinueBtn()
+    BroadcastEvent.dispatch(CombineWatermelonModel.Event_ContinueChallengeGame)
+end
+---分享
+function M:onClickShareBtn()
+    local param = {
+        title = GameGlobal.GameEntry.Localization:GetString("80000724"),
+        msg = GameGlobal.GameEntry.Localization:GetString("5600522", self.score, self.gamerateStr),
+        post = ChatPostType.Text_JSF, --问的别人：这个没有点点击。公用类型没事的。
+        sendLocalTime = tostring(GameGlobal.GameEntry.Timer:GetLocalMilliseconds()),
+    }
+    ChatShareManager.luaShareByChannelView(param)
+end
+
+---去领奖
+function M:onClickGotoRewardBtn()
+    UIManager.panel:close(UIPanelType.UICombineWatermelonGameView)
+    BroadcastEvent.dispatch(CombineWatermelonModel.Event_OpenMainViewReward)
+end
+---关闭
+function M:onClickCloseBtn()
+    UIManager.panel:close(UIPanelType.UICombineWatermelonGameView)
+end
+
+function M:onDispose()
+
+end
+
+return M

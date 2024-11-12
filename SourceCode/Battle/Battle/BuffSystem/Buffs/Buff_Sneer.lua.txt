@@ -1,0 +1,72 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:52:54 星期一
+----------------------------------------------------------------------
+----
+---  嘲讽
+----------
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleCharacterSummons = require "GameLogic.Battle.Characters.Summons.BattleCharacterSummons"
+local BehaviorStateType = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+---@class Buff_Sneer:BasePersistentBuff
+local Buff_Sneer = class("Buff_Sneer", BasePersistentBuff)
+local M = Buff_Sneer
+local SneerHatredValue = 1000000
+function M:_onEnter()
+    local battleContext = self.hostCharacter:GetBattleContext()
+    ---@type BeControlledBehaviorState
+    local controlState = self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentState()
+    if controlState:GetStateID() ~= BehaviorStateType.BeControlled then
+        self._ctrId = battleContext:GetControlPackId()
+        self.hostCharacter:GetLogicHandle():OnBeControl(self.fromId, self._ctrId,
+            {
+                type = BattleEnum.BuffType.Buff_Sneer,
+
+                effOpen = self._showDelegate,
+                effClose = self._hideDelegate
+            })
+    else
+        local isCan = controlState:IsCanAdd(BattleEnum.BuffType.Buff_Sneer)
+        if isCan then
+            self._ctrId = battleContext:GetControlPackId()
+            controlState:AddControlPack(self._ctrId, {
+                type = BattleEnum.BuffType.Buff_Sneer,
+                effOpen = self._showDelegate,
+                effClose = self._hideDelegate
+            })
+        end
+    end
+    local s_entityId = self.fromId
+    self.hostCharacter:GetHatredManager():ChangeTmpHatredMap(s_entityId, SneerHatredValue)
+    self.hostCharacter:GetHatredManager():RefreshHatred()
+    if self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentStateID() ~= BehaviorStateType.Search then
+        self.hostCharacter:GetController().behaviorDecisionManager:Switch(BehaviorStateType.Search, { searchTarget = 0 })
+    end
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+    local s_entityId = self.fromId
+    self.hostCharacter:GetHatredManager():ChangeTmpHatredMap(s_entityId, -SneerHatredValue)
+    self.hostCharacter:GetHatredManager():RefreshHatred()
+    if self._ctrId then
+        ---@type BeControlledBehaviorState
+        local controlState = self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentState()
+        if controlState:GetStateID() ~= BehaviorStateType.BeControlled then
+            -- BattleLogger.log_Error("??? 控制buff没结束却 不在 控制状态 ")
+        else
+            controlState:RemoveControlPack(self._ctrId)
+        end
+    end
+    -- log_Error("*9******_onExit**********")
+    -- local time = self.hostCharacter:GetCharacterContext():GetBeControlledTime()
+    -- if time <= 0 then
+    --     self.hostCharacter:GetController().behaviorDecisionManager:Switch(BehaviorStateType.SkillSystem, nil)
+    -- end
+end
+
+return M

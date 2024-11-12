@@ -1,0 +1,10 @@
+---@class GuideStepInfoGetRadarTask : GuideStepBaseInfo @引导步骤获取雷达任务
+---@field public chapterNum string 当前第几章  
+local GuideStepInfoGetRadarTask = class("GuideStepInfoGetRadarTask", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoGetRadarTask
+
+function M:onParse(params)
+   
+end
+
+return M

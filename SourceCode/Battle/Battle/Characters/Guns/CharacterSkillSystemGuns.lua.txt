@@ -1,0 +1,76 @@
+local CharacterSkillSystem     = require "GameLogic.Battle.SkillSystem.CharacterSkillSystem"
+local ConfigHandler            = ConfigHandler
+---@class CharacterSkillSystemGuns:CharacterSkillSystem
+local CharacterSkillSystemGuns = class("CharacterSkillSystemGuns", CharacterSkillSystem)
+local M                        = CharacterSkillSystemGuns
+
+-- function M:_doLearnSkill(skillInfos, characterLevel, replaceSkills)
+--     -- skillInfos = {{101101,1}, {101102,81}, {101103,161}, },
+--     -- item[0] = skillId item[1] = level(角色可以学习该技能的等级）
+--     local iLearnSkillIds = {}
+--     local tmpLevel = 0
+--     for i, v in ipairs(skillInfos) do
+--         local skillId = v[1] or 0
+--         local limitLevel = v[2] or 0
+--         if skillId > 0 and characterLevel >= limitLevel and limitLevel >= tmpLevel then
+--             if limitLevel ~= tmpLevel then
+--                 iLearnSkillIds = {}
+--             end
+--             table.insert(iLearnSkillIds, skillId)
+--             tmpLevel = limitLevel
+--         end
+--     end
+
+--     if next(iLearnSkillIds) == nil then
+--         return
+--     end
+
+--     for _, iLearnSkillId in pairs(iLearnSkillIds) do
+--         local is_replace = replaceSkills[iLearnSkillId]
+--         local skillData = nil
+--         if is_replace ~= nil then
+--             skillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Base_Exchange, iLearnSkillId)
+--         end
+--         if skillData == nil then
+--             skillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Base, iLearnSkillId)
+--         end
+
+--         if skillData ~= nil then
+--             if skillData.type == nil then
+--                 BattleLogger.log_error("技能type不能为空 ！！！ skillId ", iLearnSkillId)
+--             end
+--             local skillType = skillData.type or 0
+--             if skillType > 0 and skillType <= 5 then
+--                 local skillBase = CharacterSkillBase.new(skillData, self.hostCharacter, self.battleContext)
+--                 table.insert(self.skillList, skillBase)
+
+--                 if skillType == 1 then
+--                     -- 缓存普攻数据
+--                     if self.normalAttack ~= nil then
+--                         BattleLogger.log_error("???? 多个普攻技能 ", self.hostCharacter:GetHeroConfigId())
+--                     end
+--                     self.normalAttack = skillBase
+--                 end
+--                 if skillType == 5 then
+--                     -- 缓存必杀数据
+--                     if self.superSkill ~= nil then
+--                         BattleLogger.log_error("???? 多个必杀技能技能 ", self.hostCharacter:GetHeroConfigId())
+--                     end
+--                     self.superSkill = skillBase
+--                 end
+--             elseif skillType == 6 then
+--                 local passiveSkillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Passive,
+--                     iLearnSkillId)
+--                 if passiveSkillData ~= nil then
+--                     local passiveSkill = CharacterPassiveSkill.new(passiveSkillData, self.hostCharacter,
+--                         self.battleContext)
+--                     table.insert(self.passiveSkillList, passiveSkill)
+--                 end
+--             elseif skillType == 7 then
+--                 BattleLogger.log_error("??? 技能type == 7: skillId ", iLearnSkillId)
+--             end
+--         end
+--     end
+-- end
+
+return M

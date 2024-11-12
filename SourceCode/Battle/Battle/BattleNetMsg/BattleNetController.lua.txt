@@ -1,0 +1,89 @@
+----------------------------------------------------------------------
+--------- 2023年03月16日 10:18:51 星期四
+----------------------------------------------------------------------
+
+---@class BattleNetController
+local BattleNetController = class("BattleNetController")
+local M = BattleNetController
+---@param manager BattleNetManager
+function M:Init(manager)
+    self.manager = manager
+    self._cacheData = {}
+end
+
+function M:AddEventListeners()
+    BroadcastEvent.subscribeNetwork(ProtoMsgIdDefine.battle_StartBattlePush, self.handleBattleDataPush, self)
+    BroadcastEvent.subscribeNetwork(ProtoMsgIdDefine.battle_FinishBattlePush, self.handleBattleFinishPush, self)
+
+
+    -- BroadcastEvent.subscribeNetwork(ProtoMsgIdDefine.troops_push, self._onTroopsChangePush, self)
+end
+
+function M:RemoveEventListeners()
+    BroadcastEvent.unsubscribeNetwork(ProtoMsgIdDefine.battle_StartBattlePush, self.handleBattleDataPush, self)
+    BroadcastEvent.unsubscribeNetwork(ProtoMsgIdDefine.battle_FinishBattlePush, self.handleBattleFinishPush, self)
+    -- BroadcastEvent.unsubscribeNetwork(ProtoMsgIdDefine.troops_push, self._onTroopsChangePush, self)
+end
+
+function M:Clear()
+    self.manager = nil
+end
+
+----------------------------------------------------------------------------------------------------
+function M:RequestBattleDataPve(gameType, targetId)
+    local requestData = {
+        battleType = gameType,
+        targetId = targetId,
+    }
+    Game.SystemManager.ServerManager:RequestMsg(ProtoMsgIdDefine.battle_StartBattleReq, requestData)
+end
+
+function M:RequestBattleDataWorldPve(uuid, targetUuid, sweepCount, deployState)
+    local requestData = {
+        playerUnitUuid = uuid,
+        targetUuid = targetUuid,
+        sweepCount = sweepCount or 0,
+        deployState = deployState,
+    }
+    Game.SystemManager.ServerManager:RequestMsg(ProtoMsgIdDefine.playerOperate_PlayerAttackReq, requestData)
+end
+
+function M:handleBattleDataPush(params)
+    if params == nil or params.status ~= STATUS_CODE.OK then
+        print_warning("请求战斗数据信息 为空！")
+        return
+    end
+    self.manager:handleBattleDataPush(params.data)
+end
+
+--------------------------------------------------------------------------------------------------------
+function M:RequestBattleFinish(battleResult, clientFrame, battleEndData)
+    local requestData = {
+        battleResult = battleResult,
+        clientFrame = clientFrame,
+    }
+    self._cacheData[ProtoMsgIdDefine.battle_FinishBattleReq] = battleEndData
+    Game.SystemManager.ServerManager:RequestMsg(ProtoMsgIdDefine.battle_FinishBattleReq, requestData)
+end
+
+function M:RequestWorldBattleFinish(battleResult, clientFrame, battleEndData)
+    local requestData = {
+        battleResult = battleResult,
+        clientFrame = clientFrame,
+    }
+    self._cacheData[ProtoMsgIdDefine.battle_FinishBattleReq] = battleEndData
+    Game.SystemManager.ServerManager:RequestMsg(ProtoMsgIdDefine.playerOperate_PlayerFinishAttackReq, requestData)
+end
+
+function M:handleBattleFinishPush(params)
+    if params == nil or params.status ~= STATUS_CODE.OK then
+        print_warning("请求战斗数据信息 为空！")
+        return
+    end
+    ---********** 注意哈 这里并不能保证是你希望的那次请求得数据，鉴于服务器没有 做到一一对应 客户端也无法做到一一对应 只能祈祷 是的 其实就是傻逼服务器*********************************
+    local battleEndData = self._cacheData[ProtoMsgIdDefine.battle_FinishBattleReq]
+    self._cacheData[ProtoMsgIdDefine.battle_FinishBattleReq] = nil
+    self.manager:handleBattleFinishPush(params.data, battleEndData)
+end
+
+return M

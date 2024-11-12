@@ -1,0 +1,161 @@
+---@class AttributesInfo
+local AttributesInfo               = {}
+AttributesInfo.id                  = 1
+AttributesInfo.value               = 2
+-----------------------------------------------------------------------------------------------------
+---@class DeploymentInfo
+local DeploymentInfo               = {}
+---@type HeroInfo
+DeploymentInfo.heroInfo            = {}
+DeploymentInfo.troops              = {}
+---@type AttributesInfo[]
+DeploymentInfo.info                = {}
+-----------------------------------------------------------------------------------------------------
+---@class TeamInfo
+local TeamInfo                     = {}
+---@type DeploymentInfo[]
+TeamInfo.posInfo                   = {}
+-----------------------------------------------------------------------------------------------------
+---@class HeroInfo
+local HeroInfo                     = {}
+HeroInfo.uuid                      = 1
+HeroInfo.heroId                    = 2
+HeroInfo.level                     = 3
+HeroInfo.exp                       = 4
+HeroInfo.quality                   = 5
+HeroInfo.buildingUuid              = 6
+HeroInfo.QueueUuid                 = 7
+---@type AttributesInfo
+HeroInfo.attributesInfos           = {}
+HeroInfo.fightPower                = 9
+HeroInfo.exclusiveLevel            = 10
+HeroInfo.equipUuid                 = 11
+-----------------------------------------------------------------------------------------------------
+---@class BattlePlayerInfo
+local BattlePlayerInfo             = {}
+BattlePlayerInfo.uid               = 1
+BattlePlayerInfo.showUid           = 2
+BattlePlayerInfo.serverId          = 3
+BattlePlayerInfo.name              = 4
+BattlePlayerInfo.pic               = 5
+BattlePlayerInfo.sex               = 6
+--------------------------------------------------------------------------------------------------------
+---@class CabinGunInfo
+local CabinGunInfo                 = {}
+CabinGunInfo.id                    = 1
+CabinGunInfo.level                 = 2
+-----------------------------------------------------------------------------------------------------
+---@class BattleLineUpData
+local BattleLineUpData             = {}
+---@type DeploymentInfo[]
+BattleLineUpData.posInfo           = {}
+BattleLineUpData.power             = {}
+---@type BattlePlayerInfo
+BattleLineUpData.battlePlayerInfo  = {}
+---@type CabinGunInfo[]
+BattleLineUpData.cabinGun          = {}
+-----------------------------------------------------------------------------------------------------
+---@class BattleInfo
+local BattleInfo                   = {}
+BattleInfo.battleUuid              = 1
+BattleInfo.battleType              = 2
+BattleInfo.randomId                = 3
+BattleInfo.targetId                = 4
+---@type FrameData[][]
+BattleInfo.clientFrame             = {}
+---@type BattleLineUpData
+BattleInfo.left                    = {}
+---@type BattleLineUpData
+BattleInfo.right                   = {}
+BattleInfo.mazeRelicId             = {}
+BattleInfo.allianceBossHpPercent   = {}
+-----------------------------------------------------------------------------------------------------
+---@class PosStatisticData
+local PosStatisticData             = {}
+PosStatisticData.minorWound        = 1 -- 轻伤兵数
+PosStatisticData.severeWound       = 1 -- 重伤兵数
+PosStatisticData.hpCurrent         = 1 -- 剩余血量
+PosStatisticData.hpBase            = 1 -- 基础总血量
+PosStatisticData.killCharacter     = 1 -- 击杀非召唤物单位
+PosStatisticData.killSummoner      = 1 -- 击杀召唤物单位
+PosStatisticData.allHarm           = 1 -- 伤害
+PosStatisticData.allCure           = 1 -- 治疗
+PosStatisticData.allShield         = 1 -- 护盾
+PosStatisticData.allTakeDamage     = 1 -- 承受伤害
+PosStatisticData.allUniqueSkillNum = 1 -- 大招次数
+PosStatisticData.allSkillNum       = 1 -- 小技能次数
+PosStatisticData.allNormalSkillNum = 1 -- 普攻次数
+PosStatisticData.minorWoundValue   = 1 -- 轻伤血量
+PosStatisticData.severeWoundValue  = 1 -- 重伤血量
+PosStatisticData.power             = 1 -- 怒气值
+-----------------------------------------------------------------------------------------------------
+---@class StatisticData
+local StatisticData                = {}
+---@type PosStatisticData[]
+StatisticData.posStatisticData     = {} -- 总兵力
+-----------------------------------------------------------------------------------------------------
+---@class BattlefieldReport
+local BattlefieldReport            = {}
+BattlefieldReport.battleTotalTime  = 1
+---@type StatisticData
+BattlefieldReport.left             = {}
+---@type StatisticData
+BattlefieldReport.right            = {}
+------------------------------------------------------------------------------------------------------
+---@class WorldData
+local WorldData                    = {}
+WorldData.battleTotalTime          = 1
+---@type FrameSnapshotArray[]
+WorldData.frameSnapshotArray       = {}
+------------------------------------------------------------------------------------------------------
+---@class FrameSnapshotArray
+local FrameSnapshotArray           = {}
+---@type FrameSnapshot[]
+FrameSnapshotArray.left            = {}
+---@type FrameSnapshot[]
+FrameSnapshotArray.right           = {}
+------------------------------------------------------------------------------------------------------
+---@class FrameSnapshot
+local FrameSnapshot                = {}
+FrameSnapshot.hp                   = 1
+-----------------------------------------------------------------------------------------------------
+---@class SingleRewardInfo
+local SingleRewardInfo             = {}
+SingleRewardInfo.type              = 1
+SingleRewardInfo.id                = 2
+SingleRewardInfo.num               = 3
+SingleRewardInfo.level             = 4
+SingleRewardInfo.quality           = 5
+SingleRewardInfo.businessType      = 6
+-----------------------------------------------------------------------------------------------------
+---@class BattleResult
+local BattleResult                 = {}
+BattleResult.battleUuid            = 1
+BattleResult.result                = 2
+---@type BattlefieldReport
+BattleResult.battlefieldReport     = {}
+---@type WorldData
+BattleResult.worldData             = {}
+-----------------------------------------------------------------------------------------------------
+---@class FinishBattleReq
+local FinishBattleReq              = {}
+---@type BattleResult
+FinishBattleReq.battleResult       = {}
+---@type FrameData[][]
+FinishBattleReq.clientFrame        = {}
+-------------------------------------------------------------------------------------------------------
+---@class ArenaData
+local ArenaData                    = {}
+ArenaData.score                    = 1
+ArenaData.scoreChange              = 2
+------------------------------------------------------------------------------------------------------
+---@class FinishBattlePush
+local FinishBattlePush             = {}
+---@type BattleInfo
+FinishBattlePush.battleInfo        = 1
+---@type BattleResult
+FinishBattlePush.battleResult      = {}
+---@type SingleRewardInfo[]
+FinishBattlePush.rewardList        = {}
+---@type ArenaData
+FinishBattlePush.arenaData         = {}

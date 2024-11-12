@@ -1,0 +1,15 @@
+---@class GuideTriggerConditionTowerDefenseCloseHeroGive:GuideTriggerCondition
+local GuideTriggerConditionTowerDefenseCloseHeroGive = class("GuideTriggerConditionTowerDefenseCloseHeroGive", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionTowerDefenseCloseHeroGive
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:equals(param)
+    local result = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return result
+    end
+    result = true
+    return result
+end
+
+return M

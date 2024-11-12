@@ -1,0 +1,13 @@
+---@class GuideTriggerConditionSundriesRemoveComplete : GuideTriggerCondition
+local GuideTriggerConditionSundriesRemoveComplete = class("GuideTriggerConditionSundriesRemoveComplete", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionSundriesRemoveComplete
+
+function M:equals(param)
+    local result = false
+    if param == self.triggerParam then
+        result = true
+    end
+    return result
+end
+
+return M

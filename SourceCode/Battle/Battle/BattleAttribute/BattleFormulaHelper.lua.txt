@@ -1,0 +1,75 @@
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+
+local BattleFormulaHelper = {}
+---- 吸血
+---@param s BattleCharacter
+function BattleFormulaHelper:bloodsucker(hitValue, s, suckBlood)
+    suckBlood = suckBlood or 0
+    if hitValue <= 0 then
+        return 0
+    end
+    local k = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Vampire_Param")
+    if k <= 0 then
+        BattleLogger.log_error("Global  :Battle_Vampire_Param  不能小于0 ！！！ ")
+        return 0
+    end
+    local p = s:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17)
+    p = p + suckBlood
+    return hitValue * p / k
+end
+
+----普通攻击速度倍率
+---@param character BattleCharacter
+function BattleFormulaHelper:NormalAttSpeedMultiple(character)
+    if character then
+        local Attribute = character:GetAttribute()
+        if Attribute == nil then
+            return 1
+        end
+        local attSp = Attribute:GetAttackSpeed()
+        local constantValue = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Init_AtkSpd")
+        constantValue = constantValue <= 0 and 1 or constantValue
+        return attSp / constantValue
+    else
+        return 1
+    end
+end
+
+----普攻技能CD
+---@param character BattleCharacter
+function BattleFormulaHelper:NormalAttNewCD(character, CD)
+    local attSp = self:NormalAttSpeedMultiple(character)
+    return CD / attSp
+end
+
+---非普攻 技能CD
+---@param character BattleCharacter
+function BattleFormulaHelper:SkillNewCD(character, CD)
+    if character then
+        local Attribute = character:GetAttribute()
+        if Attribute == nil then
+            return 0
+        end
+        local cdM = Attribute:GetCDAccelerate()
+        local constantValue = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Init_AtkSpd")
+        constantValue = constantValue <= 0 and 1 or constantValue
+        return CD / cdM * constantValue
+    else
+        return CD
+    end
+end
+
+--- 移动速度倍率
+---@param character BattleCharacter
+function BattleFormulaHelper:MoveSpeedMultiple(character)
+    if character then
+        local moveSpeed = character:GetAttribute():GetMoveSpeed()
+        local constantValue = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Init_Mov")
+        constantValue = constantValue <= 0 and 1 or constantValue
+        return moveSpeed / constantValue
+    else
+        return 1
+    end
+end
+
+return BattleFormulaHelper

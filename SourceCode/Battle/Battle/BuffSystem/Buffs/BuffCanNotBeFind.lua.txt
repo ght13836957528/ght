@@ -1,0 +1,15 @@
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+---@class BuffCanNotBeFind
+local BuffCanNotBeFind = class("BuffCanNotBeFind", BasePersistentBuff)
+local M = BuffCanNotBeFind
+
+function M:_onEnter()
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Refresh_Hatred)
+end
+
+function M:_onExit()
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Refresh_Hatred)
+end
+
+return M

@@ -1,0 +1,24 @@
+---@class UIRoot : UINode
+local UIRoot = class("UIRoot", UINode)
+local M = UIRoot
+
+function M:GetType()
+    return UINodeType.Root
+end
+---@param gameObject UnityEngine.GameObject
+function M:Ctor(gameObject)
+    UINode.Ctor(self)
+
+    self._gameObject    = gameObject
+    self._transform     = gameObject.transform
+    ---@type UnityEngine.RectTransform
+    self._rectTransform = gameObject:GetComponent("RectTransform")
+    UINode.nodes[self._gameObject:GetInstanceID()] = self
+    if self._rectTransform and self._rectTransform:IsNotNull() then
+        local CanvasRect = self._rectTransform.rect.size;
+        self.canvasWidth = CanvasRect.x;
+        self.canvasHeight = CanvasRect.y;
+    end
+end
+
+return M

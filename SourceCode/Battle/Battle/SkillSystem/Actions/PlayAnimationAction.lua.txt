@@ -1,0 +1,38 @@
+----------------------------------------------------------------------
+--------- 2023年01月31日 18:38:25 星期二
+----------------------------------------------------------------------
+
+--[[
+    播放动画的action
+]]
+
+local BaseAction = require "GameLogic.Battle.SkillSystem.Actions.BaseAction"
+
+---@class PlayAnimationAction
+local PlayAnimationAction = class("PlayAnimationAction", BaseAction)
+local M = PlayAnimationAction
+
+function M:_onInitialize()
+    local data = self.actionData or {}
+    self.animationName = data.animationName
+end
+
+function M:_onExecute(...)
+    local animation = self.animationName or ""
+    if string.isNilOrEmpty(animation) then
+        print_error("没有对应的动画名，请检查配置!!")
+        return
+    end
+
+    self:_playAnimation(animation)
+end
+
+function M:_onClear()
+
+end
+
+function M:_playAnimation(animation)
+
+end
+
+return M

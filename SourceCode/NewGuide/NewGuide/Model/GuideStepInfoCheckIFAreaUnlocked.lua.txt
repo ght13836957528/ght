@@ -1,0 +1,15 @@
+---@class GuideStepInfoCheckIFAreaUnlocked:GuideStepBaseInfo 检查区域是否解锁
+---@field public areaId number 检查区域是否解锁
+---@field public checkPassedId string 检查通过执行的ID 
+---@field public checkPassedId string 检查未通过执行的ID 
+local GuideStepInfoCheckIFAreaUnlocked = class("GuideStepInfoCheckIFAreaUnlocked", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoCheckIFAreaUnlocked
+
+function M:onParse(params)
+    self.areaId = params.areaId
+    self.checkPassedId = params.checkPassedId
+    self.checkNotPassedId = params.checkNotPassedId
+end
+
+
+return M

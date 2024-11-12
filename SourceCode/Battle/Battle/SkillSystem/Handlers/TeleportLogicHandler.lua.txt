@@ -1,0 +1,77 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 10:21:24 星期四
+----------------------------------------------------------------------
+
+--[[
+    处理瞬时移动逻辑
+]]
+
+local TeleportTargetType = require "GameLogic.Battle.Common.TeleportTargetType"
+
+---@class TeleportLogicHandler
+local TeleportLogicHandler = class("TeleportLogicHandler")
+local M = TeleportLogicHandler
+
+function M:Ctor(hostCharacter, battleContext)
+    self.hostCharacter = hostCharacter
+    self.battleContext = battleContext
+end
+
+function M:HandleMoveLogic(iMoveType, iTargetType)
+    local moveType = iMoveType or 0
+    local targetType = iTargetType or 0
+    if moveType > 0 and targetType > 0 then
+        self:_doHandleMoveLogic(moveType, targetType)
+    end
+end
+
+function M:Clear()
+    self.hostCharacter = nil
+    self.battleContext = nil
+end
+
+----------------------------------------------------------------------
+
+--- 处理移动逻辑（瞬移）
+--- @param moveType number 移动到目标前，移动到目标后
+--- @param targetType number 目标类型，比如移动到仇恨目标前，移动到最近目标前等（参考策划文档）
+function M:_doHandleMoveLogic(moveType, targetType)
+    if moveType == 1 then
+        self:_moveToTargetFront(targetType)
+    elseif moveType == 2 then
+        self:_moveToTargetBack(targetType)
+    end
+end
+
+function M:_moveToTargetFront(targetType)
+    local target = self:_getTargetByType(targetType)
+    if target == nil then
+        return
+    end
+end
+
+function M:_moveToTargetBack(targetType)
+    local target = self:_getTargetByType(targetType)
+    if target == nil then
+        return
+    end
+end
+
+function M:_getTargetByType(targetType)
+    if targetType == TeleportTargetType.TargetType_None then
+        return nil
+    elseif targetType == TeleportTargetType.TargetType_HatredTarget then
+    elseif targetType == TeleportTargetType.TargetType_NearestTarget then
+    elseif targetType == TeleportTargetType.TargetType_FurthestTarget then
+    elseif targetType == TeleportTargetType.TargetType_MostAttackTarget then
+    elseif targetType == TeleportTargetType.TargetType_MinimumDefenseTarget then
+    elseif targetType == TeleportTargetType.TargetType_Weakest then
+    elseif targetType == TeleportTargetType.TargetType_MostHPTarget then
+    elseif targetType == TeleportTargetType.TargetType_PlaceTarget then
+        
+    end
+    
+    return nil
+end
+
+return M

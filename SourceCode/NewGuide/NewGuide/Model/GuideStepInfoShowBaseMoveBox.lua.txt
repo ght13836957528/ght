@@ -1,0 +1,9 @@
+---@class GuideStepInfoShowBaseMoveBox : GuideStepBaseInfo @大本搬物品
+local GuideStepInfoShowBaseMoveBox = class("GuideStepInfoShowBaseMoveBox", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoShowBaseMoveBox
+
+function M:onParse(params)
+    
+end
+
+return M

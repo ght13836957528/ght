@@ -1,0 +1,121 @@
+----------------------------------------------------------------------
+--------- 2023年01月17日 16:15:27 星期二
+----------------------------------------------------------------------
+
+--[[
+    沿着某一方向直线飞行得子弹
+]]
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattleEnum       = require "GameLogic.Battle.BattleEnum"
+local BulletBase       = require "GameLogic.Battle.SkillSystem.Bullets.BulletBase"
+local BattleConstant   = require "GameLogic.Battle.BattleConstant"
+---@class FlyBullet:BulletBase
+local FlyBullet        = class("FlyBullet", BulletBase)
+local M                = FlyBullet
+
+function M:_onInitialize(targetList)
+    self.moveLogic = self.config.moveLogic
+    self.moveSpeed = self.config.missleSpd
+    self.moveTimeFrame = self.config.missleTime or 0
+    self.moveTimeFrame = math.ceil(self.moveTimeFrame * BattleConstant.FPS / BattleConstant.LogicBaseFPS)
+    self.frameMoveDic = self:_initFrameMoveDic()
+    self.normalForward = self:_initNormalForward()
+    -- BattleLogger.log_error(self.frameMoveDic)
+    -- self.frameMoveDic = 1
+    self.isCanUpdate = true
+    self.lastMoveVec = nil
+    self:_createRenderBullet(0)
+end
+
+function M:_createRenderBullet()
+    BattleEventUtils:DisPath_CreateFlyForwardEff_bind(self:GetEntityId(), self.position, self.frameMoveDic, self.normalForward)
+end
+
+--- 处理每帧的位置
+function M:_onUpdate(deltaTime)
+    if self.isCanUpdate then
+        self:_handleMove()
+        self:_handleEvent()
+    end
+end
+
+function M:_onClear()
+
+end
+
+function M:_handleEvent()
+    local triggerType = self.config.triggerType
+    if triggerType == nil then
+        return
+    end
+    if triggerType == BattleEnum.BulletTriggerType.FrameTrigger then
+        self:_executeActionsOnFrame(self.frameCount)
+    elseif triggerType == BattleEnum.BulletTriggerType.OnTriggerEnter then
+        self:_executeActionsOnTrigger(self.frameCount)
+    else
+
+    end
+end
+
+function M:_executeActionsOnTrigger(iFrameNumber)
+    if self.triggerRange > 0 then
+        if self.isEliminate then
+            local stepContext = self.stepContext
+            if self.targetList ~= nil then
+                for _, entityId in ipairs(self.targetList) do
+                    if not stepContext:IsApplyThisEntity(entityId) then
+                        local dic = self:Distance(entityId)
+                        if dic <= self.triggerRange then
+                            for _, value in ipairs(self.actions) do
+                                self:_handleAction(value, entityId)
+                            end
+                        end
+                    end
+                end
+            end
+        else
+            if self.targetList ~= nil then
+                for _, entityId in ipairs(self.targetList) do
+                    local dic = self.hostCharacter.searcher:DistanceTo(entityId)
+                    if dic <= self.triggerRange then
+                        for _, value in ipairs(self.actions) do
+                            self:_handleAction(value, entityId)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+----------------------------------------------------------------------
+
+function M:_initNormalForward()
+    return self.hostCharacter:GetSkillManager():GetFlyBulletForward()
+end
+
+function M:_initFrameMoveDic()
+    if self.moveSpeed == nil then
+        BattleLogger.log_error("向前方移动类必须有速度 ！！！ 此处默认给 6 ")
+        self.moveSpeed = 6
+    end
+    local sizeMin = self.hostCharacter:GetBattleContext():GetMapController().cellSizeMin
+    local dis = 2 * sizeMin
+    dis = dis * self.moveSpeed
+    return dis / self.hostCharacter:GetBattleContext():GetBattleManager():GetLogicFPS()
+    --    self.moveVec = Vector3.Normalize(self._targetWorldPos - _pos) * self.frameSpeed
+end
+
+function M:_handleMove(deltaTime)
+    self:_updatePosition(deltaTime)
+end
+
+function M:_updatePosition(deltaTime)
+    local selfPos = self.position
+    local frameVec = self.normalForward * self.frameMoveDic
+    local newPos = selfPos + frameVec
+    self.position = newPos
+    BattleEventUtils:DisPath_SynsPos(self:GetEntityId(), newPos)
+end
+
+return M

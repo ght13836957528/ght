@@ -1,0 +1,21 @@
+local BuffLayer = require "GameLogic.Battle.BuffSystem.BuffContainer.BuffLayer"
+---@class BuffLayerTime:BuffLayer
+local BuffLayerTime = class("BuffLayerTime", BuffLayer)
+---@param hostCharacter BattleCharacter
+function BuffLayerTime:Ctor(param, hostCharacter)
+    self.hostCharacter = hostCharacter
+    self.countType = param[1]
+    self.countTime = param[2]
+    self.buffList = {}
+end
+
+function BuffLayerTime:Update(dt)
+    local currentTime = self.countTime or 0
+    self.countTime = currentTime - dt
+end
+
+function BuffLayerTime:isCanRemove()
+    return self.countTime <= 0
+end
+
+return BuffLayerTime

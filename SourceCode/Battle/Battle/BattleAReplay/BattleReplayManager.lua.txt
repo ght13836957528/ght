@@ -1,0 +1,69 @@
+local BattleManager = require "GameLogic.Battle.BattleManager"
+local BattleDataHandler = require "GameLogic.Battle.BattleModel.BattleDataHandler"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+-- local profiler = require "perf.profiler"
+-- local LuaProfiler = require('MikuLuaProfiler').LuaProfiler
+-- LuaProfiler.BeginSampleCustom("profiler name")
+-- -- your code
+-- LuaProfiler.EndSampleCustom()
+
+BattleReplayManager = {}
+
+local frameLine = 5000
+---@param battleInfo BattleInfo
+function BattleReplayManager.onStartExploreFight(battleInfo)
+    local battleInfo = battleInfo or {}
+    -- LuaProfiler.BeginSampleCustom("BattleReplayManager **** packBattlePlayerData ")
+    local leftTeamList, rightTeamList = BattleDataHandler:packBattlePlayerData(battleInfo)
+    -- LuaProfiler.EndSampleCustom()
+
+
+    -- LuaProfiler.BeginSampleCustom("BattleReplayManager **** StartFight ")
+    ---@type BattleManager
+    local battleExploreManager = BattleReplayManager.battleExploreManager
+    if battleExploreManager == nil then
+        print("new BattleManager")
+        battleExploreManager = BattleManager.new(false)
+        BattleReplayManager.battleExploreManager = battleExploreManager
+        battleExploreManager:Initialize(false)
+    end
+    battleExploreManager:StartFight(battleInfo, nil, leftTeamList, rightTeamList)
+    -- LuaProfiler.EndSampleCustom()
+
+
+    -- LuaProfiler.BeginSampleCustom("BattleReplayManager **** ReplayUpdate ")
+    local frameCount = 0
+    while battleExploreManager._hadResult == false and frameCount < frameLine do
+        frameCount = frameCount + 1
+        battleExploreManager:ReplayUpdate()
+    end
+    -- LuaProfiler.EndSampleCustom()
+
+
+    -- LuaProfiler.BeginSampleCustom("BattleReplayManager **** BattleResult ")
+    local result = battleExploreManager._result
+    local battleResult = BattleHelper:packBattleResult(battleExploreManager._battleEndData)
+    if result == nil and frameCount >= frameLine then
+        result = 2
+        BattleLogger.log_error("复盘超时！！！！直接失败")
+    end
+    -- LuaProfiler.EndSampleCustom()
+
+    BroadcastEvent.Clear()
+
+    --LuaProfiler.BeginSampleCustom("BattleReplayManager **** Clear ")
+    if battleExploreManager then
+        battleExploreManager:Clear()
+    end
+    --LuaProfiler.EndSampleCustom()
+
+    BattleReplayManager.battleExploreManager = nil
+    return battleResult
+end
+
+function BattleReplayManager.Clear()
+    if BattleReplayManager.battleExploreManager then
+        BattleReplayManager.battleExploreManager:Clear()
+    end
+    -- BattleReplayManager.battleExploreManager = nil
+end

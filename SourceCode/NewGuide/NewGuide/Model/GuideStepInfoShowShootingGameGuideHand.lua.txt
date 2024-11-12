@@ -1,0 +1,10 @@
+---@class GuideStepInfoShowShootingGameGuideHand : GuideStepBaseInfo @数值小游戏显示引导手
+---@field public direction number  0 = 左， 1 = 右
+local GuideStepInfoShowShootingGameGuideHand = class("GuideStepInfoShowShootingGameGuideHand", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoShowShootingGameGuideHand
+
+function M:onParse(params)
+    self.direction = params.direction
+end
+
+return M

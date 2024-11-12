@@ -1,0 +1,11 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 11:33:00 星期一
+----------------------------------------------------------------------
+
+local BaseBuff = require "GameLogic.Battle.BuffSystem.BaseBuff"
+
+---@class BuffBreakShield
+local BuffBreakShield = class("BuffBreakShield", BaseBuff)
+local M = BuffBreakShield
+
+return M

@@ -1,0 +1,277 @@
+-- package.path = "C:/Users/madongxi/work/UW/gitclient/project/Assets/GameAsset/Lua/?.lua.txt;" .. package.path
+package.path = "C:/Users/madongxi/work/UW/uwcommon/battle/Lua/?.lua.txt;" .. package.path
+
+list = require("Framework.Common.List")
+json = require("Framework.Common.JsonUtil")
+-- require "Framework.Common.GameLog"
+Mathf = require("Framework.UnityEngine.Mathf")
+Vector2 = require("Framework.UnityEngine.Vector2")
+Vector3 = require("Framework.UnityEngine.Vector3")
+Vector4 = require("Framework.UnityEngine.Vector4")
+Quaternion = require("Framework.UnityEngine.Quaternion")
+Vector2Int = require("Framework.UnityEngine.Vector2Int")
+
+
+-- require "Framework.Common.event"
+require "Framework.Common.Class"
+-- require "Framework.Common.GameObjectUtil"
+-- require "Framework.Common.GameUtils"
+-- require "Framework.Common.StringUtil"
+-- require "Framework.Common.Timer"
+require "Framework.Common.BaseClass"
+-- require "Framework.Common.IData"
+
+require "Framework.Common.CommonUtils"
+require "Framework.Event.BroadcastEvent"
+BroadcastEvent.isSendUnityMsg = false
+require "Const.LuaEventId"
+
+require "Utils.TableHelper"
+require "Utils.LuaDataTableUtils"
+serpent = require "Utils.serpent"
+LuaUtil = require "Utils.LuaUtil"
+require "GameLogic.Battle.BattleLogger"
+BattleLogger.closeLog()
+
+require "GameLogic.Module.Defines.GameDefine"
+
+require "GameLogic.Battle.BattleAReplay.BattleReplayManager"
+-- require "Framework.Common.JsonUtil"
+local Protoc = require "Network.protoc"
+-- local pb = require("pb")
+require "Network.ProtoMsgIdDefine"
+require "Network.PbFileList"
+require "GameLogic.Utils.CommonUtils"
+local Global = _G
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+
+
+local handleMap = {
+    [BattleEnum.BattlePlayType.Normal] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.Explore] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.World_Pve] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.World_Pvp] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.Arena] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.Guide_Pve] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.SecretArea] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.World_Pve_Boss] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.World_Pve_Mass] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.World_Pve_Port] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.World_Pve_BigWorld] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.PVE_Common] = "OnHandleBattle_Normal",
+    [BattleEnum.BattlePlayType.World_Pve_Boss_Win] = "OnHandleBattle_Normal",
+    
+    -- [BattleEnum.TeamPlayType.ExploreTeam] = "OnHandleBattle_Explore"
+}
+
+function OnHandleBattle_Server(msgBody)
+    local battleData = decodeJson(msgBody)
+    -- print(serpent.block(battleData))
+    local battleResult = OnHandleBattle(battleData)
+    -- local tmp = pb.decode("proto.BattleResult", battleResult)
+    -- print(battleResult)
+    return battleResult
+end
+
+---@param battleData BattleInfo
+function OnHandleBattle(battleData)
+    -- battleData = battleData or getTestBattleData()
+    local battleInfo = battleData
+    local battleType = battleInfo.battleType
+    if battleType and handleMap[battleType] and Global[handleMap[battleType]] then
+        return Global[handleMap[battleType]](battleInfo)
+    else
+        print(" ???  to do  : " .. battleType)
+    end
+end
+
+---@param battleData BattleInfo
+function OnHandleBattle_Normal(battleInfo)
+    local result = BattleReplayManager.onStartExploreFight(battleInfo)
+    -- local result_bytes = pb.encode("proto.BattleResult", result)
+    local result_bytes = encodeBattleResult(result)
+    return result_bytes
+end
+
+function OnHandleBattle_Explore(battleInfo)
+    local result = BattleReplayManager.onStartExploreFight(battleInfo)
+    -- local result_bytes = pb.encode("proto.BattleResult", result)
+    local result_bytes = encodeBattleResult(result)
+    return result_bytes
+end
+
+function encodeBattleResult(result)
+    local battlefieldReport = result.battlefieldReport
+    if battlefieldReport and battlefieldReport.worldData and battlefieldReport.worldData.battleData then
+        local tmpMap = {}
+        for frame, value in pairs(battlefieldReport.worldData.battleData) do
+            tmpMap[tostring(frame)] = value
+        end
+        result.battlefieldReport.worldData.battleData = tmpMap
+    end
+    return encodeJson(result)
+end
+
+function getTestBattleData()
+    return
+    "{\"battleUuid\":940587569996636167,\"battleType\":3,\"randomId\":4,\"left\":{\"posInfo\":{\"1\":{\"heroInfo\":{\"uuid\":869218476396127435,\"heroId\":101,\"level\":85,\"quality\":23,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":77328},{\"id\":2,\"value\":12655},{\"id\":3,\"value\":4212},{\"id\":4,\"value\":3370}]},\"fightPower\":75262},\"troops\":{\"2\":0,\"6\":0,\"4\":4,\"8\":0,\"9\":0,\"10\":0,\"1\":1,\"3\":0,\"7\":0,\"5\":5},\"info\":{\"infos\":[{\"id\":1,\"value\":1224111},{\"id\":2,\"value\":20033},{\"id\":3,\"value\":6669},{\"id\":4,\"value\":5335}]}},\"2\":{\"heroInfo\":{\"uuid\":939854230100648060,\"heroId\":401,\"level\":81,\"quality\":10,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":46264},{\"id\":2,\"value\":5922},{\"id\":3,\"value\":2662},{\"id\":4,\"value\":1774}]},\"fightPower\":39418},\"troops\":{\"2\":0,\"6\":0,\"4\":0,\"8\":0,\"9\":0,\"10\":0,\"1\":10,\"3\":0,\"7\":0,\"5\":0},\"info\":{\"infos\":[{\"id\":1,\"value\":462640},{\"id\":2,\"value\":5922},{\"id\":3,\"value\":2662},{\"id\":4,\"value\":1774}]}},\"3\":{\"heroInfo\":{\"uuid\":869218476396126859,\"heroId\":301,\"level\":81,\"quality\":5,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":29592},{\"id\":2,\"value\":3286},{\"id\":3,\"value\":1653},{\"id\":4,\"value\":1161},{\"id\":12,\"value\":60},{\"id\":14,\"value\":16},{\"id\":16,\"value\":5}]},\"fightPower\":27047,\"equipUuId\":[869218476396127135,869218476396127149]},\"troops\":{\"2\":0,\"6\":0,\"4\":0,\"8\":0,\"9\":0,\"10\":0,\"1\":10,\"3\":0,\"7\":0,\"5\":0},\"info\":{\"infos\":[{\"id\":1,\"value\":295925},{\"id\":2,\"value\":3286},{\"id\":3,\"value\":1653},{\"id\":4,\"value\":1161},{\"id\":12,\"value\":60},{\"id\":14,\"value\":16},{\"id\":16,\"value\":5}]}},\"4\":{\"heroInfo\":{\"uuid\":869218476396126862,\"heroId\":102,\"level\":86,\"quality\":5,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":24290},{\"id\":2,\"value\":3975},{\"id\":3,\"value\":1323},{\"id\":4,\"value\":1059}]},\"fightPower\":24738},\"troops\":{\"2\":0,\"6\":0,\"4\":0,\"8\":0,\"9\":0,\"10\":0,\"1\":10,\"3\":0,\"7\":0,\"5\":0},\"info\":{\"infos\":[{\"id\":1,\"value\":242908},{\"id\":2,\"value\":3975},{\"id\":3,\"value\":1323},{\"id\":4,\"value\":1059}]}},\"5\":{\"heroInfo\":{\"uuid\":869218476396127412,\"heroId\":105,\"level\":81,\"quality\":5,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":22595},{\"id\":2,\"value\":3697},{\"id\":3,\"value\":984},{\"id\":4,\"value\":1231}]},\"fightPower\":23120},\"troops\":{\"2\":0,\"6\":0,\"4\":0,\"8\":0,\"9\":0,\"10\":0,\"1\":10,\"3\":0,\"7\":0,\"5\":0},\"info\":{\"infos\":[{\"id\":1,\"value\":225954},{\"id\":2,\"value\":3697},{\"id\":3,\"value\":984},{\"id\":4,\"value\":1231}]}}},\"power\":665811,\"battlePlayerInfo\":{\"uid\":869219195493031991,\"showUid\":\"V8D3FKQXHJKPW\",\"serverId\":1,\"name\":\"战斗测试1\",\"pic\":\"1:101\"}},\"targetId\":105,\"right\":{\"posInfo\":{\"1\":{\"heroInfo\":{\"uuid\":940587569996636203,\"heroId\":403,\"level\":89,\"quality\":5,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":1669388},{\"id\":2,\"value\":7025},{\"id\":3,\"value\":1681},{\"id\":4,\"value\":1681},{\"id\":12,\"value\":9},{\"id\":13,\"value\":4}]},\"fightPower\":367007},\"troops\":{\"4\":50},\"info\":{\"infos\":[{\"id\":1,\"value\":1669388},{\"id\":2,\"value\":7025},{\"id\":3,\"value\":1681},{\"id\":4,\"value\":1681},{\"id\":12,\"value\":9},{\"id\":13,\"value\":4}]}},\"2\":{\"heroInfo\":{\"uuid\":940587569996636204,\"heroId\":13,\"level\":89,\"quality\":5,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":2191703},{\"id\":2,\"value\":5611},{\"id\":3,\"value\":2522},{\"id\":4,\"value\":1681}]},\"fightPower\":466905},\"troops\":{\"4\":50},\"info\":{\"infos\":[{\"id\":1,\"value\":2191703},{\"id\":2,\"value\":5611},{\"id\":3,\"value\":2522},{\"id\":4,\"value\":1681}]}},\"3\":{\"heroInfo\":{\"uuid\":940587569996636205,\"heroId\":305,\"level\":89,\"quality\":5,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":1928926},{\"id\":2,\"value\":6315},{\"id\":3,\"value\":1689},{\"id\":4,\"value\":2109}]},\"fightPower\":416447},\"troops\":{\"4\":50},\"info\":{\"infos\":[{\"id\":1,\"value\":1928926},{\"id\":2,\"value\":6315},{\"id\":3,\"value\":1689},{\"id\":4,\"value\":2109}]}},\"4\":{\"heroInfo\":{\"uuid\":940587569996636206,\"heroId\":45,\"level\":89,\"quality\":5,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":1931343},{\"id\":2,\"value\":6316},{\"id\":3,\"value\":1681},{\"id\":4,\"value\":2102},{\"id\":13,\"value\":5},{\"id\":16}]},\"fightPower\":417002},\"troops\":{\"4\":50},\"info\":{\"infos\":[{\"id\":1,\"value\":1931343},{\"id\":2,\"value\":6316},{\"id\":3,\"value\":1681},{\"id\":4,\"value\":2102},{\"id\":13,\"value\":5},{\"id\":16}]}},\"5\":{\"heroInfo\":{\"uuid\":940587569996636207,\"heroId\":24,\"level\":89,\"quality\":5,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":1668339},{\"id\":2,\"value\":7018},{\"id\":3,\"value\":1681},{\"id\":4,\"value\":1681},{\"id\":13,\"value\":5},{\"id\":16}]},\"fightPower\":366367},\"troops\":{\"4\":50},\"info\":{\"infos\":[{\"id\":1,\"value\":1668339},{\"id\":2,\"value\":7018},{\"id\":3,\"value\":1681},{\"id\":4,\"value\":1681},{\"id\":13,\"value\":5},{\"id\":16}]}}},\"power\":2033728,\"battlePlayerInfo\":{\"uid\":105,\"showUid\":\"ROBOT\",\"serverId\":1,\"name\":\"captain105\",\"pic\":\"101\",\"sex\":2}}}"
+    -- "{\"battleUuid\":940631687900700691,\"battleType\":1,\"randomId\":6,\"clientFrame\":{\"-1\":{\"frameData\":[{\"frame\":-1,\"eventId\":\"Event_Battle_Logic_BattleSpeed\",\"data\":4.0},{\"frame\":-1,\"eventId\":\"Event_Battle_Logic_AutoBattle\",\"data\":2.0}]}},\"left\":{\"posInfo\":{\"1\":{\"heroInfo\":{\"uuid\":940631687900700769,\"heroId\":101,\"level\":1,\"quality\":3,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":379},{\"id\":2,\"value\":62},{\"id\":3,\"value\":20},{\"id\":4,\"value\":16}]},\"fightPower\":459},\"troops\":{\"2\":0,\"6\":0,\"4\":0,\"8\":0,\"9\":0,\"10\":0,\"1\":10,\"3\":0,\"7\":0,\"5\":0},\"info\":{\"infos\":[{\"id\":1,\"value\":3795},{\"id\":2,\"value\":62},{\"id\":3,\"value\":20},{\"id\":4,\"value\":16}]}},\"2\":{\"heroInfo\":{\"uuid\":940631687900700770,\"heroId\":13,\"level\":1,\"quality\":3,\"attributeInfos\":{\"infos\":[{\"id\":1,\"value\":431},{\"id\":2,\"value\":55},{\"id\":3,\"value\":24},{\"id\":4,\"value\":16}]},\"fightPower\":449},\"troops\":{\"2\":0,\"6\":0,\"4\":0,\"8\":0,\"9\":0,\"10\":0,\"1\":10,\"3\":0,\"7\":0,\"5\":0},\"info\":{\"infos\":[{\"id\":1,\"value\":4312},{\"id\":2,\"value\":55},{\"id\":3,\"value\":24},{\"id\":4,\"value\":16}]}}},\"power\":2167,\"battlePlayerInfo\":{\"uid\":940522661993259028,\"showUid\":\"VDH3KJM8RM5ZR\",\"serverId\":1,\"name\":\"VDH3KJM8RM5ZR\",\"pic\":\"1:101\"}},\"targetId\":1012,\"extraParam\":{\"enemyId\":1012}}"
+end
+
+function InitRePlay(projectPath)
+    -- loadPB(projectPath)
+end
+
+function loadPB(projectPath)
+    local fileHeadStr = "Lua/Network/Proto/%s"
+    local filePath = projectPath .. fileHeadStr
+    -- local filePath = fileHeadStr
+    local protoc = Protoc.new()
+    protoc.include_imports = true
+    for k, v in pairs(PbPathConst) do
+        local pbPath = string.format(filePath, v)
+        -- print(" start Load( " .. pbPath)
+        local fh, err = io.open(pbPath, "rb")
+        if fh then
+            local str = fh:read("*a")
+            pb.Load(str)
+            fh:close()
+            -- print(" end Load( :" .. pbPath)
+        end
+        -- protoc:loadfile(pbPath)
+    end
+end
+
+function decodeJson(str)
+    ---@type BattleInfo
+    local data = json.decode(str)
+    return decodeJsonHandle(data, false)
+end
+
+function encodeJson(data)
+    local jsonStr = json.encode(encodeJsonHandle(data, true))
+    return jsonStr
+end
+
+function isNeedExchange(keyName)
+    if type(keyName) == "number" then
+        return false
+    end
+    if keyName == "troops" or keyName == "heroInfos"
+        or keyName == "posInfo" or keyName == "frameData"
+        or keyName == "clientFrame" or keyName == "allianceBossHpPercent"
+        or keyName == "cabinGun" then
+        return true
+    end
+    return false
+end
+
+function decodeJsonHandle(data, isExchange)
+    isExchange = isExchange or false
+    local result = {}
+    for key, value in pairs(data) do
+        local tmpKey = key
+        if type(key) == "string" and isExchange then
+            tmpKey = tonumber(key)
+        end
+
+        if type(value) == "table" and next(value) ~= nil then
+            result[tmpKey] = decodeJsonHandle(value, isNeedExchange(tmpKey))
+        else
+            result[tmpKey] = value
+        end
+    end
+    return result
+end
+
+function encodeJsonHandle(data, isExchange)
+    isExchange = isExchange or false
+    local result = {}
+    for key, value in pairs(data) do
+        local tmpKey = key
+        if type(key) == "number" and isExchange then
+            tmpKey = tostring(key)
+        end
+        if type(value) == "table" then
+            result[tmpKey] = encodeJsonHandle(value, isNeedExchange(tmpKey))
+        else
+            result[tmpKey] = value
+        end
+    end
+    return result
+end
+
+function decodePB(msgBody)
+    return pb.decode("proto.StartBattlePush", msgBody)
+end
+
+-- function testPb()
+--     local body = pb.encode("proto.StartBattlePush", getTestBattleData())
+--     OnHandleBattle_Server(body)
+-- end
+
+function testJson()
+    -- print(body)
+    print("************ init  start ********* ")
+    OnHandleBattle_Server(getTestBattleData())
+    print("************ init  end ********* ")
+end
+
+function Distance(x1, z1, x2, z2)
+    local zAbs = math.abs(z1 - z2)
+    local _, num2 = math.modf(z1 * 0.5)
+    local min = 0
+    local max = 0
+    if num2 ~= 0 then
+        min = x1 - math.modf((zAbs + 1) * 0.5)
+        max = x1 + math.modf(zAbs * 0.5)
+    else
+        min = x1 - math.modf(zAbs * 0.5)
+        max = x1 + math.modf((zAbs + 1) * 0.5)
+    end
+    if x2 < min then
+        return min - x2 + zAbs
+    elseif x2 > max then
+        return x2 - max + zAbs
+    else
+        return zAbs
+    end
+end
+
+-- 9 ,11
+function OutPutDisMap()
+    local x = 11
+    local z = 9
+    local result = "{"
+    local key = 0
+    for xxi = 1, x do
+        key = xxi * 1000
+        for zzi = 1, z do
+            key = key + zzi * 100
+            for xxj = 1, x do
+                key = key + xxj * 10
+                for zzj = 1, z do
+                    key = key + zzj
+                    local dic = Distance(xxi, zzi, xxj, zzj)
+                    -- print(xxi .. " " .. zzi .. "  " .. xxj .. "  " .. zzj .. "  key " .. key .. "   " .. dic)
+                    result = result .. "[" .. key .. "] =  " .. dic .. ","
+                    key = key - zzj
+                end
+                key = key - xxj * 10
+            end
+            key = key - zzi * 100
+        end
+    end
+    result = result .. "}"
+    print(result)
+end
+
+function testOut()
+    return nil
+end
+
+function Clear()
+    BattleReplayManager.Clear()
+end
+
+testJson()

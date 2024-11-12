@@ -1,0 +1,183 @@
+---@class UICombineWatermelonMainView : UIPanel 合成大西瓜小游戏主界面
+local UICombineWatermelonMainView = class("UICombineWatermelonMainView", UIPanel)
+local M = UICombineWatermelonMainView
+
+local UICombineWatermelonRuleLayer = require "GameLogic.CombineWatermelon.CombineWatermelonMain.Layer.UICombineWatermelonRuleLayer"
+local UICombineWatermelonAwardLayer = require "GameLogic.CombineWatermelon.CombineWatermelonMain.Layer.UICombineWatermelonAwardLayer"
+local UICombineWatermelonRankLayer = require "GameLogic.CombineWatermelon.CombineWatermelonMain.Layer.UICombineWatermelonRankLayer"
+
+---@class UICombineWatermelonMainView.BtnType
+M.BtnType = {
+    Rule = "Rule",
+    Award = "Award",
+    Rank = "Rank",
+}
+local grayColor = Color(86/255, 89/255, 96/255, 1)
+local lightColor = Color(229/255, 198/255, 151/255, 1)
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/CombineWatermelon/CombineWatermelonMainView.prefab"
+end
+function M:getConfigLayerType()
+    return UILayerType.UIResourcePopUp
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    if params then
+
+    end
+end
+
+function M:onAddListener()
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_OpenMainViewReward, self.onOpenRewardLayer, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_OpenMainViewRule, self.onOpenRuleLayer, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GetAward, self.onRefreshTaskScoreData, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GetDailyAward, self.onRefreshDailyData, self)
+    self._closeBtn:addEventListener(ButtonEvent.CLICK, self.onCloseBtn, self)
+end
+function M:onRemoveListener()
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_OpenMainViewReward, self.onOpenRewardLayer, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_OpenMainViewRule, self.onOpenRuleLayer, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GetAward, self.onRefreshTaskScoreData, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GetDailyAward, self.onRefreshDailyData, self)
+    self._closeBtn:removeEventListener(ButtonEvent.CLICK, self.onCloseBtn, self)
+end
+
+function M:onCreate()
+    CombineWatermelonModel.initCoinActivityData()
+    CombineWatermelonModel.refreshCombineWatermelonConfigData()
+    CombineWatermelonModel.GetTaskCommand()
+    CombineWatermelonModel.GetRankCommand()
+    CombineWatermelonModel.InitInfoCommand(false)
+    --初始化变量
+    self.curTabBtnType = nil
+    self.UIRuleLayer = nil
+    self.UIAwardLayer = nil
+    self.UIRankLayer = nil
+    --tabBtn相关
+    ---@type table<UICombineWatermelonMainView.BtnType, table>
+    self.tabBtns = {}
+    self.tabBtns[M.BtnType.Rule] = {}
+    self.tabBtns[M.BtnType.Rule].btn = self._tabBtn1
+    self._tabBtn1:setText(GameGlobal.GameEntry.Localization:GetString("5505001"))
+    self.tabBtns[M.BtnType.Award] = {}
+    self.tabBtns[M.BtnType.Award].btn = self._tabBtn2
+    self._tabBtn2:setText(GameGlobal.GameEntry.Localization:GetString("5505002"))
+    self.tabBtns[M.BtnType.Rank] = {}
+    self.tabBtns[M.BtnType.Rank].btn = self._tabBtn3
+    self._tabBtn3:setText(GameGlobal.GameEntry.Localization:GetString("5505003"))
+    for i, v in pairs(self.tabBtns) do
+        v.btn:addEventListener(ButtonEvent.CLICK, self.onClickTabBtn, self, i)
+    end
+    --bind子界面
+    self.UIRuleLayer = UICombineWatermelonRuleLayer.new()
+    self.UIRuleLayer:bind(self._rulePanel)
+    self.UIAwardLayer = UICombineWatermelonAwardLayer.new()
+    self.UIAwardLayer:bind(self._awardPanel)
+    self.UIRankLayer = UICombineWatermelonRankLayer.new()
+    self.UIRankLayer:bind(self._rankPanel)
+    --初始化界面
+    self:hideAllLayer()
+    self._title.text = GameGlobal.GameEntry.Localization:GetString("5600500") --废土运动会
+    self:onClickTabBtn(M.BtnType.Rule)
+end
+
+function M:hideAllLayer()
+    for i, v in pairs(self.tabBtns) do
+        v.btn:setTextColor(grayColor)
+        if not v.btnBg then
+            v.btnBg = v.btn._gameObject:GetComponent(UnityType.UIImage)
+        end
+        GameGlobal.GameEntry.Resource:SetSpriteOfImage(v.btnBg,"UI/Common", "B_Btn_Cut01A_gray")
+        self:_showOrhideLayer(i, false)
+    end
+end
+
+---@param btnType UICombineWatermelonMainView.BtnType
+function M:onClickTabBtn(btnType)
+    if self.curTabBtnType == btnType then
+        return
+    end
+    if self.curTabBtnType then
+        local lastBtns = self.tabBtns[self.curTabBtnType]
+        lastBtns.btn:setTextColor(grayColor)
+        if not lastBtns.btnBg then
+            lastBtns.btnBg = lastBtns.btn._gameObject:GetComponent(UnityType.UIImage)
+        end
+        GameGlobal.GameEntry.Resource:SetSpriteOfImage(lastBtns.btnBg,"UI/Common", "B_Btn_Cut01A_gray")
+        self:_showOrhideLayer(self.curTabBtnType, false)
+    end
+    local curBTns = self.tabBtns[btnType]
+    curBTns.btn:setTextColor(lightColor)
+    if not curBTns.btnBg then
+        curBTns.btnBg = curBTns.btn._gameObject:GetComponent(UnityType.UIImage)
+    end
+    GameGlobal.GameEntry.Resource:SetSpriteOfImage(curBTns.btnBg,"UI/Common", "B_Btn_Cut01A_light")
+    self:_showOrhideLayer(btnType, true)
+    self.curTabBtnType = btnType
+    
+end
+
+---@param btnType UICombineWatermelonMainView.BtnType
+function M:_showOrhideLayer(btnType, isShow)
+    if btnType == M.BtnType.Rule then
+        if self.UIRuleLayer then
+            if isShow then
+                self.UIRuleLayer:show()
+            else
+                self.UIRuleLayer:hide()
+            end
+        end
+    elseif btnType == M.BtnType.Award then
+        if self.UIAwardLayer then
+            if isShow then
+                self.UIAwardLayer:show()
+            else
+                self.UIAwardLayer:hide()
+            end
+        end
+    elseif btnType == M.BtnType.Rank then
+        if self.UIRankLayer then
+            if isShow then
+                self.UIRankLayer:show()
+            else
+                self.UIRankLayer:hide()
+            end
+        end
+    end
+end
+
+function M:onOpenRewardLayer()
+    --打开领奖界面
+    self:onClickTabBtn(M.BtnType.Award)
+end
+function M:onOpenRuleLayer()
+    self:onClickTabBtn(M.BtnType.Rule)
+end
+
+function M:onRefreshTaskScoreData()
+    local isShow = CombineWatermelonModel.getDailyAwardRedPoint() or CombineWatermelonModel.getTaskScoreRedPoint()
+    self._sumRedPint:SetActiveEx(isShow)
+    self._scoreRedPoint:SetActiveEx(CombineWatermelonModel.getTaskScoreRedPoint())
+end
+function M:onRefreshDailyData()
+    local isShow = CombineWatermelonModel.getDailyAwardRedPoint() or CombineWatermelonModel.getTaskScoreRedPoint()
+    self._sumRedPint:SetActiveEx(isShow)
+    self._dailyredPoint:SetActiveEx(CombineWatermelonModel.getDailyAwardRedPoint())
+end
+
+function M:onCloseBtn()
+    for i, v in pairs(self.tabBtns) do
+        v.btn:removeEventListener(ButtonEvent.CLICK, self.onClickTabBtn, self, i)
+    end
+    UIManager.panel:close(UIPanelType.UICombineWatermelonMainView)
+end
+
+function M:onClose()
+
+end
+
+return M

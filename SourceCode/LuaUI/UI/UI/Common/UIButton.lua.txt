@@ -1,0 +1,173 @@
+---@class UIButton : UIWidget 按钮
+local UIButton = class("UIButton", UIWidget)
+local M = UIButton
+
+local EventObject = require("Framework.Event.EventObject")
+
+---@field CLICK
+---@class ButtonEvent 按钮事件
+ButtonEvent = {
+    --DOWN         = TouchEvent.Down, --按下
+    --UP           = TouchEvent.Up, --抬起
+    CLICK        = "Click", -- TouchEvent.Click, --单击
+    --DOUBLE_CLICK = TouchEvent.DoubleClick, --双击
+    --PRESS        = TouchEvent.LongPress, --长按
+}
+
+function M:OnCreate()
+    -- 查找按钮组件
+    local button = self._gameObject:GetComponent(UnityType.UIButton)
+    if button == nil then
+        button = self._gameObject:GetComponentInChildren(UnityType.UIButton)
+    end
+
+    if button == nil then
+        print_error(string.format("%s not find Button Component", self._gameObject.name))
+        return
+    end
+
+    if button.targetGraphic == nil then
+        print_error(string.format("%s Button Component targetGraphic is nil, please check it", self._gameObject.name))
+        return
+    end
+
+    self.button = button
+    self.enabled = self.button.enabled
+    self.interactable = self.button.interactable
+    self.targetGraphic = button.targetGraphic
+
+    -- 查找文本组件
+    self.text = self.button.gameObject:GetComponentInChildren(UnityType.UIText)
+    if self.text then
+        self.text.raycastTarget = false
+    end
+end
+
+function M:OnAddListener()
+    if self.button ~= nil and self.button:IsNotNull() then
+        self.button.onClick:AddListener(function()
+            if self.event then
+                self.event:dispatch(ButtonEvent.CLICK)
+            end
+        end)
+    end
+end
+
+function M:OnRemoveListener()
+    if self.button ~= nil and self.button:IsNotNull() then
+        self.button.onClick:RemoveAllListeners()
+    end
+end
+
+function M:OnRefresh()
+    self:_refreshEnabled()
+    self:_refreshInteractable()
+    self:_refreshText()
+end
+
+function M:getEnabled()
+    return self.enabled
+end
+
+function M:setEnabled(enabled)
+    if self.enabled == enabled then
+        return
+    end
+
+    self.enabled = enabled
+    self:_refreshEnabled()
+end
+
+function M:setInteractable(value)
+    if self.interactable == value then
+        return
+    end
+    
+    self.interactable = value
+    self:_refreshInteractable()
+end
+
+function M:setText(text)
+    if self.textCache == text then
+        return
+    end
+
+    self.textCache = text
+    self:_refreshText()
+end
+
+function M:_refreshEnabled()
+    if not self:HasGameObject() or not self.button then
+        return
+    end
+
+    self.button.enabled = self.enabled
+    self.targetGraphic.raycastTarget = self.enabled
+end
+
+function M:_refreshInteractable()
+    if not self:HasGameObject() or not self.button then
+        return
+    end
+
+    self.button.interactable = self.interactable
+    if not self.interactable then
+        self.targetGraphic.material = nil -- TODO: --UIManager.grayMaterial
+    else
+        self.targetGraphic.material = nil
+    end
+end
+
+function M:_refreshText()
+    if not self:HasGameObject() or not self.textCache or self.text == nil then
+        return
+    end
+
+    self.text.text = self.textCache
+end
+
+---添加按钮监听
+---@param eventType ButtonEvent 事件类型  
+---@param callback function 回调函数
+---@param listener table 监听对象
+function M:AddEventListener(eventType, callback, listener, ...)
+    if eventType == nil then
+        print_error("add event listener failed, event type is nil")
+        return
+    end
+
+    if self.event == nil then
+        self.event = EventObject.new("UIButton")
+    end
+
+    self.event:subscribe(eventType, callback, listener, ...)
+end
+
+---移除按钮监听
+---@param eventType ButtonEvent 事件类型  
+---@param callback function 回调函数
+---@param listener table 监听对象
+function M:RemoveEventListener(eventType, callback, listener)
+    if eventType == nil then
+        print_error("remove event listener failed, event type is nil")
+        return
+    end
+
+    if self.event == nil then
+        return
+    end
+    
+    self.event:unsubscribe(eventType, callback, listener)
+end
+
+function M:OnDispose()
+    self.button = nil
+    self.targetGraphic = nil
+
+    if self.event then
+        self.event:Dispose()
+        self.event = null
+    end
+end
+
+return M

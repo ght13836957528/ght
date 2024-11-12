@@ -1,0 +1,24 @@
+----------------------------------------------------------------------
+--------- 2022年12月15日 17:55:47 星期四
+----------------------------------------------------------------------
+
+---@class BehaviorStateType
+local BehaviorStateType = 
+{
+    None            = "None",
+    SkillSystem     = "SkillSystem",    -- 技能系统 
+    Search          = "Search",         -- 索敌移动
+    Idle            = "Idle",           -- idle待机
+    Moving          = "Moving",         -- 正在移动的状态
+    PerformSkill    = "PerformSkill",   -- 正在释放技能的状态
+    Wait            = "Wait",           -- 等待状态
+    Died            = "Died",           -- 死亡
+    BeControlled    = "BeControlled",   -- 被控制
+    Victory         = "Victory",        -- 胜利
+
+    Alert           = "Alert",          -- 巡逻
+    BackBirthPos    = "BackBirthPos",   -- 返回出生点
+    MoveToTarget    = "MoveToTarget",   -- 追目标
+}
+
+return BehaviorStateType

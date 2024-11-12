@@ -1,0 +1,11 @@
+---@class GuideStepInfosPlayVideo:GuideStepBaseInfo 
+---@field public buildId number 显示的建筑ID
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfosPlayVideo = class("GuideStepInfosPlayVideo", base)
+local M = GuideStepInfosPlayVideo
+
+function M:onParse(params)
+   
+end
+
+return M

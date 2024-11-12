@@ -1,0 +1,24 @@
+----------------------------------------------------------------------
+--------- 2022年12月16日 17:14:30 星期五
+----------------------------------------------------------------------
+
+local BehaviorStateType     = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+
+---@class BehaviorContext
+local BehaviorContext = class("BehaviorContext")
+local M = BehaviorContext
+
+function M:Ctor(stateManager)
+    self._stateManager = stateManager
+end
+
+function M:Initialize()
+    
+end
+
+function M:Clear()
+  
+end
+
+
+return M

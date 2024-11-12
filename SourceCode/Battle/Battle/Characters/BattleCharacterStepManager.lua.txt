@@ -1,0 +1,116 @@
+----------------------------------------------------------------------
+--------- 2022年12月02日 17:29:36 星期五
+----------------------------------------------------------------------
+
+---@class BattleCharacterStepManager
+local BattleCharacterStepManager = class("BattleCharacterStepManager")
+local M = BattleCharacterStepManager
+---@param character BattleCharacter
+---@param context BattleContext
+function M:Ctor(character, context)
+    self.hostCharacter = character
+    self.battleContext = context
+    ---@type BulletBase[]
+    self._list_bullet = {}
+    ---@type SkillStepActionLaunchAttackPack[]
+    self._list_attack = {}
+
+    self._list_removeBullet = {}
+end
+
+function M:Initialize(character)
+    self.hostCharacter = character
+end
+
+function M:OnStartFight()
+
+end
+
+function M:Clear()
+    for _, bulletNode in pairs(self._list_bullet) do
+        if bulletNode and bulletNode.Clear then
+            bulletNode:Clear()
+        end
+    end
+    -- for _, attackNode in pairs(self._list_attack) do
+    --     if attackNode and attackNode.Clear then
+    --         attackNode:Clear()
+    --     end
+    -- end
+end
+
+function M:OnUpdate(fDeltaTime)
+    self:_update(fDeltaTime)
+end
+
+---@param bulletNode BulletBase
+function M:AddBullet(bulletNode)
+    if bulletNode == nil then
+        return
+    end
+    bulletNode:SetIndex(#self._list_bullet + 1)
+    table.insert(self._list_bullet, bulletNode)
+end
+
+---@param bulletNode BulletBase
+function M:RemoveBullet(bulletNode)
+    if bulletNode == nil then
+        return
+    end
+    if bulletNode.Clear then
+        bulletNode:Clear()
+    end
+    table.insert(self._list_removeBullet, bulletNode:GetIndex())
+    table.sort(self._list_removeBullet, function(a, b)
+        return a > b
+    end)
+end
+
+---@param attackNode SkillStepActionLaunchAttackPack
+function M:AddAttack(attackNode)
+    if attackNode == nil then
+        return
+    end
+    attackNode:SetIndex()
+    table.insert(self._list_attack, attackNode)
+end
+
+function M:_update(fDeltaTime)
+    local _list_bullet = self._list_bullet
+    for _, bulletNode in ipairs(_list_bullet) do
+        bulletNode:OnUpdate(fDeltaTime)
+    end
+    -- local _list_attack = self._list_attack
+    -- for _, attNode in ipairs(_list_attack) do
+    --     attNode:OnUpdate(fDeltaTime)
+    -- end
+    local len = #self._list_removeBullet
+    if len > 0 then
+        for _, index in ipairs(self._list_removeBullet) do
+            if index > 0 then
+                for i = index, #_list_bullet do
+                    _list_bullet[i]:DownIndex()
+                end
+                local bulletNode = _list_bullet[index]
+                if bulletNode then
+                    self.battleContext:GetBattlePoolManager():PushBullet(bulletNode:GetType(), bulletNode)
+                end
+                table.remove(_list_bullet, index)
+            else
+                BattleLogger.log_error("重复删除 子弹 ：")
+            end
+        end
+        self._list_removeBullet = {}
+    end
+end
+
+function M:OnDied()
+    for _, bulletNode in pairs(self._list_bullet) do
+        if bulletNode and bulletNode.Clear then
+            bulletNode:Clear()
+        end
+    end
+    self._list_bullet = {}
+end
+
+return M

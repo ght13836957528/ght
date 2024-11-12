@@ -1,0 +1,55 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 11:31:17 星期一
+----   最大生命百分比
+----------------------------------------------------------------------
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BaseBuff = require "GameLogic.Battle.BuffSystem.BaseBuff"
+local BattleFormulaHelper = require"GameLogic.Battle.BattleAttribute.BattleFormulaHelper"
+---@class BuffMaxPercentageDamage:BaseBuff
+local BuffMaxPercentageDamage = class("BuffMaxPercentageDamage", BaseBuff)
+local M = BuffMaxPercentageDamage
+
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+    self:_doModify()
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+
+end
+
+----------------------------------------------------------------------
+function M:_doModify()
+    local fromCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.fromId)
+
+    local hpMax = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+    .AttributeType_HP_1)
+
+    local skill_p = self:skillCoefficient(fromCharacter, self.buffParams)
+    --- 威力百分比
+    local power_k = self.buffParams[3] or 100
+    power_k = power_k * 0.01
+
+    local result = hpMax * skill_p * power_k
+
+    result = FixedCalculateHandler:keepPoint(result, 0)
+    result = result <= 0 and 1 or result
+    BattleLogger.logNumerical("最终伤害 : ", result)
+
+    local suckBlood = BattleFormulaHelper:bloodsucker(result, fromCharacter, 0)
+    if suckBlood > 0 then
+        BattleLogger.log_error("吸血 ：  to do ", suckBlood)
+    end
+    self.hostCharacter:GetLogicHandle():AcceptDamage(self.fromId, result, self.buffParams)
+    ---- 造成伤害时的事件
+    -- BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_TRIGGER_EVENT, TriggerTimeType.TriggerTime_OnHurt)
+end
+
+return M

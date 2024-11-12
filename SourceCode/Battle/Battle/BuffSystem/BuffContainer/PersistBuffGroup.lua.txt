@@ -1,0 +1,570 @@
+----------------------------------------------------------------------
+--------- 2023年02月03日 11:43:52 星期五
+----------------------------------------------------------------------
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BuffFactory = require "GameLogic.Battle.BuffSystem.BuffFactory"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BuffLayerTime = require "GameLogic.Battle.BuffSystem.BuffContainer.BuffLayerTime"
+local BuffLayerAttackTimes = require "GameLogic.Battle.BuffSystem.BuffContainer.BuffLayerAttackTimes"
+local BuffLayerBeAttackTimes = require "GameLogic.Battle.BuffSystem.BuffContainer.BuffLayerBeAttackTimes"
+local ConfigHandler = ConfigHandler
+local GameDefine = GameDefine
+---@class PersistBuffGroup
+local PersistBuffGroup = class("PersistBuffGroup")
+local M = PersistBuffGroup
+---@param buffManager CharacterBuffManager
+---@param hostCharacter BattleCharacter
+function M:Ctor(hostCharacter, buffManager, battleContext)
+    self.hostCharacter = hostCharacter
+    self.buffManager = buffManager
+    self.battleContext = battleContext
+    --- 标记逻辑状态结束 但显示层未结束
+    self.readyRemove = false
+    --- 约定的都是1
+    self.closeTimes = 1000
+    --- 约定的都是1
+    self.closeBeforeTimes = 1000
+    self.isToChange = false
+    self.isControlBuff = false
+    self.isPlayExitBeforeArt = false
+    self.buffLabel = 0
+    self.buffEffMap = {}
+end
+
+--- 持续性buff初始化，需要知道持续时长，叠加规则等
+--- @param buffInfo table 持续性buff的数据，包括持续时间，叠加规则，buff最大层数，满层转化目标buff
+function M:Initialize(buffId, buffInfo, fromId)
+    self.buffId = buffId
+    self.fromId = fromId
+
+    -- buffInfo包含数据 { theTime, theOverlayType, theMaxLayer, theTransform }
+    self.buffInfo = buffInfo
+
+    self.currentLayerIndex = 0
+    ---@type BuffLayer[]
+    self.layerDataList = {} -- 保存层级信息
+    ---@type BaseBuff[]
+    self.listCache = {}
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, buffId)
+    -- self:_clearList()
+    self.buffLabel = buffConfig.label or 0
+    self:_initEffMap(buffConfig.eff or {})
+    self:_addArtEff(buffConfig)
+    self:_addRage(buffConfig)
+    self:AddEffects()
+    self:TryPlayEffAniStart()
+end
+
+function M:_initEffMap(eff)
+    for _, info in pairs(eff) do
+        self.buffEffMap[info[1]] = 1
+    end
+end
+
+function M:GetLayerNum()
+    return #self.layerDataList
+end
+
+---@return BuffLayer
+function M:GetLayer(timeParam)
+    local type = timeParam[1]
+    if type == BattleEnum.BufferPersistentType.TimePersistent then
+        return BuffLayerTime.new(timeParam, self.hostCharacter)
+    elseif type == BattleEnum.BufferPersistentType.AttackCountPersistent then
+        return BuffLayerAttackTimes.new(timeParam, self.hostCharacter)
+    elseif type == BattleEnum.BufferPersistentType.BeAttackCountPersistent then
+        return BuffLayerBeAttackTimes.new(timeParam, self.hostCharacter)
+    end
+end
+
+function M:_newLayer()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    local timeParam = self.buffInfo.theTime
+    -- local layerData = { countType = timeParam[1], currentTime = timeParam[2], currentCount = timeParam[2], buffList = {} }
+    local layerData = self:GetLayer(timeParam)
+    local effects = buffConfig.eff or {}
+    for i, v in ipairs(effects) do
+        if v ~= nil then
+            local buffTypeId = v[1] or 0
+            if buffTypeId > 0 then
+                if buffTypeId < BattleConstant.BuffEffLimitLine then
+                    BattleLogger.log_error("配置问题：持续性buff 出现 瞬时效果枚举！！！", self
+                        .buffId)
+                    break
+                end
+                local buff = self:_addBuffType(buffTypeId, v, self.fromId)
+                if buff then
+                    layerData:addBuffEff(buff)
+                end
+            end
+        end
+    end
+    return layerData
+end
+
+---@param layerData BuffLayer
+function M:InitLayerBuff(layerData)
+    if layerData and layerData.buffList then
+        for _, buff in ipairs(layerData.buffList) do
+            buff:Enter()
+        end
+    end
+end
+
+--- 在BuffManager中以BuffID为单位添加一个BuffGroup，这里添加具体的Buff类型
+function M:AddEffects()
+    -- 第一次添加，层级为1
+    self.currentLayerIndex = 1
+    local layerData = self:_newLayer()
+    table.insert(self.layerDataList, layerData)
+    self:InitLayerBuff(layerData)
+end
+
+--- 以BuffGroup为单位处理叠层
+function M:OverlayEffects(fromId)
+    self.fromId = fromId
+    local maxLayer = self.buffInfo.theMaxLayer or 100000000
+    local layerIndex = self.currentLayerIndex or 0
+    local overlayType = self.buffInfo.theOverlayType or 0
+    local transform = self.buffInfo.theTransform or 0
+    local isMaxLayer = layerIndex + 1 >= maxLayer
+    if isMaxLayer and transform > 0 then
+        -- 超过最大层的处理
+        self:_markTransformBuff()
+        -- self:_doTransformBuff()
+    else
+        self:_handleOverlay(overlayType, isMaxLayer)
+    end
+end
+
+function M:getIsReady()
+    return self.readyRemove
+end
+
+function M:CheckHasBuffType(iBuffTypeId, iBuffLayerCount)
+    return self:_doCheckHasBuffType(iBuffTypeId, iBuffLayerCount)
+end
+
+function M:Update(fDeltaTime)
+    if self.readyRemove then
+        return
+    end
+
+    local lastTime = 0
+    local len = #self.layerDataList
+    -- local tmp = {}
+    for i = len, 1, -1 do
+        local layerNode = self.layerDataList[i]
+        layerNode:Update(fDeltaTime)
+        if layerNode:isCanRemove() then
+            table.remove(self.layerDataList, i)
+            for _, buffBase in ipairs(layerNode.buffList) do
+                buffBase:Exit()
+                buffBase:Clear()
+            end
+            -- table.insert(tmp, layerNode)
+        else
+            local buffList = layerNode.buffList
+            local isRemove = false
+            for _, buffInfo in ipairs(buffList) do
+                if buffInfo ~= nil and buffInfo.Update ~= nil then
+                    buffInfo:Update(fDeltaTime)
+                end
+                if buffInfo.isCanRemove and buffInfo:isCanRemove() then
+                    isRemove = true
+                    for _, buffBase in ipairs(layerNode.buffList) do
+                        buffBase:Exit()
+                        buffBase:Clear()
+                    end
+                    table.remove(self.layerDataList, i)
+                    -- table.insert(tmp, layerNode)
+                    break
+                end
+            end
+            if not isRemove then
+                local time = layerNode.countTime or 0
+                if time > lastTime then
+                    lastTime = time
+                end
+            end
+        end
+    end
+
+    -- for _, layerNode in ipairs(tmp) do
+    --     if layerNode then
+    --         for _, buffBase in ipairs(layerNode.buffList) do
+    --             buffBase:Exit()
+    --             buffBase:Clear()
+    --         end
+    --     end
+    -- end
+
+    local len = #self.layerDataList
+    if lastTime < self.closeBeforeTimes and not self.isPlayExitBeforeArt and len > 0 then
+        self.isPlayExitBeforeArt = true
+        self:TryApplyBeforeArt()
+    end
+
+    if len <= 0 then
+        self.readyRemove = true
+        self:tryRemoveBuff()
+    end
+end
+
+function M:UpdateReadyRemove(fDeltaTime)
+    self:updateCloseArt(fDeltaTime)
+end
+
+function M:updateCloseArt(fDeltaTime)
+    self.closeTimes = self.closeTimes - fDeltaTime
+    if self.closeTimes <= 0 then
+        self.buffManager:RemoveBuff(self.buffId)
+        self:_clearExitEff()
+    end
+end
+
+function M:tryRemoveBuff()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    if buffConfig and buffConfig.art3 and buffConfig.tiePoint3 then
+        BattleEventUtils:DisPath_CreateEff_bind(self.hostCharacter:GetBattleId(), buffConfig.art3, buffConfig.tiePoint3,
+            false)
+        self.buffManager:ReadyRemoveBuff(self.buffId, self)
+        self:ClearLogic()
+    else
+        self.buffManager:RemoveBuff(self.buffId)
+    end
+end
+
+--- 清除buff逻辑结束前得所有资源
+function M:ClearLogic()
+    self:_clearLoopEff()
+    self:_clearBeforeEff()
+    self:_clearList()
+    self:TryPlayEffAniExit()
+end
+
+--- 清除buff逻辑结束后得所有资源
+function M:ClearCloseArt()
+    self:_clearExitEff()
+    self.readyRemove = false
+    self.closeTimes = 1000
+end
+
+--- 清除所有资源
+function M:Clear()
+    self:ClearLogic()
+    self:ClearCloseArt()
+end
+
+function M:TryApplyBeforeArt()
+    self:TryPlayEffAniExitBefore()
+    self:TryApplyBeforeEff()
+end
+
+function M:TryApplyBeforeEff()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    if buffConfig and buffConfig.artEndBefore and buffConfig.artBindEndBefore then
+        BattleEventUtils:DisPath_CreateEff_bind(self.hostCharacter:GetBattleId(), buffConfig.artEndBefore,
+            buffConfig.artBindEndBefore,
+            false)
+    end
+end
+
+function M:TryPlayEffAniStart()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    if buffConfig and buffConfig.effAniStart then
+        local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+        BattleEventUtils:DisPath_PlayEffAni(self.hostCharacter:GetBattleId(), buffConfig.effAniStart, aniSpeed)
+    end
+end
+
+function M:TryPlayEffAniExitBefore()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    if buffConfig and buffConfig.effAniEndBefore then
+        local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+        BattleEventUtils:DisPath_PlayEffAni(self.hostCharacter:GetBattleId(), buffConfig.effAniEndBefore, aniSpeed)
+    end
+end
+
+function M:TryPlayEffAniExit()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    if buffConfig and buffConfig.effAniEnd then
+        local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+        BattleEventUtils:DisPath_PlayEffAni(self.hostCharacter:GetBattleId(), buffConfig.effAniEnd, aniSpeed)
+    end
+end
+
+function M:DoTransformBuff()
+    if self.isToChange == false then
+        return
+    end
+    local transform = self.buffInfo.theTransform or 0
+    if transform > 0 then
+        local info = self.buffInfo or {}
+        local toTransform = info.theTransform or 0
+        if toTransform > 0 then
+            self.buffManager:AddBuff(self.fromId, transform, nil)
+        end
+    end
+end
+
+function M:OnHpChange(fDamage)
+    -- for _, buffType in pairs(self.buffList) do
+    --     if buffType ~= nil and buffType.OnHpChange ~= nil then
+    --         buffType:OnHpChange(fDamage)
+    --     end
+    -- end
+
+    for _, v in pairs(self.layerDataList) do
+        for _, buffInfo in ipairs(v.buffList) do
+            if buffInfo ~= nil and buffInfo.OnHpChange ~= nil then
+                buffInfo:OnHpChange(fDamage)
+            end
+        end
+    end
+end
+
+function M:GetResultValue(buffEffId)
+    local result = 0
+    -- for key, value in pairs(self.buffList) do
+    --     if key == buffEffId and value and value.GetResultValue then
+    --         result = result + value:GetResultValue()
+    --     end
+    -- end
+
+    for _, v in ipairs(self.layerDataList) do
+        for _, buffInfo in ipairs(v.buffList) do
+            if buffInfo ~= nil and buffEffId == buffInfo:GetBuffTypeId() and buffInfo.GetResultValue ~= nil then
+                result = result + buffInfo:GetResultValue()
+            end
+        end
+    end
+
+    return result
+end
+
+----------------------------------------------------------------------
+
+function M:_addArtEff(buffConfig)
+    local effs = buffConfig.eff or {}
+    for _, effInfo in pairs(effs) do
+        local effId = effInfo[1] or 0
+        local effCon = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Status_Param, effId)
+        if effCon then
+            self.isControlBuff = true
+            break
+        end
+    end
+
+    if not self.isControlBuff then
+        self:_delegateAddArt()
+    end
+end
+
+function M:_delegateAddArt()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    if buffConfig and buffConfig.art2 and buffConfig.tiePoint2 then
+        local isNeedSort = buffConfig.effectSort and buffConfig.effectSort == 1
+        BattleEventUtils:DisPath_CreateEff_bind(self.hostCharacter:GetBattleId(), buffConfig.art2, buffConfig.tiePoint2,
+            isNeedSort)
+    end
+end
+
+function M:_addRage(buffConfig)
+    if buffConfig and buffConfig.addPower then
+        self.hostCharacter:GetLogicHandle():DoChangeValue(2, 2, buffConfig.addPower)
+    end
+end
+
+---@return BaseBuff
+function M:_addBuffType(iBuffTypeId, buffParams, fromId)
+    local buffTypeId = iBuffTypeId or 0
+    local bBuffTypeValid = self:_checkBuffTypeValid(buffTypeId)
+    if bBuffTypeValid then
+        -- 具体的检查，添加等在具体的Buff中处理
+        return self:_doAddBuffType(buffTypeId, buffParams, fromId)
+    end
+end
+
+---@return BaseBuff
+function M:_doAddBuffType(buffTypeId, buffParams, fromId)
+    local buff = BuffFactory:CreateBuff(self.hostCharacter, self.buffManager, buffParams)
+    buff:Initialize(fromId, self.buffId)
+    buff:setArtDelegate(function()
+        self:_delegateAddArt()
+    end, function()
+        self:_clearLoopEff()
+        self:_clearBeforeEff()
+    end)
+    BattleLogger.log(" 持续Buff 添加 成功   id : ", buffTypeId)
+    -- buff:Enter()
+    return buff
+end
+
+function M:_handleOverlay(overlayType, isMaxLayer)
+    local timeParam = self.buffInfo.theTime
+    local type = timeParam[1]
+    if type == BattleEnum.BufferPersistentType.TimePersistent then
+        self:_overlay_time(overlayType)
+    elseif type == BattleEnum.BufferPersistentType.AttackCountPersistent then
+        self:_overlay_attackTimes(overlayType)
+    elseif type == BattleEnum.BufferPersistentType.BeAttackCountPersistent then
+        self:_overlay_beaAttackTimes(overlayType)
+    else
+
+    end
+end
+
+function M:_overlay_beaAttackTimes(overlayType)
+    -- note: overlayType在进入buff前就已经判断过是否为空了，这里的判断是确定buffInfo里面的值是否正确
+    local timeParam = self.buffInfo.theTime
+    if overlayType == 1 then
+        -- 自身不可叠加=重置时间
+        self.layerDataList[1].countType = timeParam[1]
+        self.layerDataList[1].currentCount = timeParam[2]
+    elseif overlayType == 2 then
+
+    elseif overlayType == 3 then
+
+    elseif overlayType == 4 then
+        -- 自身不可叠加=不重置时间
+    end
+end
+
+function M:_overlay_attackTimes(overlayType)
+    -- note: overlayType在进入buff前就已经判断过是否为空了，这里的判断是确定buffInfo里面的值是否正确
+    local timeParam = self.buffInfo.theTime
+    if overlayType == 1 then
+        -- 自身不可叠加=重置时间
+        self.layerDataList[1].countType = timeParam[1]
+        self.layerDataList[1].currentCount = timeParam[2]
+    elseif overlayType == 2 then
+
+    elseif overlayType == 3 then
+
+    elseif overlayType == 4 then
+        -- 自身不可叠加=不重置时间
+    end
+end
+
+function M:_overlay_time(overlayType)
+    -- note: overlayType在进入buff前就已经判断过是否为空了，这里的判断是确定buffInfo里面的值是否正确
+    local timeParam = self.buffInfo.theTime
+
+    local layerIndex = self.currentLayerIndex
+    if overlayType == 1 then
+        -- 自身不可叠加=重置时间
+        self.layerDataList[1].countType = timeParam[1]
+        self.layerDataList[1].countTime = timeParam[2]
+    elseif overlayType == 2 then
+        -- 自身可叠加=互相独立时间
+        local layerData = self:_newLayer()
+        table.insert(self.layerDataList, layerData)
+        self:InitLayerBuff(layerData)
+        self.currentLayerIndex = layerIndex + 1
+    elseif overlayType == 3 then
+        -- 自身可叠加=重置时间一起消失
+        for i, v in ipairs(self.layerDataList) do
+            if v ~= nil then
+                v.countType = timeParam[1]
+                v.countTime = timeParam[2]
+            end
+        end
+        local layerData = self:_newLayer()
+        table.insert(self.layerDataList, layerData)
+        self:InitLayerBuff(layerData)
+        self.currentLayerIndex = layerIndex + 1
+    elseif overlayType == 4 then
+        -- 自身不可叠加=不重置时间
+    end
+end
+
+function M:_markTransformBuff()
+    local transform = self.buffInfo.theTransform or 0
+    if transform > 0 then
+        self.isToChange = true
+        self.buffManager:RemoveBuff(self.buffId)
+    end
+end
+
+function M:_doCheckHasBuffType(buffTypeId, layerCount)
+    layerCount = layerCount or 0
+    if self.currentLayerIndex < layerCount then
+        return false
+    end
+    if self.readyRemove then
+        return false
+    end
+    local layerNode = self.layerDataList[1]
+    return layerNode ~= nil and self.buffEffMap[buffTypeId] ~= nil
+
+    -- for _, value in pairs(layerNode.buffList) do
+    --     ---@type BasePersistentBuff
+    --     local buffBase = value
+    --     if buffBase:GetBuffTypeId() == buffTypeId then
+    --         return true
+    --     end
+    -- end
+    -- return false
+end
+
+--- 检查buffTypeId是不是持续性buff
+--- 根据约定，持续性buff的typeId范围在100~200之间
+function M:_checkBuffTypeValid(buffTypeId)
+    if buffTypeId <= 0 then
+        return false
+    end
+
+    if buffTypeId < BattleConstant.BuffEffLimitLine then
+        BattleLogger.log_error("???  不是持续buff  ", buffTypeId)
+        return false
+    end
+
+    return true
+end
+
+function M:_clearCache()
+    for k in pairs(self.listCache) do
+        self.listCache[k] = nil
+    end
+end
+
+function M:_clearLoopEff()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    if buffConfig and buffConfig.art2 and buffConfig.tiePoint2 then
+        BattleEventUtils:DisPath_DestroyEff_bind(self.hostCharacter:GetBattleId(), buffConfig.art2, buffConfig.tiePoint2)
+    end
+end
+
+function M:_clearExitEff()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    if buffConfig and buffConfig.art3 and buffConfig.tiePoint3 then
+        BattleEventUtils:DisPath_DestroyEff_bind(self.hostCharacter:GetBattleId(), buffConfig.art3, buffConfig.tiePoint3)
+    end
+end
+
+function M:_clearBeforeEff()
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.buffId)
+    if buffConfig and buffConfig.artEndBefore and buffConfig.artBindEndBefore then
+        BattleEventUtils:DisPath_DestroyEff_bind(self.hostCharacter:GetBattleId(), buffConfig.artEndBefore,
+            buffConfig.artBindEndBefore)
+    end
+end
+
+function M:_clearList()
+    for _, layerData in ipairs(self.layerDataList) do
+        for _, value in ipairs(layerData.buffList) do
+            ---@type BasePersistentBuff
+            local buffBase = value
+            if buffBase ~= nil then
+                buffBase:Exit()
+                buffBase:Clear()
+            end
+        end
+    end
+
+    self.layerDataList = {}
+end
+
+return M

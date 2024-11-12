@@ -1,0 +1,14 @@
+---@type DataTableManager
+ConfigHandler = nil
+if Game and Game.BusinessManager and Game.SystemManager.DataTableManager then
+    ConfigHandler = Game.SystemManager.DataTableManager
+else
+    local tmpDataTableManager = require "GameLogic.DataTable.DataTableManager"
+    ConfigHandler = tmpDataTableManager.new()
+    ConfigHandler:OnInit()
+end
+
+require "GameLogic.Battle.BattleEvent.BattleEventId"
+require "GameLogic.Battle.FixedCalculate.FixedCalculateHandler"
+require "GameLogic.Battle.BattleLogger"
+require "GameLogic.Battle.BattleStatic"

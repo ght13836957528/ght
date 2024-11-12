@@ -1,0 +1,57 @@
+----------------------------------------------------------------------
+--------- 2023年01月04日 11:07:12 星期三
+----------------------------------------------------------------------
+local UIBattleDetailsPanel = require "GameLogic.Battle.UI_New.UIBattleDetailsPanel"
+local ItemData = require "GameLogic.Item.Module.ItemData"
+local UIBattleResultHeadItem = require "GameLogic.Battle.UI_New.UIBattleResultHeadItem"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local UIPVEBattleResultWin = require "GameLogic.Battle.UI_New.UIPVEBattleResultWin"
+local UIArenaIntegralItem = require "GameLogic.Battle.UI_New.UIArenaIntegralItem"
+local _lang = _lang
+---@class UIPVEBattleResultWinArena:UIPVEBattleResultWin
+local UIPVEBattleResultWinArena = class("UIPVEBattleResultWinArena", UIPVEBattleResultWin)
+local M = UIPVEBattleResultWinArena
+local GameObject = CS.UnityEngine.GameObject
+function M:GetConfigAssetPath()
+    return UIPanelAsset.UIPVEBattleResultWin
+end
+
+function M:GetPanelConfig()
+    return UIPanelConfig.Default_Default
+end
+
+------UIPanel生命周期 end------
+
+function M:init()
+    self._Main:Play("UIPVEBattleResultWinIn")
+    -- GameObjectUtil.SetActiveByScale(self._DetailsContent, false)
+    GameObjectUtil.SetActiveByScale(self._ResultContent, true)
+
+    self:refreshHeroList()
+
+    self:refreshArena()
+    GameObjectUtil.SafeSetActiveSelf(self._SailorGroup, false)
+    GameObjectUtil.SafeSetActiveSelf(self._BottomContent, false)
+end
+
+function M:_onClickClose()
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEBattleResultWinArena)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+        
+        SceneHelper.ChangeSceneToPreScene()
+    end
+    self:closeAni(cb)
+end
+
+function M:refreshArena()
+    if self.arenaItem == nil then
+        self.arenaItem = UIArenaIntegralItem.new({ arenaData = self._battleResult.arenaData, isWin = true })
+        self.arenaItem:SetParentGo(self._goArena)
+        self.arenaItem:Load()
+    else
+        self.arenaItem:Refresh({ arenaData = self._battleResult.arenaData, isWin = true })
+    end
+end
+
+return M

@@ -1,0 +1,28 @@
+----------------------------------------------------------------------
+--------- 2023年01月16日 15:11:33 星期一
+----------------------------------------------------------------------
+
+--[[
+    释放阶段： 处理技能释放的一些内容
+]]
+
+local BaseSkillStage = require "GameLogic.Battle.SkillSystem.Stages.BaseSkillStage"
+
+---@class CastStage:BaseSkillStage
+local CastStage = class("CastStage", BaseSkillStage)
+local M = CastStage
+
+----------------------------------------------------------------------
+--- 阶段处理
+function M:_onEnter(...)
+    -- local id = self.hostCharacter:GetHatredManager():GetHatredTarget()
+    -- self.hostCharacter:DoDamageTo(id,100)
+end
+
+function M:_onUpdate(fDeltaTime)
+end
+
+function M:_onExit()
+end
+
+return M

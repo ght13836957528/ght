@@ -1,0 +1,18 @@
+---@class GuideTriggerConditionFinishTraining : GuideTriggerCondition
+local GuideTriggerConditionFinishTraining = class("GuideTriggerConditionFinishTraining", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionFinishTraining
+
+function M:equals(param)
+    local result = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return result
+    end
+    result = true
+    return result
+end
+
+function M:ifStepActionComplete(stepInfo)
+    return true
+end
+
+return M

@@ -1,0 +1,31 @@
+local BuffLayer = require "GameLogic.Battle.BuffSystem.BuffContainer.BuffLayer"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+---@class BuffLayerAttackTimes:BuffLayer
+local BuffLayerAttackTimes = class("BuffLayerAttackTimes", BuffLayer)
+---@param hostCharacter BattleCharacter
+function BuffLayerAttackTimes:Ctor(param, hostCharacter)
+    self.countType = param[1]
+    self.countAttackCount = param[2]
+    self.hostCharacter = hostCharacter
+    self.initAttackTimes = 0
+    self.buffList = {}
+    self.dataCounter = self.hostCharacter:GetBattleDataCounter()
+    self:init()
+end
+
+function BuffLayerAttackTimes:init()
+    self.initAttackTimes = self.hostCharacter:GetBattleDataCounter():getValue(BattleEnum.BattleDataCounterType
+        .Attack_Numerical) or 0
+end
+
+function BuffLayerAttackTimes:Update(dt)
+
+end
+
+function BuffLayerAttackTimes:isCanRemove()
+    local times = self.dataCounter:getValue(BattleEnum.BattleDataCounterType.Attack_Numerical)
+    local baseTimes = self.initAttackTimes + self.countAttackCount
+    return times >= baseTimes
+end
+
+return BuffLayerAttackTimes

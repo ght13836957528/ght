@@ -1,0 +1,110 @@
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local ISystem = require "GameLogic.Battle.BattleRender.BattleRenderSystem.ISystem"
+
+---@class RenderSceneSystem:ISystem
+local RenderSceneSystem = class("RenderSceneSystem", ISystem)
+local M = RenderSceneSystem
+function M:Ctor(systemManager)
+    ISystem.Ctor(self, systemManager)
+end
+
+function M:GetEventHandleMap()
+    return {
+
+        [BattleEventId.Event_Battle_BlackOutScene]      = "HandleBlackScene",
+        [BattleEventId.Event_Battle_BlackOut]           = "HandleBlackRole",
+        [BattleEventId.Event_Battle_Render_Died]        = "HandleEntityDied",
+        [BattleEventId.Event_Battle_Logic_BattleSpeed]  = "HandleBattleSpeedChange",
+        [BattleEventId.Event_Battle_Active_Render_Grid] = "HandleBattleGridRender",
+        [BattleEventId.Event_Battle_Render_ShockScene]  = "HandleBattleShockScene",
+        [BattleEventId.Event_Battle_Render_PlaySound]   = "HandleBattlePlaySound",
+        [BattleEventId.Event_Battle_Render_BreakSound]  = "HandleBattleBreakSound",
+        [BattleEventId.Event_Battle_Render_PlayBGM]     = "HandleBattlePlayBGM",
+        [BattleEventId.Event_Battle_Render_BreakBGM]    = "HandleBattleBreakBGM",
+        [BattleEventId.Event_Battle_Render_BossShockScene]    = "HandleBattleBossShockScene",
+        
+    }
+end
+
+function M:HandleBattlePlayBGM(data)
+    local soundClipName = data.soundClipName
+    if soundClipName then
+        CS.GameLauncher.AudioModule:PlayBGM(soundClipName)
+    end
+end
+
+function M:HandleBattleBreakBGM()
+    CS.GameLauncher.AudioModule:PlayLastBGM()
+    -- CS.GameLauncher.AudioModule:StopBgm()
+end
+
+function M:HandleBattlePlaySound(data)
+    local soundClipName = data.soundClipName
+    if soundClipName then
+        CS.GameLauncher.AudioModule:PlayAudio(soundClipName)
+    end
+end
+
+function M:HandleBattleBreakSound(data)
+    local soundId = data.soundId
+    if soundId then
+        CS.GameLauncher.AudioModule:StopAudio(soundId)
+    end
+end
+
+function M:HandleBattleShockScene()
+    if self._systemManager._renderWord._resourceCache then
+        self._systemManager._renderWord._resourceCache:handleBattleShockScene()
+    end
+end
+
+function M:HandleBattleBossShockScene()
+    if self._systemManager._renderWord._resourceCache then
+        self._systemManager._renderWord._resourceCache:handleBattleBossShockScene()
+    end
+end
+
+function M:HandleBlackScene(data)
+    if self._systemManager._renderWord._resourceCache then
+        local isShow = data.openType
+        self._systemManager._renderWord._resourceCache:handleSceneBlack(isShow)
+    end
+end
+
+function M:HandleBlackRole(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        if csRender then
+            local isShow = data.openType == BattleEnum.SkillBlackOut.Open or false
+            csRender:OnHandleBlackScene(isShow)
+        end
+    end
+end
+
+function M:HandleEntityDied(data)
+    local entityId = data.entityId
+    local entity = self:GetEntityByUid(entityId)
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        if csRender then
+            csRender:OnDie()
+        end
+    end
+end
+
+function M:HandleBattleSpeedChange(speed)
+    local allEntity = self:GetEntityMap()
+    for _, entity in pairs(allEntity) do
+        if entity and entity.HandleBattleSpeedChange then
+            entity:HandleBattleSpeedChange(speed)
+        end
+    end
+end
+
+function M:HandleBattleGridRender(isOn)
+    self._systemManager._renderWord._resourceCache:RefreshShowGrid(isOn, true)
+end
+
+return M

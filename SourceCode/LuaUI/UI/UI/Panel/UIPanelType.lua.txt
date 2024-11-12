@@ -1,0 +1,592 @@
+UIPanelType = {
+    UIMain                              = "GameLogic.Main.UI.UIMain",                                                   --主界面
+
+    UIHelpView                          = "GameLogic.CommonUI.View.UIHelpView",                                         --帮助界面
+    UIMessageView                       = "GameLogic.CommonUI.View.UIMessageView",                                      --消息界面
+    UITipsView                          = "GameLogic.CommonUI.View.UITipsView",                                         --飘字提示界面
+    UIVideoView                         = "GameLogic.CommonUI.View.UIVideoView",                                        --视频界面
+    UIMessageOptionView                 = "GameLogic.CommonUI.View.UIMessageOptionView",                                --通用二次确认提示
+
+    UITipsTextView                      = "GameLogic.CommonUI.View.UITipsTextView",
+    UIToastNormal                       = "GameLogic.CommonUI.View.UIToastNormal",                                        -- toast提示
+    UIToastNegative                     = "GameLogic.CommonUI.View.UIToastNegative",                                      -- toast提示
+    UIToastPositive                     = "GameLogic.CommonUI.View.UIToastPositive",                                      -- toast提示
+    UICommonItemTips                    = "GameLogic.CommonUI.View.UICommonItemTips",
+    UICommonBuffTips                    = "GameLogic.CommonUI.View.UICommonBuffTips",
+    UICommonSimpleTips                  = "GameLogic.CommonUI.View.UICommonSimpleTips",
+    UIManualView                        = "GameLogic.CommonUI.View.UIManualView",
+    UIItemBuyView                       = "GameLogic.CommonUI.View.UIItemBuyView",
+    UIItemNavigationView                = "GameLogic.CommonUI.View.UIItemNavigationView",
+    UICommonFlyIconPopup                = "GameLogic.CommonUI.View.UICommonFlyIconPopup",
+
+    UIGuideHelpPopup                    = "GameLogic.Guide.UI.UIGuideHelpPopup",
+    UIItemTipView                       = "GameLogic.CommonUI.View.UIItemTipView",
+    UIDisconnectView                    = "GameLogic.CommonUI.View.UIDisconnectView",
+
+    ActorUI3DView                       = "GameLogic.ActorUI3D.ActorUI3DView",                                          --3D UI 展示的 RT模型
+
+    UIInventoryView                     = "GameLogic.Inventory.UI.UIInventoryView",                                     -- 背包界面
+    UIPickSideView                      = "GameLogic.Inventory.UI.UIPickSideView",                                      -- 
+
+    UIRewardView                        = "GameLogic.Reward.UI.UIRewardView",
+
+    UIHeroView                          = "GameLogic.Hero.UI.UIHeroView",
+    UIHeroLevelBreakthroughView         = "GameLogic.Hero.UI.HeroLevel.UIHeroLevelBreakthroughView",
+    UIHeroLevelBreakSuccessView         = "GameLogic.Hero.UI.HeroLevel.UIHeroLevelBreakSuccessView",
+
+    UIEquipTipView                      = "GameLogic.Equip.UI.UIEquipTipView",
+    UIFloaterTxtTipView                 = "GameLogic.Equip.UI.Tips.UIFloaterTxtTipView",
+    UIEquipStepUpView                   = "GameLogic.Equip.UI.StepUp.UIEquipStepUpView",
+    UIUpgradeSucceededTip               = "GameLogic.Equip.UI.StepUp.UIUpgradeSucceededTip",
+    UIExclusiveStepUpView               = "GameLogic.Equip.UI.Exclusive.UIExclusiveStepUpView",
+    UISuccessfulActivationTip           = "GameLogic.Equip.UI.Exclusive.UISuccessfulActivationTip",
+    UIOrdinaryEquipTips                 = "GameLogic.Equip.UI.Tips.UIOrdinaryEquipTips",
+
+    UIGmPanel                           = "GameLogic.GM.UIGmPanel",                                                     --GM指令面板
+    CheatView                           = "GameLogic.GM.CheatView",                                                     --GM指令面板
+    UINetError                          = "GameLogic.LoginLoading.UI.LoginErrorView",                                   --登录错误弹窗
+
+    UILoginChooseServer                 = "GameLogic.LoginLoading.UI.LoginChooseServer",                                   --登录选服界面
+
+
+
+    UIPVEPauseView                      = "GameLogic.Battle.UI_New.UIPVEPauseView",                                         -- 战斗暂停界面
+    UIPVEBattleView                     = "GameLogic.Battle.UI_New.UIPVEBattleView",
+    UITeamView                          = "GameLogic.BattleTeam.View.UITeamView",
+    UICampBonusTip                      = "GameLogic.BattleTeam.View.UICampBonusTip",
+    UIPVEBattleResultWin                = "GameLogic.Battle.UI_New.UIPVEBattleResultWin",
+    UIPVEBattleResultDefeat             = "GameLogic.Battle.UI_New.UIPVEBattleResultDefeat",
+    UITeamView_World                    = "GameLogic.BattleTeam.WorldTeam.UITeamView_World",
+    UIBattleOpening                     = "GameLogic.Battle.UI_New.UIBattleOpening",
+    UITeamView_Arena_Defend             = "GameLogic.BattleTeam.ArenaTeam.UITeamView_Arena_Defend",
+    UITeamView_Arena_Attack             = "GameLogic.BattleTeam.ArenaTeam.UITeamView_Arena_Attack",
+    UIPVEBattleResultWinArena           = "GameLogic.Battle.UI_New.UIPVEBattleResultWinArena",
+    UIPVEBattleResultDefeatArena        = "GameLogic.Battle.UI_New.UIPVEBattleResultDefeatArena",
+    UIDriftView                         = "GameLogic.PickUp.UI.UIDriftView",                                            -- 捡垃圾界面
+    UIDriftViewV3                       = "GameLogic.PickUp.UI.UIDriftViewV3",                                          -- 捡垃圾界面V3
+    UIRaftBuildView                     = "GameLogic.RaftBuild.UI.UIRaftBuildView",                                     -- 木筏建造界面
+    UIRaftBuildSelectionView            = "GameLogic.RaftBuild.UI.UIRaftBuildSelectionView",                            -- 木筏建造选择界面
+    UIRaftBuildPreviewView              = "GameLogic.RaftBuild.UI.UIRaftBuildPreviewView",                              -- 木筏建造预览
+    UIRaftBuildMenuView                 = "GameLogic.RaftBuild.UI.UIRaftBuildMenuView",                                 -- 建造制作界面
+    UIRaftBuildTimeTipView              = "GameLogic.RaftBuild.UI.UIRaftBuildTimeTipView",
+    UIRaftSeaChartPopup                 = "GameLogic.RaftBuild.UI.SeaChart.UIRaftSeaChartPopup",
+    UIRaftGetChestView                  = "GameLogic.RaftBuild.UI.Drift.UIRaftGetChestView",
+    WorldSelectShipUI                   = "GameLogic.BigWorld.UI.WorldSelectShipUI",                                    -- 大世界选择操作
+    UIWorldMonsterPopup                 = "GameLogic.BigWorld.UI.UIWorldMonsterPopupView",                              -- 怪物弹窗
+    UIWorldBossPopup                    = "GameLogic.BigWorld.UI.UIWorldBossPopupView",                                 -- boss弹窗
+    UIWorldShipPopup                    = "GameLogic.BigWorld.UI.UIWorldShipPopupView",                                 -- 船只弹窗
+    UIWorldMapUnitPopupView             = "GameLogic.BigWorld.UI.UIWorldMapUnitPopupView",                              -- 空地弹窗
+    UIWorldGatherPopupView              = "GameLogic.BigWorld.UI.UIWorldGatherPopupView",                               -- 采集物弹窗
+    UIWorldShipInteraction              = "GameLogic.BigWorld.UI.UIWorldShipInteraction",                               -- 船只交互UI
+    UIWorldAssistPopupView              = "GameLogic.Assistance.UI.UIWorldAssistPopupView",                             -- 支援援助界面
+    UIWarningPopupView                  = "GameLogic.Warning.UI.UIWarningPopupView",                                    -- 预警界面
+    UIWarningEffect                     = "GameLogic.Warning.UI.UIWarningEffect",                                       -- 预警特效界面
+    UIAssembleSelTimePopupView          = "GameLogic.Assemble.UI.UIAssembleSelTimePopupView",                           -- 集结时间
+    UIAssemblePopupView                 = "GameLogic.Assemble.UI.UIAssemblePopupView",                                  -- 集结列表
+    UIAssembleTeamPopupView             = "GameLogic.Assemble.UI.UIAssembleTeamPopupView",                              -- 单个集结详情
+    
+
+    --港口
+    UIWorldPortPopup                    = "GameLogic.BigWorld.Port.UI.UIWorldPortPopupView",                            -- 港口弹窗
+    UIWorldEnterPortTip                 = "GameLogic.BigWorld.Port.UI.UIWorldEnterPortTip",                             -- 驻港提示
+
+    --港口贸易
+    UIWorldTradeView                    = "GameLogic.WorldTrade.UI.UIWorldTradeView",                                   -- 贸易主UI
+    UIWorldTradeMarket                  = "GameLogic.WorldTrade.UI.UIWorldTradeMarket",                                 -- 贸易市场
+    UIWorldTradeBuyPopup                = "GameLogic.WorldTrade.UI.UIWorldTradeBuyPopup",                               -- 进货弹窗
+    UIWorldTradeSellPopup               = "GameLogic.WorldTrade.UI.UIWorldTradeSellPopup",                              -- 进货弹窗
+    
+    UIMailView                          = "GameLogic.Mail.UI.UIMailMain",                                               -- 邮件
+    UINoviceTaskView                    = "GameLogic.Task.UI.UINoviceTaskView",                                         -- 新手任务界面
+    UIChapterAndDailyTaskView           = "GameLogic.Task.UI.UIChapterAndDailyTaskView",                                -- 章节任务和日常任务界面
+
+    --联盟
+    UIAllianceCreateAndJoinView         = "GameLogic.Alliance.UI.UIAllianceCreateAndJoinView",                          --无联盟时点击主界面联盟按钮
+    UIAllianceJoinView                  = "GameLogic.Alliance.UI.UIAllianceJoinView",                                   --加入联盟主界面
+    UIAllianceCreateView                = "GameLogic.Alliance.UI.UIAllianceCreateView",                                 --创建联盟主界面
+    UIAllianceChooseLanguageView        = "GameLogic.Alliance.UI.UIAllianceChooseLanguageView",                         --选择聊天语言界面
+    UIAllianceMainView                  = "GameLogic.Alliance.UI.UIAllianceMainView",                                   --联盟主界面
+    UIAllianceManageView                = "GameLogic.Alliance.UI.UIAllianceManageView",                                 --联盟管理界面
+    UIAllianceEditAnnouncePopup         = "GameLogic.Alliance.UI.UIAllianceEditAnnouncePopup",                          --公告修改界面
+    UIAllianceEditConditionPopup        = "GameLogic.Alliance.UI.UIAllianceEditConditionPopup",                         --联盟设置条件
+    UIAllianceSettingView               = "GameLogic.Alliance.UI.UIAllianceSettingView",                                --联盟设置
+    UIAllianceIntroduceListView         = "GameLogic.Alliance.UI.UIAllianceIntroduceListView",                          --联盟信息列表
+    UIAllianceIntroducePopup            = "GameLogic.Alliance.UI.UIAllianceIntroducePopup",                             --联盟详细信息
+    UIAllianceDisbandConfirmPopup       = "GameLogic.Alliance.UI.UIAllianceDisbandConfirmPopup",                        --联盟二次删除确认
+    UIAllianceMemberAndAuthorityView    = "GameLogic.Alliance.UI.UIAllianceMemberAndAuthorityView",                     --联盟成员和权限界面
+    UIAlliancePlayerOperatePopup        = "GameLogic.Alliance.UI.UIAlliancePlayerOperatePopup",                         --联盟成员操作选项
+    UIAllianceChangeRankPopup           = "GameLogic.Alliance.UI.UIAllianceChangeRankPopup",                            --联盟等级更改
+    UIAllianceChangeOfficialPopup       = "GameLogic.Alliance.UI.UIAllianceChangeOfficialPopup",                       --联盟官员任命
+    UIAllianceOfficialConfirmPopup      = "GameLogic.Alliance.UI.UIAllianceOfficialConfirmPopup",                      --联盟官员二次确认框
+    UIAllianceOfficialInfoTipsPopup     = "GameLogic.Alliance.UI.UIAllianceOfficialInfoTipsPopup",                      --联盟官员Tips
+    UIAllianceAuditAndInviteView        = "GameLogic.Alliance.UI.UIAllianceAuditAndInviteView",                         --联盟申请审核和邀请界面
+    UIAllianceAuthorityIntroducePopup   = "GameLogic.Alliance.UI.UIAllianceAuthorityIntroducePopup",                    --联盟权限查看界面
+    UIAllianceWorldRecruitPopup         = "GameLogic.Alliance.UI.UIAllianceWorldRecruitPopup",                          --联盟世界招募弹窗
+    UIAllianceInvitePopup               = "GameLogic.Alliance.UI.UIAllianceInvitePopup",                                --联盟收到邀请弹窗
+    UIAlliancePortView                  = "GameLogic.Alliance.UI.UIAlliancePortView",                                   --联盟港口领地界面
+    UIAllianceFlagSetView               = "GameLogic.Alliance.Flag.UI.UIAllianceFlagSetView",                           --联盟旗帜设置界面
+
+
+
+    --剧情
+    UIMovieView                         = "GameLogic.Movie.UI.UIMovieView",                                             --剧情主界面
+    UITextBlackScreenView               = "GameLogic.Movie.UI.UITextBlackScreenView",                                   --渐入渐出黑白界面
+    UIChapterAnnouncementView           = "GameLogic.Movie.UI.UIChapterAnnouncementView",
+    UIAnnouncementCloud                 = "GameLogic.Movie.UI.UIAnnouncementCloud",
+    UIRaftTipsItem                      = "GameLogic.Movie.UI.UIRaftTipsItem",                                          --木筏界面tips
+    UIBackground                        = "GameLogic.Movie.UI.UIBackground",                                          
+
+    --招募(抽卡)
+    UIRecruitMainView                   = "GameLogic.Recruit.UI.UIRecruitMainView",                                     --招募(抽卡)主界面
+    UIRecruitResultView                 = "GameLogic.Recruit.UI.UIRecruitResultView",                                   --招募(抽卡)结果界面
+    UIRecruitChangeCampView             = "GameLogic.Recruit.UI.UIRecruitChangeCampView",                               --招募(抽卡)修改阵营界面
+    UIRecruitChangeCampPopup            = "GameLogic.Recruit.UI.UIRecruitChangeCampPopup",                              --招募(抽卡)修改阵营弹窗界面
+    UIRecruitWishView                   = "GameLogic.Recruit.UI.UIRecruitWishView",                                     --招募(抽卡)心愿兑换界面
+    UIRecruitRewardView                 = "GameLogic.Recruit.UI.UIRecruitRewardView",                                   --招募(抽卡)心愿兑换奖励界面
+    UIRecruitHeroShowAnimation          = "GameLogic.Recruit.UI.UIRecruitHeroShowAnimation",                            --招募(抽卡)英雄展示界面
+    UIRecruitUseItemView                = "GameLogic.Recruit.UI.UIRecruitUseItemView",                                  --招募(抽卡)使用道具界面
+
+    UIAnnouncePopup                     = "GameLogic.Announce.UI.UIAnnouncePopup",                                      --公告弹窗界面
+
+    --加速
+    UIShipRoomAcceleratedView           = "GameLogic.Accelerate.UIAcceleratedPanel",                                    --加速界面
+
+    --瞭望塔
+    UILookOutTowerMainView              = "GameLogic.LookOutTower.UI.LookOutTowerMainView",                             --瞭望塔主界面
+    UILookOutTowerPopupView             = "GameLogic.LookOutTower.UI.LookOutTowerPopupView",                            --瞭望塔弹出界面
+
+    --船坞
+    UIDockView                          = "GameLogic.Dock.UI.UIDockView",                                               --船坞主界面
+    UIDockShipShareView                 = "GameLogic.Dock.UI.UIDockShipShareView",
+    UIDockPurchasePopup                 = "GameLogic.Dock.UI.UIDockPurchasePopup",                                      --购买确定
+    UICommonChangeNamePopup             = "GameLogic.CommonUI.View.UICommonChangeNamePopup",                            --通用改名
+
+    -- 饱腹度
+    UISatietyDangerView                 = "GameLogic.RaftBuild.UI.Satiety.UISatietyDangerView",
+    UISatietyFaintedView                = "GameLogic.RaftBuild.UI.Satiety.UISatietyFaintedView",
+    UISatietyPopup                      = "GameLogic.RaftBuild.UI.Satiety.UISatietyPopup",
+    UISatietyShowPopup                  = "GameLogic.RaftBuild.UI.Satiety.UISatietyShowPopup",
+    UISatietyRevivalPopup               = "GameLogic.RaftBuild.UI.Satiety.UISatietyRevivalPopup",
+    UISatietyWarning                    = "GameLogic.RaftBuild.UI.Satiety.UISatietyWarning",
+    
+    --船舱建筑UIShipBuildingEditorView
+    UIShipBuildingEditorView            = "GameLogic.ShipBuilding.Common.UI.UIShipBuildingEditorView",                              --通用改名
+    UIShipBuildingView                  = "GameLogic.ShipBuilding.Common.UI.UIShipBuildingView",                              --通用改名
+    UIShipRoomOperatorView              = "GameLogic.ShipBuilding.Common.UI.UIShipRoomOperatorView",                              --通用改名
+    UIShipSelectWorkerView              = "GameLogic.ShipBuilding.Common.UI.UIShipSelectWorkerView",                              --通用改名
+    UIShipRoomBaseView                  = "GameLogic.ShipBuilding.Common.UI.UIShipRoomBaseView",                              --通用改名
+    UIShipRoomWorkManagementView        = "GameLogic.ShipBuilding.Common.UI.UIShipRoomWorkManagementView",                              --通用改名
+    UIShipRoomControlsPopup             = "GameLogic.ShipBuilding.Common.UI.UIShipRoomControlsPopup",                         --内城仓库物品的销毁或转化控制面板
+    UIMsgBallView                       = "GameLogic.MsgBall.UI.UIMsgBallView",
+    
+    --甲板
+    UIDeckBaseView                      ="GameLogic.Deck.UI.UIDeckBaseView",
+
+    UIGuideMain                          = "GameLogic.Guide.UI.UIGuideMain",
+
+    UIPlayerInfoChangeNamePopup         = "GameLogic.PlayerInfo.UI.UIPlayerInfoChangeNamePopup",                        --玩家信息-修改名字弹窗
+    UIPlayerInfoChangePopup             = "GameLogic.PlayerInfo.UI.UIPlayerInfoChangePopup",                            --玩家信息-修改生日&星座弹窗
+    UIPlayerInfoPersonalSignaturePopup  = "GameLogic.PlayerInfo.UI.UIPlayerInfoPersonalSignaturePopup",                 --玩家信息-修改签名弹窗
+    UIPlayerInfoSetFlagConfirmPopup     = "GameLogic.PlayerInfo.UI.UIPlayerInfoSetFlagConfirmPopup",                    --玩家信息-确认修改国旗弹窗
+    UIPlayerInfoSetFlagPopup            = "GameLogic.PlayerInfo.UI.UIPlayerInfoSetFlagPopup",                           --玩家信息-修改国旗弹窗
+    UIPlayerInfoSetHeadConfirmPopup     = "GameLogic.PlayerInfo.UI.UIPlayerInfoSetHeadConfirmPopup",                    --玩家信息-确认修改头像弹窗
+    UIPlayerInfoSetHeadPopup            = "GameLogic.PlayerInfo.UI.UIPlayerInfoSetHeadPopup",                           --玩家信息-修改头像弹窗
+    UIPlayerInfoView                    = "GameLogic.PlayerInfo.UI.UIPlayerInfoView",                                   --玩家信息
+
+    UIActivityEnterView                 = "GameLogic.PushGraph.UI.UIActivityEnterView",
+    UIPushGraphView                     = "GameLogic.PushGraph.UI.Pirate.UIPushGraphView",
+    UIPushGraphBonusView                = "GameLogic.PushGraph.UI.Pirate.UIPushGraphBonusView",
+    UIPushGraphMonsterView              = "GameLogic.PushGraph.UI.Pirate.UIPushGraphMonsterView",
+    UIPushGraphNextLayerView            = "GameLogic.PushGraph.UI.Pirate.UIPushGraphNextLayerView",
+    UIPushGraphRewardView               = "GameLogic.PushGraph.UI.Pirate.UIPushGraphRewardView",
+    UIPushGraphTaskView                 = "GameLogic.PushGraph.UI.Pirate.UIPushGraphTaskView",
+    UIPushGraphRewardTips               = "GameLogic.PushGraph.UI.UIPushGraphRewardTips",
+    UIPushRewardPreviewView             = "GameLogic.PushGraph.UI.Pirate.UIPushRewardPreviewView",
+
+    UIHeroAdvanceView                   = "GameLogic.HeroAdvance.UI.UIHeroAdvanceView",
+    UISeveranceView                     = "GameLogic.HeroSeverance.UI.UISeveranceView",
+    UIHeroOneclickUpgradePopup          = "GameLogic.HeroAdvance.UI.UIHeroOneclickUpgradePopup",
+    UIHeroUpgradeDetailsPopup           = "GameLogic.HeroAdvance.UI.UIHeroUpgradeDetailsPopup",
+    UIServerancRecognitionPopup         = "GameLogic.HeroSeverance.UI.UIServerancRecognitionPopup",
+    UIHeroAdvanceSucceededTipView       = "GameLogic.HeroAdvance.UI.UIHeroAdvanceSucceededTipView",
+    UIHeroAdvanceOnekeySuccessView      = "GameLogic.HeroAdvance.UI.UIHeroAdvanceOnekeySuccessView",
+    UICreateRoleView                    = "GameLogic.CreateRole.UI.UICreateRoleView",
+
+    UIWorldPortGarrisonForceView        = "GameLogic.BigWorld.UI.UIWorldPortGarrisonForceView",
+    UIWorldTeamView                     = "GameLogic.Team.UI.UIWorldTeamView",
+
+    UIWorldResourceSearchView           = "GameLogic.ResSearch.UI.UIWorldResourceSearchView",
+    
+    --养成
+    UIDevelopEnterView                  = "GameLogic.Develop.UI.UIDevelopEnterView",
+    UIOracleStoneView                   = "GameLogic.Develop.OracleStone.UI.UIOracleStoneView",
+    UIOracleStoneLevelUpPop             = "GameLogic.Develop.OracleStone.UI.UIOracleStoneLevelUpPop",
+    UIOracleStoneDowngradePop           = "GameLogic.Develop.OracleStone.UI.UIOracleStoneDowngradePop",
+
+
+    --聊天界面
+    ChatView                            = "GameLogic.Chat.View.ChatView",
+    ChatCreateRoomView                  = "GameLogic.Chat.View.CreateRoom.ChatCreateRoomView",
+    ChatSettingRoomView                 = "GameLogic.Chat.View.CreateRoom.ChatSettingRoomView",
+    ChatCommanderTips                   = "GameLogic.Chat.View.ChatCommanderTips",
+    ChatAttebtionPanel                  = "GameLogic.Chat.View.Attebtion.ChatAttebtionPanel",
+
+    
+    --科技
+    UITechView                          = "GameLogic.Tech.UI.UITechView",
+    UITechAcceleratedView               = "GameLogic.Tech.UI.UITechAcceleratedView",
+    UITechSucceededView                 = "GameLogic.Tech.UI.UITechSucceededView",
+    UITechTipsView                      = "GameLogic.Tech.UI.UITechTipsView",
+    UITechStudyPopup                    = "GameLogic.Tech.UI.UITechStudyPopup",
+    UITechQueueStudyingTipsView         = "GameLogic.Tech.UI.UITechQueueStudyingTipsView",
+    
+    --资源补齐
+    UIResourceUseView                   = "GameLogic.ResourceUse.UI.UIResourceUseView",
+
+    UIArtifactView                      = "GameLogic.Develop.Artifact.UI.UIArtifactView",
+    UIArtifactForgeView                 = "GameLogic.Develop.Artifact.UI.UIArtifactForgeView",
+    UIArtifactStoryView                 = "GameLogic.Develop.Artifact.UI.UIArtifactStoryView",
+
+    UIWordlessView                      = "GameLogic.Develop.Wordless.UI.UIWordlessView",                               -- 无字之书界面
+    UIWordlessGetEnergyPopUp            = "GameLogic.Develop.Wordless.UI.UIWordlessGetEnergyPopUp",                     -- 无字之书领取能量界面
+    
+    BigWorldSmallMap                    = "GameLogic.BigWorld.UI.BigWorldSmallMap",
+    -- 日常竞技场
+    UIDailyArenaPanel                   = "GameLogic.DailyArena.UI.UIDailyArenaPanel",  -- 主界面
+    UIDailyArenaRankPanel               = "GameLogic.DailyArena.UI.UIDailyArenaRankPanel",    -- 排行榜界面
+    UIDailyArenaTaskPanel               = "GameLogic.DailyArena.UI.UIDailyArenaTaskPanel",    -- 积分任务界面
+    UIDailyArenaGuardPanel              = "GameLogic.DailyArena.UI.UIDailyArenaGuardPanel",    -- 防守阵容界面
+    UIDailyArenaRecordPanel             = "GameLogic.DailyArena.UI.UIDailyArenaRecordPanel",    -- 战斗记录界面
+    UIDailyArenaLastResultPanel         = "GameLogic.DailyArena.UI.UIDailyArenaLastResultPanel",    -- 上期结算界面
+    MigrateView                         = "GameLogic.BigWorld.UI.Migrate.MigrateView",    -- 迁城界面
+    MarkListView                         = "GameLogic.Mark.UI.MarkListView",    -- 标记列表界面
+    CreateMarkView                         = "GameLogic.Mark.UI.CreateMarkView",    --创建标记列表界面
+
+    UIHeroHandBookPanel                 = "GameLogic.HeroHandBook.UI.UIHeroHandBookPanel",          -- 英雄图鉴主界面
+    UIHeroBackgroundStoryPanel          = "GameLogic.HeroHandBook.UI.UIHeroBackgroundStoryPanel",   -- 英雄图鉴背景故事
+    UIMigratePopupView                  = "GameLogic.BigWorld.UI.Migrate.UIMigratePopupView",   -- 迁城使用界面
+    UIMainShipBuffPanel                 = "GameLogic.MainShipBuff.UI.UIMainShipBuffPanel",  -- 主船buff界面
+    UIMainShipBuffTip                   = "GameLogic.MainShipBuff.UI.UIMainShipBuffTip",    -- 生效buff列表界面
+
+    UIWorldTrendView                    = "GameLogic.WorldTrend.UI.UIWorldTrendView",   --天下大势
+    
+    UIStorePanel                        = "GameLogic.Purchase.Common.UI.UIStorePanel",      -- 充值商店
+    -- 钻石直充
+    UIGemRechargePanel                  = "GameLogic.Purchase.SubModule.GemRecharge.UI.UIGemRechargePanel", -- 钻石直充界面
+    UIMonthCardPanel                    = "GameLogic.Purchase.SubModule.MonthCard.UI.UIMonthCardPanel",     -- 月卡界面
+    UIVipPanel                          = "GameLogic.Purchase.SubModule.Vip.UI.UIVipPanel",                 -- Vip界面
+    UIVipExpGetPopup                    = "GameLogic.Purchase.SubModule.Vip.UI.UIVipExpGetPopup",           -- Vip获取经验界面
+    UIVipUpgradePopup                   = "GameLogic.Purchase.SubModule.Vip.UI.UIVipUpgradePopup",         -- Vip升级成功界面
+    UIWorldBirthView                   = "GameLogic.BigWorld.UI.WorldBirth.UIWorldBirthView",         -- 选择出生位置界面
+
+    UIMarqueeView                       = "GameLogic.Marquee.UI.UIMarqueeView",   --跑马灯
+}
+
+UIPanelAsset = {
+    UIMain                              = "Assets/GameAsset/Sprites/Prefabs/UIMain/UIMain.prefab",                                     -- 主界面
+    UIGmPanel                           = "Assets/GameAsset/Sprites/Prefabs/UIGmPanel.prefab",
+    CheatView                           = "Assets/GameAsset/Sprites/Prefabs/Cheat/CheatView.prefab",
+    UILoginChooseServerView             = "Assets/GameAsset/Sprites/Prefabs/Debug/UIDebugChooseServer.prefab",
+    UILoginErrorView                    = "Assets/GameAsset/Sprites/Prefabs/UIPopUpView/LoginErrorView.prefab",
+    UIDisconnectView                    = "Assets/GameAsset/Sprites/Prefabs/Common/DisconnectView.prefab",
+
+    UIToastNormal                       = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UIToastNormal.prefab",
+    UIToastNegative                     = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UIToastNegative.prefab",
+    UIToastPositive                     = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UIToastPositive.prefab",
+    UIMessageView                       = "Assets/GameAsset/Sprites/Prefabs/UIPopUpView/UIMessageView.prefab",
+    UITipsView                          = "Assets/GameAsset/Sprites/Prefabs/UIPopUpView/UITipsView.prefab",
+    UIVideoView                         = "Assets/GameAsset/Sprites/Prefabs/Common/UICommonVideo.prefab",                                        --视频界面
+    UITipsText                          = "Assets/GameAsset/Sprites/Prefabs/Common/UITips.prefab",
+    UIMessageOptionView                 = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UIMessageOptionView.prefab",
+    UIItemNavigationView                = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UIItemNavigationView.prefab",
+    ActorUI3D                           = "Assets/GameAsset/Sprites/Prefabs/Common/UIActor.prefab",
+    UICommonItemTips                    = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UICommonItemTips.prefab",
+    UICommonBuffTips                    = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UICommonBuffTips.prefab",
+    UICommonSimpleTips                  = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UICommonSimpleTips.prefab",
+    UIManualView                        = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UIManualView.prefab",
+    UIGuideHelpPopup                    = "Assets/GameAsset/Sprites/Prefabs/UIGuide/UIGuideHelpPopup.prefab",
+    UIItemBuyView                       = "Assets/GameAsset/Sprites/Prefabs/Common/Tips/UIItemBuyView.prefab",
+    UICommonFlyIconPopup                = "Assets/GameAsset/Sprites/Prefabs/Common/UICommonFlyIconPopup.prefab",
+
+    -- 背包界面
+    UIInventoryView                     = "Assets/GameAsset/Sprites/Prefabs/UIBackpack/UIBackpackView.prefab",
+    UIPickSideView                      = "Assets/GameAsset/Sprites/Prefabs/UIBackpack/UIPickaSide.prefab",
+    UICommonRewardView                  = "Assets/GameAsset/Sprites/Prefabs/Common/UICommonReward.prefab",
+    UIHeroView                          = "Assets/GameAsset/Sprites/Prefabs/UIHero/UIHeroView.prefab",
+    UIHeroLevelBreakthroughView         = "Assets/GameAsset/Sprites/Prefabs/UIHero/UIHeroBreakthruPopup.prefab",
+    UIHeroLevelBreakSuccessView         = "Assets/GameAsset/Sprites/Prefabs/UIHero/UIHeroMakeBreakthrough.prefab",
+
+    UIEquipTipView                      = "Assets/GameAsset/Sprites/Prefabs/UIEquip/UIEquipTip.prefab",
+    UIFloaterTxtTipView                 = "Assets/GameAsset/Sprites/Prefabs/UIEquip/UIFloaterTxt.prefab",
+    UIEquipStepUpView                   = "Assets/GameAsset/Sprites/Prefabs/UIEquip/UIStepUpView.prefab",
+    UIUpgradeSucceededTip               = "Assets/GameAsset/Sprites/Prefabs/UIEquip/UIUpgradeSucceededTip.prefab",
+    UIExclusiveStepUpView               = "Assets/GameAsset/Sprites/Prefabs/UIEquip/UIExclusiveStepUpView.prefab",
+    UISuccessfulActivationTip           = "Assets/GameAsset/Sprites/Prefabs/UIEquip/UISuccessfulActivationTip.prefab",
+    UIOrdinaryEquipTips                 = "Assets/GameAsset/Sprites/Prefabs/UIEquip/UIOrdinaryEquipTips.prefab",
+    
+    -- 建造主界面
+    UIMainRaft                          = "Assets/GameAsset/Sprites/Prefabs/UIMain/UIMainRaft.prefab",
+
+    -- 饱腹度界面
+    UISatietyDangerView                 = "Assets/GameAsset/Sprites/Prefabs/UISatiety/UISatietyDangerView.prefab",
+    UISatietyFaintedView                = "Assets/GameAsset/Sprites/Prefabs/UISatiety/UISatietyFaintedView.prefab",
+    UISatietyPopup                      = "Assets/GameAsset/Sprites/Prefabs/UISatiety/UISatietyPopup.prefab",
+    UISatietyShowPopup                  = "Assets/GameAsset/Sprites/Prefabs/UISatiety/UISatietyShowPopup.prefab",
+    UISatietyRevivalPopup               = "Assets/GameAsset/Sprites/Prefabs/UISatiety/UISatietyRevivalPopup.prefab",
+    UISatietyWarning                    = "Assets/GameAsset/Sprites/Prefabs/UISatiety/UISatietyWarning.prefab",
+    
+    -- 捡垃圾
+    UIDriftView                         = "Assets/GameAsset/Sprites/Prefabs/Drift/UIDriftView.prefab",
+    UIDriftViewV3                       = "Assets/GameAsset/Sprites/Prefabs/Drift/UIDriftViewV3.prefab",                               -- 捡垃圾V3界面
+    UIRaftBuildSelectionView            = "Assets/GameAsset/Sprites/Prefabs/RaftBuild/UIRaftBuildSelectionView.prefab",
+    UIRaftBuildPreviewView              = "Assets/GameAsset/Sprites/Prefabs/RaftBuild/UIRaftBuildPreviewView.prefab",                  -- 木筏建造预览
+    UIRaftBuildMenuView                 = "Assets/GameAsset/Sprites/Prefabs/RaftBuild/UIRaftBuildMenuView.prefab",
+    UIRaftBuildTimeTipView              = "Assets/GameAsset/Sprites/Prefabs/RaftBuild/UIRaftBuildTimeTip.prefab",
+    UIRaftSeaChartPopup                 = "Assets/GameAsset/Sprites/Prefabs/UIMain/RaftItem/UIRaftSeaChartPopup.prefab",
+    UIRaftGetChestView                  = "Assets/GameAsset/Sprites/Prefabs/UIMain/RaftItem/UIRaftGetChestView.prefab",
+    
+    -- PVE战斗界面 New
+    UIPVEPauseView                      = "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UIPVEPauseView.prefab",               -- 战斗设置界面
+    UIPVEBattleView                     = "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UIBattleView.prefab",
+    UITeamView                          = "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UITeamView.prefab",
+    UICampBonusTip                      = "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UICampBonusTip.prefab",
+    UIPVEBattleResultWin                = "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UIPVEBattleResultWin.prefab",
+    UIPVEBattleResultDefeat             = "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UIPVEBattleResultDefeat.prefab",
+    UIBattleOpening                     = "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UIBattleOpening.prefab",
+
+    WorldSelectShipUI                   = "Assets/GameAsset/Sprites/Prefabs/World/WorldSelectShipUI.prefab",                            -- 大世界选择操作
+    UIWorldMapUnitPopupView             = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/UIWorldMapUnitPopup.prefab",                     -- 大世界空地
+    UIWorldGatherPopupView              = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/UIWorldGatherPopup.prefab",                      -- 大世界采集物
+    UIWorldMonsterPopup                 = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/UIWorldMonsterPopup.prefab",                     -- 大世界怪物弹窗
+    UIWorldShipPopup                    = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/UIWorldShipPopup.prefab",                        -- 大世界船只弹窗
+    UIWorldShipInteraction              = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/UIWorldShipInteraction.prefab",                  -- 大世界小船交互
+    
+    UIWorldAssistPopupView              = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/UIWorldAssistPopupView.prefab",                  -- 支援援助界面
+    UIAssembleSelTimePopupView          = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/Assemble/UIAssembleSelTimePopupView.prefab",     -- 集结时间
+    UIAssemblePopupView                 = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/Assemble/UIAssemblePopupView.prefab",            -- 集结列表
+    UIAssembleTeamPopupView             = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/Assemble/UIAssembleTeamPopupView.prefab",        -- 单个集结详情
+    
+    UIWarningPopupView                  = "Assets/GameAsset/Sprites/Prefabs/UIWarning/UIWarningPopup.prefab",                           -- 预警界面
+    UIWarningEffect                     = "Assets/GameAsset/Sprites/Prefabs/UIWarning/UIWarningEffect.prefab",                          -- 预警特效界面
+
+    --港口
+    UIWorldPortPopup                    = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/Port/UIWorldPortPopup.prefab",                    -- 港口弹窗
+    UIWorldEnterPortTip                 = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/Port/UIWorldEnterPortTips.prefab",                -- 驻港提示         
+    
+    --贸易
+    UIWorldTradeView                    = "Assets/GameAsset/Sprites/Prefabs/UIWorldTrade/UIWorldTradeView.prefab",                        -- 港口贸易主UI
+    UIWorldTradeSortType                = "Assets/GameAsset/Sprites/Prefabs/UIWorldTrade/UIWorldTradeTypeSelectTips.prefab",              -- 行情排序
+    UIWorldTradePopup                   = "Assets/GameAsset/Sprites/Prefabs/UIWorldTrade/UIWorldTradePopup.prefab",                       -- 进出货UI
+    UIWorldTradeDistrictTip             = "Assets/GameAsset/Sprites/Prefabs/UIWorldTrade/UIWorldTradeDistrictTips.prefab",                -- 商圈tip
+    UIWorldTradeMarket                  = "Assets/GameAsset/Sprites/Prefabs/UIWorldTrade/UIWorldTradeMarket.prefab",                      -- 市场
+    UIWorldTradeQuotaTip                = "Assets/GameAsset/Sprites/Prefabs/UIWorldTrade/UIWorldTradeQuotaTips.prefab",                   -- 港口税率
+    UIWorldTradePort                    = "Assets/GameAsset/Sprites/Prefabs/UIWorldTrade/UIWorldTradePort.prefab",                        -- 港口切换
+    
+    
+    UIMailView                          = "Assets/GameAsset/Sprites/Prefabs/UIMail/UIMailView.prefab",                                 -- 邮件
+    
+    -- 任务
+    UINoviceTaskView                    = "Assets/GameAsset/Sprites/Prefabs/UITask/UINoviceTaskView.prefab",                           -- 新手任务
+    UIChapterAndDailyTaskView           = "Assets/GameAsset/Sprites/Prefabs/UITask/UITaskView.prefab",                                 -- 章节和日常任务
+    --联盟
+    UIAllianceCreateAndJoinView         = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceCreateAndJoinView.prefab",            --无联盟时点击主界面联盟按钮
+    UIAllianceJoinView                  = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceJoinView.prefab",                     --加入主界面
+    UIAllianceCreateView                = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceCreateView.prefab",                   --创建主界面
+    UIAllianceChooseLanguageView        = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceChooseLanguageView.prefab",           --语言选择界面
+    UIAllianceMainView                  = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceMainView.prefab",                     --联盟主界面
+    UIAllianceManageView                = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceManageView.prefab",                   --联盟管理界面
+    UIAllianceEditAnnouncePopup         = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceEditAnnouncePopup.prefab",            --公告修改界面
+    UIAllianceEditConditionPopup        = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceEditConditionPopup.prefab",           --联盟设置条件
+    UIAllianceSettingView               = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceSettingView.prefab",                  --联盟设置
+    UIAllianceIntroduceListView         = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceIntroduceListView.prefab",            --联盟信息列表
+    UIAllianceIntroducePopup            = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceIntroducePopup.prefab",               --联盟详细信息
+    UIAllianceDisbandConfirmPopup       = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceDisbandConfirmPopup.prefab",          --联盟二次删除确认
+    UIAllianceMemberAndAuthorityView    = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceMemberAndAuthorityView.prefab",       --联盟成员和权限界面
+    UIAlliancePlayerOperatePopup        = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAlliancePlayerOperatePopup.prefab",           --联盟成员操作选项
+    UIAllianceChangeRankPopup           = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceChangeRankPopup.prefab",              --联盟等级更改
+    UIAllianceChangeOfficialPopup       = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceChangeOfficialPopup.prefab",          --联盟官员任命
+    UIAllianceOfficialConfirmPopup      = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceOfficialConfirmPopup.prefab",         --联盟官员二次确认框
+    UIAllianceOfficialInfoTipsPopup     = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceOfficialInfoTipsPopup.prefab",        --联盟官员Tips
+    UIAllianceAuditAndInviteView        = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceAuditAndInviteView.prefab",           --联盟申请审核和邀请界面
+    AuditAndInviteView_AuditItem        = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/AuditAndInviteView_AuditItem.prefab",           --联盟申请审核子页签
+    AuditAndInviteView_InviteItem       = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/AuditAndInviteView_InviteItem.prefab",          --联盟邀请子页签
+    UIAllianceAuthorityIntroducePopup   = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceAuthorityIntroducePopup.prefab",      --联盟权限查看界面
+    UIAlliancePortView                  = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAlliancePortView.prefab",                     --联盟港口领地界面
+    UIAllianceWorldRecruitPopup         = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceWorldRecruitPopup.prefab",            --联盟世界招募弹窗
+    UIAllianceInvitePopup               = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceInvitePopup.prefab",                  --联盟收到邀请弹窗
+         UIAllianceFlagSetView               = "Assets/GameAsset/Sprites/Prefabs/UIAlliance/UIAllianceFlagSetView.prefab",                  --联盟旗帜设置界面
+
+
+
+    --剧情  
+    UIMovieView                         = "Assets/GameAsset/Sprites/Prefabs/Movie/UIMovieView.prefab",                                 --剧情主界面
+    UITextBlackScreenView               = "Assets/GameAsset/Sprites/Prefabs/Movie/UITextBlackScreenView.prefab",
+    UIChapterAnnouncementView           = "Assets/GameAsset/Sprites/Prefabs/Movie/UIChapterAnnouncement.prefab",
+    UIAnnouncementCloud                 = "Assets/GameAsset/Sprites/Prefabs/Movie/UIChapterAnnouncementCloud.prefab",
+    UIRaftTipsItem                      = "Assets/GameAsset/Sprites/Prefabs/Movie/UIRaftTipsItem.prefab",                     
+    UIBackground                        = "Assets/GameAsset/Sprites/Prefabs/Movie/UIBackground.prefab",        
+    
+    --招募(抽卡)
+    UIRecruitMainView                   = "Assets/GameAsset/Sprites/Prefabs/UIRecruit/UIRecruitMainView.prefab",                       --招募(抽卡)主界面
+    UIRecruitResultView                 = "Assets/GameAsset/Sprites/Prefabs/UIRecruit/UIRecruitResultView.prefab",                     --招募(抽卡)结果界面
+    UIRecruitChangeCampView             = "Assets/GameAsset/Sprites/Prefabs/UIRecruit/UIRecruitChangeCampView.prefab",                 --招募(抽卡)修改阵营界面
+    UIRecruitChangeCampPopup            = "Assets/GameAsset/Sprites/Prefabs/UIRecruit/UIRecruitChangeCampPopup.prefab",                --招募(抽卡)修改阵营弹窗界面
+    UIRecruitWishView                   = "Assets/GameAsset/Sprites/Prefabs/UIRecruit/UIRecruitWishView.prefab",                       --招募(抽卡)心愿兑换界面
+    UIRecruitRewardView                 = "Assets/GameAsset/Sprites/Prefabs/UIRecruit/UIRecruitReward.prefab",                         --招募(抽卡)心愿兑换奖励界面
+    UIRecruitHeroShowAnimation          = "Assets/GameAsset/Sprites/Prefabs/UIRecruit/UIRecruitHeroShowAnimation.prefab",              --招募(抽卡)英雄展示界面
+    UIRecruitUseItemView                = "Assets/GameAsset/Sprites/Prefabs/UIRecruit/UIRecruitUseItemView.prefab",                    --招募(抽卡)使用道具界面
+
+    UIAnnouncePopup                     = "Assets/GameAsset/Sprites/Prefabs/UIAnnounce/UIAnnouncePopup.prefab",                        --公告弹窗界面
+    
+    --加速
+    UIShipRoomAcceleratedView           = "Assets/GameAsset/Sprites/Prefabs/UIShipBuilding/UIShipRoomAcceleratedView.prefab",          --加速界面
+
+    --瞭望塔
+    UILookOutTowerMainView              = "Assets/GameAsset/Sprites/Prefabs/UILookOutTower/UILookOutTowerView.prefab",                 --瞭望塔主界面
+    UILookOutTowerPopupView             = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/LookOutTower/UIWorldLookOutTowerPopup.prefab",  --瞭望塔弹出界面
+    
+    --船坞
+    UIDockView                          = "Assets/GameAsset/Sprites/Prefabs/UIDock/UIDockView.prefab",
+    UIDockShipShareView                 = "Assets/GameAsset/Sprites/Prefabs/UIDock/UIDockShipShareView.prefab",
+    UIDockPurchasePopup                 = "Assets/GameAsset/Sprites/Prefabs/UIDock/UIDockPurchasePopup.prefab",
+    UICommonChangeNamePopup             = "Assets/GameAsset/Sprites/Prefabs/Common/UICommonChangeNamePopup.prefab",
+    --船体建筑
+    UIShipBuildingEditorView            = "Assets/GameAsset/Sprites/Prefabs/UIShipBuilding/UIShipBuildingEditorView.prefab",
+    UIShipBuildingView                  = "Assets/GameAsset/Sprites/Prefabs/UIShipBuilding/UIShipBuildingView.prefab",
+    UIShipRoomOperatorView              = "Assets/GameAsset/Sprites/Prefabs/UIShipBuilding/UIShipRoomOperatorView.prefab",
+    UIShipSelectWorkerView              = "Assets/GameAsset/Sprites/Prefabs/UIShipBuilding/UIShipSelectWorkerView.prefab",
+    UIShipRoomBaseView                  = "Assets/GameAsset/Sprites/Prefabs/UIShipBuilding/UIShipRoomBaseView.prefab",
+    UIShipRoomWorkManagementView        = "Assets/GameAsset/Sprites/Prefabs/UIShipBuilding/UIShipRoomWorkManagementView.prefab",
+    UIShipRoomControlsPopup             = "Assets/GameAsset/Sprites/Prefabs/UIShipBuilding/UIShipRoomControlsPopup.prefab",
+    --消息球
+    UIMsgBallView                       = "Assets/GameAsset/Sprites/Prefabs/MsgBall/UIMsgBallView.prefab",
+    
+    --甲板
+    UIDeckBaseView                         ="Assets/GameAsset/Sprites/Prefabs/UIDeck/UIDeckBaseView.prefab",
+
+    UIGuideMain                         = "Assets/GameAsset/Sprites/Prefabs/UIGuide/UIGuideMain.prefab",
+
+
+    UIPlayerInfoChangeNamePopup         = "Assets/GameAsset/Sprites/Prefabs/UIplayerInfo/UIplayerInfoChangeNamePopup.prefab",           --玩家信息-修改名字弹窗
+    UIPlayerInfoChangePopup             = "Assets/GameAsset/Sprites/Prefabs/UIplayerInfo/UIplayerInfoChangePopup.prefab",               --玩家信息-修改生日&星座弹窗
+    UIPlayerInfoPersonalSignaturePopup  = "Assets/GameAsset/Sprites/Prefabs/UIplayerInfo/UIplayerInfoPersonalSignaturePopup.prefab",    --玩家信息-修改签名弹窗
+    UIPlayerInfoSetFlagConfirmPopup     = "Assets/GameAsset/Sprites/Prefabs/UIplayerInfo/UIplayerInfoSetFlagConfirmPopup.prefab",       --玩家信息-确认修改国旗弹窗
+    UIPlayerInfoSetFlagPopup            = "Assets/GameAsset/Sprites/Prefabs/UIplayerInfo/UIplayerInfoSetFlagPopup.prefab",              --玩家信息-修改国旗弹窗
+    UIPlayerInfoSetHeadConfirmPopup     = "Assets/GameAsset/Sprites/Prefabs/UIplayerInfo/UIplayerInfoSetHeadConfirmPopup.prefab",       --玩家信息-确认修改头像弹窗
+    UIPlayerInfoSetHeadPopup            = "Assets/GameAsset/Sprites/Prefabs/UIplayerInfo/UIplayerInfoSetHeadPopup.prefab",              --玩家信息-修改头像弹窗
+    UIPlayerInfoView                    = "Assets/GameAsset/Sprites/Prefabs/UIplayerInfo/UIplayerInfoView.prefab",                      --玩家信息
+
+    UIActivityEnterView                 = "Assets/GameAsset/Sprites/Prefabs/UIActivity/GamePlay/UIActivityEnterView.prefab",
+    UIPushGraphView                     = "Assets/GameAsset/Sprites/Prefabs/UIPushGraph/UIPushGraphView.prefab",
+    UIPushGraphBonusView                = "Assets/GameAsset/Sprites/Prefabs/UIPushGraph/UIPushGraphBonusView.prefab",
+    UIPushGraphMonsterView              = "Assets/GameAsset/Sprites/Prefabs/UIPushGraph/UIPushGraphMonsterView.prefab",
+    UIPushGraphNextLayerView            = "Assets/GameAsset/Sprites/Prefabs/UIPushGraph/UIPushGraphNextLayerView.prefab",
+    UIPushGraphRewardView               = "Assets/GameAsset/Sprites/Prefabs/UIPushGraph/UIPushGraphRewardView.prefab",
+    UIPushGraphTaskView                 = "Assets/GameAsset/Sprites/Prefabs/UIPushGraph/UIPushGraphTaskView.prefab",
+    UIPushGraphRewardTips               = "Assets/GameAsset/Sprites/Prefabs/UIPushGraph/UIPushGraphRewardTips.prefab",
+    UIPushRewardPreviewView             = "Assets/GameAsset/Sprites/Prefabs/UIPushGraph/UIPushRewardPreviewView.prefab",
+
+    UIHeroAdvanceView                   = "Assets/GameAsset/Sprites/Prefabs/UIHeroAdvance/UIHeroAdvanceView.prefab",
+    UISeveranceView                     = "Assets/GameAsset/Sprites/Prefabs/UISeverance/UISeveranceView.prefab",
+    UIHeroOneclickUpgradePopup          = "Assets/GameAsset/Sprites/Prefabs/UIHeroAdvance/UIHeroAdvanceOneclickUpgradePopup.prefab",
+    UIHeroUpgradeDetailsPopup           = "Assets/GameAsset/Sprites/Prefabs/UIHeroAdvance/UIHeroAdvanceUpgradeDetailsPopup.prefab",
+    UIServerancRecognitionPopup         = "Assets/GameAsset/Sprites/Prefabs/UISeverance/UIRewardrecognitionPopup.prefab",
+    UIHeroAdvanceSucceededTipView       = "Assets/GameAsset/Sprites/Prefabs/UIHeroAdvance/UIHeroAdvanceSucceededTip.prefab",
+    UICreateRoleView                    = "Assets/GameAsset/Sprites/Prefabs/UICreateRole/UICreateRoleView.prefab",
+
+    UIWorldPortGarrisonForceView        = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/Port/UIWorldPortGarrisonForceView.prefab",
+    UIWorldTeamView                     = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/TeamView/UIWorldTeamView.prefab",
+
+    UIWorldResourceSearchView           = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/ResSearch/UIWorldResourceSearchView.prefab",
+
+    --养成
+    UIDevelopEnterView                  = "Assets/GameAsset/Sprites/Prefabs/UIDevelop/UIDevelopEnterView.prefab",
+    --贤者之石
+    UIOracleStoneView                   = "Assets/GameAsset/Sprites/Prefabs/UIDevelop/UIOracleStoneView.prefab",
+    UIOracleStoneLevelUpPop             = "Assets/GameAsset/Sprites/Prefabs/UIDevelop/UIOracleStoneLevelUpPop.prefab",
+    UIOracleStoneDowngradePop           = "Assets/GameAsset/Sprites/Prefabs/UIDevelop/UIOracleStoneDowngradePop.prefab",
+    --神器特性
+    UIArtifactView                      = "Assets/GameAsset/Sprites/Prefabs/UIDevelop/UIArtifactView.prefab",
+    UIArtifactForgeView                 = "Assets/GameAsset/Sprites/Prefabs/UIDevelop/UIArtifactForgeView.prefab",
+    UIArtifactStoryView                 = "Assets/GameAsset/Sprites/Prefabs/UIDevelop/UIArtifactStoryPop.prefab",
+
+    UIWordlessView                      = "Assets/GameAsset/Sprites/Prefabs/UIDevelop/UIWordless/UIWordlessView.prefab",                    -- 无字之书界面
+    UIWordlessGetEnergyPopUp            = "Assets/GameAsset/Sprites/Prefabs/UIDevelop/UIWordless/UIWordlessGetEnergyPopUp.prefab",          -- 无字之书领取能量界面
+    
+
+
+
+    --聊天界面  
+    ChatView                            = "Assets/GameAsset/Sprites/Prefabs/Chat/ChatView.prefab",
+    ChatCreateRoomView                  = "Assets/GameAsset/Sprites/Prefabs/Chat/ChatCreateRoomView.prefab",
+    ChatSettingRoomView                 = "Assets/GameAsset/Sprites/Prefabs/Chat/ChatSettingRoomView.prefab",
+    ChatCommanderTips                   = "Assets/GameAsset/Sprites/Prefabs/Chat/ChatCommanderTips.prefab",
+    ChatAttebtionPanel                  = "Assets/GameAsset/Sprites/Prefabs/Chat/ChatAttebtionPanel.prefab",
+
+
+    BigWorldSmallMap                    = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/BigWorldSmallMap.prefab",
+    
+    --科技
+    UITechView                          = "Assets/GameAsset/Sprites/Prefabs/UITech/UITechView.prefab",
+    UITechAcceleratedView               = "Assets/GameAsset/Sprites/Prefabs/UITech/UITechAcceleratedView.prefab",
+    UITechSucceededView                 = "Assets/GameAsset/Sprites/Prefabs/UITech/UITechSucceededView.prefab",
+    UITechTipsView                      = "Assets/GameAsset/Sprites/Prefabs/UITech/UITechTipsView.prefab",
+    UITechStudyPopup                    = "Assets/GameAsset/Sprites/Prefabs/UITech/UITechStudyPopup.prefab",
+    UITechQueueStudyingTipsView         = "Assets/GameAsset/Sprites/Prefabs/UITech/UITechQueueStudyingTipsView.prefab",
+    
+    
+    --资源补齐
+    UIResourceUseView                   = "Assets/GameAsset/Sprites/Prefabs/UIResourceUse/UIResourceUseView.prefab",
+
+    BigWorldSmallMap                    = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/BigWorldSmallMap.prefab",
+
+    -- 日常竞技场
+    UIDailyArenaPanel                   = "Assets/GameAsset/Sprites/Prefabs/UIArena/UIDailyArenaPanel.prefab",          -- 主界面
+    UIDailyArenaRankPanel               = "Assets/GameAsset/Sprites/Prefabs/UIArena/UIDailyArenaRankPanel.prefab",      -- 排行榜界面
+    UIDailyArenaTaskPanel               = "Assets/GameAsset/Sprites/Prefabs/UIArena/UIDailyArenaTaskPanel.prefab",      -- 积分任务界面
+    UIDailyArenaGuardPanel              = "Assets/GameAsset/Sprites/Prefabs/UIArena/UIDailyArenaGuardPanel.prefab",     -- 防守阵容界面
+    UIDailyArenaRecordPanel             = "Assets/GameAsset/Sprites/Prefabs/UIArena/UIDailyArenaRecordPanel.prefab",    -- 战斗记录界面
+    UIDailyArenaLastResultPanel         = "Assets/GameAsset/Sprites/Prefabs/UIArena/UIDailyArenaLastResultPanel.prefab", -- 上期结算界面
+    
+    MigrateView         = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/MigrateView.prefab", -- 迁城界面
+    MarkListView         = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/Mark/MarkListView.prefab", -- 标记列表
+    CreateMarkView         = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/Mark/CreateMarkView.prefab", -- 创建标记列表
+
+
+    UIHeroHandBookPanel                 = "Assets/GameAsset/Sprites/Prefabs/UIHero/UIHeroHandBookPanel.prefab",     -- 英雄图鉴界面
+    UIHeroBackgroundStoryPanel          = "Assets/GameAsset/Sprites/Prefabs/UIHero/UIHeroBackgroundStory.prefab",   -- 英雄背景故事界面
+    UIMigratePopupView                  = "Assets/GameAsset/Sprites/Prefabs/UIBigWorld/UIMigratePopupView.prefab",   -- 迁城使用界面
+
+    -- 主船buff
+    UIMainShipBuffTip                   = "Assets/GameAsset/Sprites/Prefabs/UIMainShipBuff/UIMainShipBuffTip.prefab",
+    UIMainShipBuffPanel                 = "Assets/GameAsset/Sprites/Prefabs/UIMainShipBuff/UIMainShipBuffPanel.prefab",
+    UIMainShipBuffGroupCell             = "Assets/GameAsset/Sprites/Prefabs/UIMainShipBuff/UIMainShipBuffGroupCell.prefab",
+    UIMainShipBuffCell                  = "Assets/GameAsset/Sprites/Prefabs/UIMainShipBuff/UIMainShipBuffCell.prefab",
+    UIMainShipBuffTipItem               = "Assets/GameAsset/Sprites/Prefabs/UIMainShipBuff/UIMainShipBuffTipItem.prefab",
+
+    --天下大势
+    UIWorldTrendView                   = "Assets/GameAsset/Sprites/Prefabs/UIWorldTrend/UIWorldTrendView.prefab",   --天下大势
+    
+    -- 充值商店
+    UIStorePanel                        = "Assets/GameAsset/Sprites/Prefabs/UIShop/UIStorePanel.prefab",
+    UIStoreTabItem                      = "Assets/GameAsset/Sprites/Prefabs/UIShop/UIStoreTabItem.prefab",
+    -- 钻石直充
+    UIGemRechargePanel                  = "Assets/GameAsset/Sprites/Prefabs/UIShop/UIGemRechargePanel.prefab",
+    UIGemRechargeItem                   = "Assets/GameAsset/Sprites/Prefabs/UIShop/UIGemRechargeItem.prefab",
+    -- 月卡
+    UIMonthCardPanel                    = "Assets/GameAsset/Sprites/Prefabs/UIShop/UIGemRechargeItem.prefab",
+    
+    -- Vip
+    UIVipPanel                          = "Assets/GameAsset/Sprites/Prefabs/UIVip/UIVipPanel.prefab",           -- vip主界面
+    UIVipPrivilegeView                  = "Assets/GameAsset/Sprites/Prefabs/UIVip/UIVipPrivilegeView.prefab",   -- vip特权节点
+    UIVipBuffItem                       = "Assets/GameAsset/Sprites/Prefabs/UIVip/UIVipBuffItem.prefab",        -- vip buff节点
+    UIVipInfoView                       = "Assets/GameAsset/Sprites/Prefabs/UIVip/UIVipInfoView.prefab",        -- vip信息节点
+    UIVipShopView                       = "Assets/GameAsset/Sprites/Prefabs/UIVip/UIVipShopView.prefab",        -- vip商店节点
+    UIVipUpgradePopup                   = "Assets/GameAsset/Sprites/Prefabs/UIVip/UIVipUpgradePopup.prefab",    -- vip升级弹框
+    UIVipExpGetPopup                    = "Assets/GameAsset/Sprites/Prefabs/UIVip/UIVipExpGetPopup.prefab",      -- vip获取经验界面
+
+    UIWorldBirthView                    = "Assets/GameAsset/Sprites/Prefabs/UIWorldBirth/UIWorldBirthView.prefab",      -- 选择出生位置
+    
+    UIMarqueeView =                     "Assets/GameAsset/Sprites/Prefabs/Marquee/UIMarqueeView.prefab",   --跑马灯主界面
+    
+}

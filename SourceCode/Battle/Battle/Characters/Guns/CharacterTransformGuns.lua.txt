@@ -1,0 +1,32 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 15:10:05 星期四
+----------------------------------------------------------------------
+
+--[[
+    逻辑上角色的位置，方向，缩放大小等
+    会包含在地图上的站位位置（六宫格索引地址），实际在地图中的坐标位置
+]]
+local BattleEnum             = require "GameLogic.Battle.BattleEnum"
+local CharacterTransform     = require "GameLogic.Battle.Characters.CharacterTransform"
+---@class CharacterTransformGuns:CharacterTransform
+local CharacterTransformGuns = class("CharacterTransformGuns", CharacterTransform)
+local M                      = CharacterTransformGuns
+---@param hostCharacter BattleCharacter
+---@param battleContext BattleContext
+
+
+function M:Initialize(initRotate, initIndex, baseScale)
+    self._initPos = initIndex
+    self._baseScale = baseScale or 1
+    self._volumeRadius = 1
+    self:_initRotate(initRotate)
+    self:_initGunsPos()
+end
+
+function M:_initGunsPos()
+    local mapManager = self.battleContext:GetMapController()
+    local x, z = mapManager:GetGunsLogicPos(self._initPos, self.hostCharacter:GetCharacterContext():GetBattleCamp())
+    self:SetLogicGridIndexXZ(x, z)
+end
+
+return M

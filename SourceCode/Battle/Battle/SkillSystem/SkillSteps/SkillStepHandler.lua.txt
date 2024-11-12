@@ -1,0 +1,137 @@
+----------------------------------------------------------------------
+--------- 2023年01月17日 14:05:33 星期二
+----------------------------------------------------------------------
+
+--[[
+    处理Skill_Step配置表中的逻辑
+    Step设计类似状态流转的思路，所以实现上，类似状态模式，并由每个状态内部决定下一个
+    step，并转移到对应的step状态中。
+]]
+local StepContext = require "GameLogic.Battle.SkillSystem.SkillSteps.StepContext"
+local FilterTargetAction = require "GameLogic.Battle.SkillSystem.SkillSteps.SkillStepActionFilterTargets"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+---@class SkillStepHandler
+local SkillStepHandler = class("SkillStepHandler")
+local M = SkillStepHandler
+--- 处理Step流程逻辑
+--- 1. 筛选目标
+--- 2. 筛选完成后，处理逻辑
+---@param battleContext BattleContext
+function M:Ctor(battleContext)
+    self.battleContext = battleContext
+    self.filterTargetAction = FilterTargetAction.new(self.battleContext)
+end
+
+function M:StartHandleStep(configData, targetList, baseId)
+    if configData == nil then
+        return
+    end
+    local stepContext = StepContext.new()
+    self:_doStartHandleStep(configData, targetList, baseId, stepContext)
+end
+
+--- 用于处理指定的配置项（这里主要是内部处理的action会需要处理next step）
+---@param stepContext StepContext
+function M:DoHandleStep(stepConfig, prevTargetList, baseRootId, stepContext, findRoot)
+    if stepConfig == nil then
+        return
+    end
+    self:_doStartHandleStep(stepConfig, prevTargetList, baseRootId, stepContext, findRoot)
+end
+
+--- 清理中间数据
+function M:Clear()
+
+end
+
+----------------------------------------------------------------------
+--- 处理Step
+--- @param prevTargetList table 上一个step的目标列表传承过来
+---@param stepContext StepContext
+function M:_doStartHandleStep(stepConfig, prevTargetList, baseRootId, stepContext, findRoot)
+    prevTargetList = prevTargetList or {}
+    local handleType = stepConfig.type or 0
+    if handleType <= 0 then
+        -- 错误处理类型，不用处理
+        print_error("[Skill Step Handler] 当前Step的type（类型）为空，请检查配置！！")
+        return
+    end
+
+    if handleType == 1 then
+        self:_filterTargets(stepConfig, prevTargetList, baseRootId, stepContext)
+    elseif handleType == 2 then
+        self:_emitBullet(stepConfig, prevTargetList, baseRootId, stepContext, findRoot)
+    elseif handleType == 3 then
+        self:_launchAttackPack(stepConfig, prevTargetList, baseRootId, stepContext)
+    end
+end
+
+--- 过滤目标
+--- 配置从rangeType到next
+---@param stepContext StepContext
+function M:_filterTargets(config, prevTargetList, baseRootId, stepContext)
+    prevTargetList = prevTargetList or {}
+    -- if config.skillId == "3201de111" then
+    --     BattleLogger.log("3201de111")
+    -- end
+    local len = #prevTargetList
+    len = len == 0 and 1 or len
+    for i = 1, len do
+        local findRootId = prevTargetList[i] or baseRootId
+        self.filterTargetAction:StartAction(config, findRootId, baseRootId, stepContext)
+    end
+end
+
+--- 发射子弹
+--- 配置项从createPos到missleEndFrame
+---@param stepContext StepContext
+function M:_emitBullet(config, prevTargetList, baseRootId, stepContext, findRoot)
+    local hostCharacter = self.battleContext:GetCharacterManager():GetCharacterById(baseRootId)
+    if prevTargetList then
+        local moveLogic = config.moveLogic
+        if moveLogic == BattleEnum.BulletMoveType.MoveForward then
+            local moveLogic = config.moveLogic
+            local bullet = self.battleContext:GetBattlePoolManager():PopBullet(moveLogic, hostCharacter, stepContext,
+                findRoot)
+            if bullet ~= nil then
+                bullet:Initialize(config, nil, baseRootId, prevTargetList)
+                hostCharacter:GetStepManager():AddBullet(bullet)
+            end
+        else
+            for _, targetId in ipairs(prevTargetList) do
+                local moveLogic = config.moveLogic
+                local bullet = self.battleContext:GetBattlePoolManager():PopBullet(moveLogic, hostCharacter, stepContext,
+                    findRoot)
+                if bullet ~= nil then
+                    bullet:Initialize(config, targetId, baseRootId)
+                    hostCharacter:GetStepManager():AddBullet(bullet)
+                end
+            end
+        end
+    else
+        BattleLogger.log_error("子弹木有目标 缺少 筛选 step")
+    end
+end
+
+--- 发射攻击包
+--- 配置项从boundHit到atkEff2
+---@param stepContext StepContext
+function M:_launchAttackPack(config, prevTargetList, baseRootId, stepContext)
+    -- if config and config.skillId == "1401de21" then
+    --     log_Error("1401de21 *********** ")
+    -- end
+    local hostCharacter = self.battleContext:GetCharacterManager():GetCharacterById(baseRootId)
+    for _, targetId in ipairs(prevTargetList) do
+        local attack = self.battleContext:GetBattlePoolManager():PopAttack(hostCharacter, self.battleContext, stepContext)
+        if attack ~= nil then
+            attack:Initialize(config, targetId, baseRootId)
+            attack:StartAction()
+            -- hostCharacter:GetStepManager():AddAttack(attack)
+            attack:Clear()
+            --- todo 这里需要回收得
+            self.battleContext:GetBattlePoolManager():PushAttack(attack)
+        end
+    end
+end
+
+return M

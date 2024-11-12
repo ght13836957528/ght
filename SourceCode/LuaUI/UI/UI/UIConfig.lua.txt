@@ -1,0 +1,165 @@
+UILayerConfig = {
+    LayerDistance             = 300, --层级Z轴距离
+    LayerSortingLayerInterval = 10, --层级排序间隔（方便排序插入）
+}
+
+---@class UINodeType
+UINodeType = {
+    Node               = 0,
+    Root               = 1,
+    Layer              = 2,
+    Widget             = 3,
+    Panel              = 5,
+}
+
+---@class UILayerType
+UILayerType = {
+    Scene           = "Scene",
+    SceneTop        = "SceneTop",
+    Default         = "Default",
+    Dialog          = "Dialog",
+    Guide           = "Guide",
+    Story           = "Story",
+    Loading         = "Loading",
+    Debug           = "Debug",
+}
+
+--UI层级列表，按照列表顺序由远及近创建UI层级
+UILayers = { 
+    UILayerType.Scene,
+    UILayerType.SceneTop,
+    UILayerType.Default, 
+    UILayerType.Dialog, 
+    UILayerType.Guide, 
+    UILayerType.Story,
+    UILayerType.Loading,
+    UILayerType.Debug
+}
+
+---@class UIPanelState @UI界面状态
+UIPanelState        = {
+    Opening      = "Opening",
+    Opened       = "Opened",
+    Closing      = "Closing",
+    TweenClosing = "TweenClosing",
+    Closed       = "Closed"
+}
+
+--[[
+    UIPanel表示的界面的信息配置，Default_*是*表示的分层的默认配置情况，
+    有特殊配置需求的，则根据情况添加
+]]
+UIPanelConfig = {
+    Default_Scene = {
+        bAutoSortSubCanvas      = true,                 -- 是否必须处理GameObject下所有Canvas的排序问题
+        bIsPauseCorveredUI      = false,                -- 是否暂停被覆盖的界面（TODO: 待处理 Default层互斥生效）
+        bIsFullScreen           = true,                 -- 是否是全屏界面
+        bPauseSceneCamera       = true,                 -- 是否停止场景相机渲染
+        bHideSceneUI            = false,                -- 是否隐藏场景UI （TODO 跨层Default与Scene的互斥需要用这个标记）
+        nodeType                = UINodeType.Panel,     -- 界面节点类型（界面都是Panel）
+        panelLayerType          = UILayerType.Scene,    -- 界面放在的Canvas层
+    },
+
+    Default_SceneTop = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = true,
+        bPauseSceneCamera       = true,
+        bHideSceneUI            = false,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.SceneTop
+    },
+    
+    Default_Default = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = true,
+        bPauseSceneCamera       = true,
+        bHideSceneUI            = false,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.Default
+    },
+    
+    Default_Default_ExclusionMainUI = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = true,
+        bPauseSceneCamera       = true,
+        bHideSceneUI            = true,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.Default
+    },
+    
+    Default_Default_Transparent = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = true,
+        bPauseSceneCamera       = false,
+        bHideSceneUI            = true,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.Default
+    },
+    Default_Dialog = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = false,
+        bPauseSceneCamera       = false,
+        bHideSceneUI            = false,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.Dialog
+    },
+    Default_Guide = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = false,
+        bPauseSceneCamera       = false,
+        bHideSceneUI            = false,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.Guide
+    },
+    Default_Story = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = false,
+        bPauseSceneCamera       = false,
+        bHideSceneUI            = false,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.Story
+    },
+    Default_Loading = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = false,
+        bPauseSceneCamera       = false,
+        bHideSceneUI            = false,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.Loading
+    },
+    Default_Debug = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = false,
+        bPauseSceneCamera       = false,
+        bHideSceneUI            = false,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.Debug
+    },
+    UIMain = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = true,
+        bPauseSceneCamera       = false,
+        bHideSceneUI            = false,
+        nodeType                = UINodeType.Panel,
+        panelLayerType          = UILayerType.Scene
+    },
+    Default_Default_Animated = {
+        bAutoSortSubCanvas      = true,
+        bIsPauseCorveredUI      = false,
+        bIsFullScreen           = true,
+        bPauseSceneCamera       = true,
+        bHideSceneUI            = false,
+        nodeType                = UINodeType.PanelAnimated,
+        panelLayerType          = UILayerType.Default
+    },
+}

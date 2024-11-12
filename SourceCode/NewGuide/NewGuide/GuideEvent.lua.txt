@@ -1,0 +1,5 @@
+---@class GuideEvent @引导事件
+---@field Trigger string 触发器事件
+GuideEvent = {}
+GuideEvent.Trigger = "GuideEvent_Trigger"
+GuideEvent.MaskViewSetActiveFalse = "GuideEvent_MaskViewSetActiveFalse"

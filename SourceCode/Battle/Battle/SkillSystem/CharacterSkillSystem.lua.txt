@@ -1,0 +1,594 @@
+----------------------------------------------------------------------
+--------- 2023年01月13日 18:42:43 星期五
+----------------------------------------------------------------------
+
+local CharacterSkillBase    = require "GameLogic.Battle.SkillSystem.Skills.CharacterSkillBase"
+local CharacterPassiveSkill = require "GameLogic.Battle.SkillSystem.Skills.CharacterPassiveSkill"
+local BattleEnum            = require "GameLogic.Battle.BattleEnum"
+local BattleEventUtils      = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local ConfigHandler         = ConfigHandler
+---@class CharacterSkillSystem
+local CharacterSkillSystem  = class("CharacterSkillSystem")
+local M                     = CharacterSkillSystem
+
+function M:Ctor(battleContext)
+    self.battleContext         = battleContext
+    --- 是否点击了技能
+    self._isClickProfoundSkill = false
+    ---@type CharacterSkillBase[]
+    self.skillList             = {}
+    -- 被动技能额外存储，主动技能会有优先级并根据优先级筛选
+    ---@type CharacterPassiveSkill[]
+    self.passiveSkillList      = {}
+
+    self.gcd                   = 0
+
+    self.canPlaySuperSkill     = false
+end
+
+--- 初始化技能系统，读取配置给角色实例化技能
+---@param character BattleCharacter 拥有技能系统的角色
+function M:Initialize(character)
+    self.hostCharacter = character
+
+    self:_tryLearnSkill()
+    -- self:_addTriggerTimeListener()
+end
+
+---@param character BattleCharacter 拥有技能系统的角色
+function M:Initialize_Pendant(character, externalSkill)
+    self.hostCharacter = character
+    externalSkill = externalSkill or {}
+    self:_tryLearnPendantSkill(externalSkill)
+end
+
+function M:SetCanPlayerSuperSkill(isCanPlay)
+    self.canPlaySuperSkill = isCanPlay
+end
+
+function M:GetCanPlayerSuperSkill()
+    return self.canPlaySuperSkill
+end
+
+function M:OnStartFight(...)
+    self:_resetFrontCD()
+end
+
+--- 角色升级时，更新一下技能
+--- 角色更新后可能会可以学习更高等级技能等
+function M:UpdateSkill()
+    self:_tryLearnSkill()
+end
+
+--- 检查当前可以使用的技能（根据优先级顺序，查看本次能执行的技能）
+function M:CheckAvailableSkill()
+    return self:_checkSkillList()
+end
+
+function M:GetNormalAtkRange()
+    if self.normalAttack ~= nil then
+        return self.normalAttack:GetAtkRange()
+    end
+
+    return 0
+end
+
+function M:CheckNormalSkillAvailable()
+    if self.normalAttack then
+        return not self.normalAttack:CheckInCooldown()
+    end
+    
+    return false
+end
+
+function M:GetAvailableSkillAtkRange()
+    local skillList = self.skillList
+    local skillCount = #skillList
+    if skillCount <= 0 then
+        -- 没有可以执行的技能
+        return 0
+    end
+    
+    local range = self:GetNormalAtkRange()
+    for index = 1, skillCount do
+        local skill = skillList[index]
+        if skill ~= nil and not skill:CheckInCooldown() then
+            if range < skill:GetAtkRange() then
+                range = skill:GetAtkRange()
+            end
+        end
+    end
+    
+    return range
+end
+
+function M:GetIsClickProfoundSkill()
+    return self._isClickProfoundSkill
+end
+
+function M:SetIsClickProfoundSkill(isClick)
+    self._isClickProfoundSkill = isClick
+end
+
+function M:ResetClickProfoundSkill()
+    self:SetIsClickProfoundSkill(false)
+end
+
+--- 按优先级判断执行技能
+--- @param iSkillId number 要执行的技能
+--- @param startCallback function 技能开始的回调
+--- @param endCallback function 技能结束的回调
+function M:TryExecuteSkill(iSkillId, skillTargets, startCallback, endCallback)
+    local skillId = iSkillId or 0
+    if skillId <= 0 then
+        return false
+    end
+
+    local bIsCurrentSkillEnd = self:_checkCurrentSkillEnd()
+    if not bIsCurrentSkillEnd then
+        -- 当前正在执行技能
+        return false
+    end
+
+    self:_clearCurrentSkill()
+
+    return self:_tryExecuteSkill(skillId, skillTargets, startCallback, endCallback)
+end
+
+--- 处理技能打断
+--- @param iSrcSkillId number 要打断当前执行技能的原技能
+--- @param bBySelf boolean 是否被自己打断
+function M:InterruptSkill(iSrcSkillId, bBySelf, otherParams)
+    local bSkillEnd = self:_checkCurrentSkillEnd()
+    if bSkillEnd then
+        -- 没有执行的技能，就不存在被打断技能的情况
+        return
+    end
+
+    local bySelf = bBySelf or false
+    if bySelf then
+        -- 被自己中断，是被大招中断
+        -- 打断的优先级 = 必杀 >> 技能 = 普攻
+        if self.currentExecutingSkill:GetSkillType() == 5 then
+            -- 自身就是必杀技能，不需要处理中断
+            return
+        end
+
+        local srcSkill = self:_getSkillById(iSrcSkillId)
+        if srcSkill == nil then
+            return
+        end
+
+        if srcSkill:GetSkillType() ~= 5 then
+            -- 自身不是必杀，不能中断其他技能
+            return
+        end
+
+        -- 在技能中具体处理中断
+        self.currentExecutingSkill:InterruptBySkill(iSrcSkillId, otherParams)
+    else
+        -- 被别人给到的buff（击杀，击退，击飞，晕眩，冰冻等）中断
+        -- 处理技能中断
+        self.currentExecutingSkill:InterruptByBuff(otherParams)
+        self:_clearCurrentSkill()
+    end
+end
+
+function M:OnUpdate(fDeltaTime)
+    self:_updateGcd(fDeltaTime)
+    for _, skill in ipairs(self.skillList) do
+        if skill and skill.UpdateCd then
+            skill:UpdateCd(fDeltaTime)
+        end
+    end
+    if self.currentExecutingSkill ~= nil then
+        self.currentExecutingSkill:Update(fDeltaTime)
+    end
+    for _, passiveSkill in ipairs(self.passiveSkillList) do
+        passiveSkill:OnUpdate(fDeltaTime)
+    end
+end
+
+---- GCD 不受 急速影响
+function M:ResetGCD(gcd)
+    gcd = gcd or 0
+    self.gcd = gcd
+end
+
+function M:CheckInGCD()
+    return self.gcd > 0
+end
+
+function M:Clear()
+    self:_resetSkillList()
+    -- self:_clearTriggerTimeListener()
+end
+
+function M:InterruptByMove()
+    if self.currentExecutingSkill then
+        self.currentExecutingSkill:InterruptBySkill()
+    end
+end
+
+function M:OnDied()
+    if self.currentExecutingSkill ~= nil and self.currentExecutingSkill.OnDied then
+        self.currentExecutingSkill:OnDied()
+    end
+end
+
+----------------------------------------------------------------------
+
+function M:_updateGcd(fDeltaTime)
+    local gcd = self.gcd
+    if gcd > 0 then
+        self.gcd = gcd - fDeltaTime
+    end
+end
+
+----------------------------------------------------------------------
+--- 实例化技能
+function M:_tryLearnSkill()
+    if self.hostCharacter == nil then
+        return
+    end
+
+    local baseAtt = self.hostCharacter:GetBaseAtt()
+    if baseAtt == nil then
+        return
+    end
+
+    local characterLevel = baseAtt:GetCharacterLevel()
+    if characterLevel <= 0 then
+        return
+    end
+    
+    local skillInfoList = self.hostCharacter:GetLogicHandle():GetSkillInfoList()
+    
+    self:_resetSkillList()
+    self:_learnSkill(skillInfoList, characterLevel)
+    self:_sortSkillByPriority()
+end
+
+function M:_tryLearnPendantSkill(externalSkill)
+    if self.hostCharacter == nil then
+        return
+    end
+    self:_resetSkillList()
+    self:_lenPendantSkill(externalSkill)
+end
+
+function M:_lenPendantSkill(externalSkill)
+    externalSkill = externalSkill or {}
+    for _, iLearnSkillId in ipairs(externalSkill) do
+        local skillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Base, iLearnSkillId)
+        if skillData ~= nil then
+            if skillData.type == nil then
+                BattleLogger.log_error("技能type不能为空 ！！！ skillId ", iLearnSkillId)
+            end
+            local skillType = skillData.type or 0
+            if skillType == 6 then
+                local passiveSkillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Passive,
+                    iLearnSkillId)
+                if passiveSkillData ~= nil then
+                    local passiveSkill = CharacterPassiveSkill.new(passiveSkillData, self.hostCharacter,
+                        self.battleContext)
+                    table.insert(self.passiveSkillList, passiveSkill)
+                end
+            else
+                BattleLogger.log_error("??? 技能type ~= 6: skillId ", iLearnSkillId)
+            end
+        end
+    end
+end
+
+function M:_learnSkill(skillInfoList, characterLevel)
+    local camp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+    local replaceSkills = self.hostCharacter:GetBattleContext():GetReplaceSkill(camp) or {}
+
+    for _, skillInfo in pairs(skillInfoList) do
+        self:_doLearnSkill(skillInfo, characterLevel, replaceSkills)
+    end
+end
+
+function M:_doLearnSkill(skillInfos, characterLevel, replaceSkills)
+    -- skillInfos = {{101101,1}, {101102,81}, {101103,161}, },
+    -- item[0] = skillId item[1] = level(角色可以学习该技能的等级）
+    local iLearnSkillIds = {}
+    local tmpLevel = 0
+    for i, v in ipairs(skillInfos) do
+        local skillId = v[1] or 0
+        local limitLevel = v[2] or 0
+        if skillId > 0 and characterLevel >= limitLevel and limitLevel >= tmpLevel then
+            if limitLevel ~= tmpLevel then
+                iLearnSkillIds = {}
+            end
+            table.insert(iLearnSkillIds, skillId)
+            tmpLevel = limitLevel
+        end
+    end
+
+    if next(iLearnSkillIds) == nil then
+        return
+    end
+
+    for _, iLearnSkillId in pairs(iLearnSkillIds) do
+        local is_replace = replaceSkills[iLearnSkillId]
+        local skillData = nil
+        if is_replace ~= nil then
+            skillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Base_Exchange, iLearnSkillId)
+        end
+        if skillData == nil then
+            skillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Base, iLearnSkillId)
+        end
+      
+        if skillData ~= nil then
+            if skillData.type == nil then
+                BattleLogger.log_error("技能type不能为空 ！！！ skillId ", iLearnSkillId)
+            end
+            local skillType = skillData.type or 0
+            if skillType > 0 and skillType <= 5 then
+                local skillBase = CharacterSkillBase.new(skillData, self.hostCharacter, self.battleContext)
+                table.insert(self.skillList, skillBase)
+
+                if skillType == 1 then
+                    -- 缓存普攻数据
+                    if self.normalAttack ~= nil then
+                        BattleLogger.log_error("???? 多个普攻技能 ", self.hostCharacter:GetHeroConfigId())
+                    end
+                    self.normalAttack = skillBase
+                end
+                if skillType == 5 then
+                    -- 缓存必杀数据
+                    if self.superSkill ~= nil then
+                        BattleLogger.log_error("???? 多个必杀技能技能 ", self.hostCharacter:GetHeroConfigId())
+                    end
+                    self.superSkill = skillBase
+                end
+            elseif skillType == 6 then
+                local passiveSkillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Passive,
+                    iLearnSkillId)
+                if passiveSkillData ~= nil then
+                    local passiveSkill = CharacterPassiveSkill.new(passiveSkillData, self.hostCharacter,
+                        self.battleContext)
+                    table.insert(self.passiveSkillList, passiveSkill)
+                end
+            elseif skillType == 7 then
+                BattleLogger.log_error("??? 技能type == 7: skillId ", iLearnSkillId)
+            end
+        end
+    end
+end
+
+---@param skillBase CharacterSkillBase
+function M:AddPassiveSkill(skillBase)
+    if skillBase then
+        table.insert(self.skillList, skillBase)
+        self:_sortSkillByPriority()
+    end
+end
+
+---@desc 按type降序排序（根据配置，type值越大，优先级越高）
+function M:_sortSkillByPriority()
+    table.sort(self.skillList, function(skillA, skillB)
+        local typeA = skillA:GetSkillType()
+        local typeB = skillB:GetSkillType()
+        if typeA == 0 and typeB == 0 then
+            return false
+        elseif typeA == 0 then
+            return false
+        elseif typeB == 0 then
+            return true
+        elseif typeA > typeB then
+            return true
+        else
+            return false
+        end
+    end)
+    -- table.sort(self.skillList, function(skillA, skillB)
+    --     local typeA = skillA:GetSkillType()
+    --     local typeB = skillB:GetSkillType()
+    --     return typeA < typeB
+    -- end)
+end
+
+----------------------------------------------------------------------
+
+function M:_resetFrontCD()
+    for i, v in ipairs(self.skillList) do
+        if v ~= nil then
+            v:ResetFrontCD()
+        end
+    end
+end
+
+function M:CheckCanBreakByUltra(skillId)
+    do
+        if self.currentExecutingSkill == nil then
+            return true
+        end
+        return self.currentExecutingSkill:CheckCanBreakByUltra()
+    end
+    if skillId == nil or skillId < 0 then
+        return false
+    end
+    local skillCount = #self.skillList
+    if skillCount <= 0 then
+        return false
+    end
+    for index = 1, skillCount do
+        local skill = self.skillList[index]
+        if skill ~= nil then
+            if skill:GetSkillId() == skillId then
+                return skill:CheckCanBreakByUltra()
+            end
+        end
+    end
+    return false
+end
+
+function M:IsPlayUltraSkill()
+    if self.currentExecutingSkill == nil then
+        return false
+    end
+    return self:IsUltraSkill(self.currentExecutingSkill:GetSkillId())
+end
+
+function M:CheckUltraSkill()
+    do
+        local superSkill = self.superSkill
+        if superSkill == nil then
+            return -1
+        end
+        local bExecutable, resultTargets = self:_checkSkillExecutable(superSkill)
+        if bExecutable then
+            return superSkill:GetSkillId(), resultTargets
+        end
+        return -1
+    end
+    local skillCount = #self.skillList
+    if skillCount <= 0 then
+        -- 没有可以执行的技能
+        return -1
+    end
+    for index = 1, skillCount do
+        local skill = self.skillList[index]
+        if skill ~= nil then
+            if skill:GetSkillType() == BattleEnum.SkillType.SkillSuper then
+                local bExecutable, resultTargets = self:_checkSkillExecutable(skill)
+                if bExecutable then
+                    return skill:GetSkillId(), resultTargets
+                end
+            end
+        end
+    end
+    return -1
+end
+
+function M:IsUltraSkill(skillId)
+    if skillId then
+        local con = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Base, skillId)
+        if con then
+            return con.type == 5
+        else
+            return false
+        end
+    else
+        return false
+    end
+end
+
+function M:GetFlyBulletForward()
+    return self.hostCharacter:GetLogicHandle():GetFlyBulletForward()
+end
+
+--- 执行技能
+function M:_checkSkillList()
+    local skillList = self.skillList
+    local skillCount = #skillList
+    if skillCount <= 0 then
+        -- 没有可以执行的技能
+        return -1
+    end
+    local iExecutableSkillId = -1
+    local skillTargets = {}
+    for index = 1, skillCount do
+        local skill = skillList[index]
+        if skill ~= nil then
+            -- if skill:GetSkillId() == 30104 then
+            --     log_Error("30104")
+            -- end
+            local bExecutable, resultTargets = self:_checkSkillExecutable(skill)
+            if bExecutable then
+                iExecutableSkillId = skill:GetSkillId()
+                skillTargets = resultTargets
+                break
+            end
+        end
+    end
+
+    return iExecutableSkillId, skillTargets
+end
+
+---@param skill CharacterSkillBase
+function M:_checkSkillExecutable(skill)
+    return skill:CheckSkillCurrentAvailable()
+end
+
+function M:_tryExecuteSkill(skillId, skillTargets, startCallback, endCallback)
+    local skill = self:_getSkillById(skillId)
+    if skill ~= nil then
+        self:_doExecuteSkill(skill, skillTargets, startCallback, endCallback)
+        return true
+    end
+
+    return false
+end
+
+---@param tbSkill CharacterSkillBase
+function M:_doExecuteSkill(tbSkill, skillTargets, startCallback, endCallback)
+    self.currentExecutingSkill = tbSkill
+    self.currentExecutingSkill:Initialize(skillTargets)
+    self.currentExecutingSkill:SetExecuteCallback(startCallback, endCallback)
+    self.currentExecutingSkill:TryStartSkill()
+end
+
+function M:_getSkillById(iSkillId)
+    local skillCount = table_GetMapLength(self.skillList)
+    if skillCount <= 0 then
+        return nil
+    end
+
+    for index = 1, skillCount do
+        local skill = self.skillList[index]
+        if skill ~= nil and skill:GetSkillId() == iSkillId then
+            return skill
+        end
+    end
+
+    return nil
+end
+
+function M:_getSkillByType(skillType)
+    local skillCount = table_GetMapLength(self.skillList)
+    if skillCount <= 0 then
+        return nil
+    end
+
+    for index = 1, skillCount do
+        local skill = self.skillList[index]
+        if skill ~= nil and skill:GetSkillType() == skillType then
+            return skill
+        end
+    end
+
+    return nil
+end
+
+function M:_checkCurrentSkillEnd()
+    if self.currentExecutingSkill == nil then
+        return true
+    end
+
+    local isEnd = self.currentExecutingSkill:CheckSkillEnd()
+    return isEnd
+end
+
+function M:_clearCurrentSkill()
+    if self.currentExecutingSkill ~= nil then
+        self.currentExecutingSkill:Clear()
+        self.currentExecutingSkill = nil
+    end
+end
+
+----------------------------------------------------------------------
+--- 清理
+function M:_resetSkillList()
+    for k in pairs(self.skillList) do
+        self.skillList[k] = nil
+    end
+    for _, value in pairs(self.passiveSkillList) do
+        value:Clear()
+    end
+end
+
+return M

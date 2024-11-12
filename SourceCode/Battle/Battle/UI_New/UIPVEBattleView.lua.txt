@@ -1,0 +1,752 @@
+----------------------------------------------------------------------
+--------- 2022年12月08日 11:10:07 星期四
+----------------------------------------------------------------------
+--[[
+    战斗界面：显示战斗数据，角色怒气（怒气满可以放必杀技能），战斗计时等
+]]
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local UIBattleHeadItem = require "GameLogic.Battle.UI_New.UIBattleHeadItem"
+local UICampFetterCell = require "GameLogic.BattleTeam.View.UICampFetterCell"
+local UIBattleBossBloodBar = require "GameLogic.Battle.UI_New.UIBattleBossBloodBar"
+local UIGuideMoveView = require "GameLogic.Battle.UI_New.UIGuideMoveView"
+local UIBattleGunCell = require "GameLogic.Battle.UI_New.UIBattleGunCell"
+local UIBattleGunRightCell = require "GameLogic.Battle.UI_New.UIBattleGunRightCell"
+local UIBattleArtilleryCell = require "GameLogic.Battle.UI_New.UIBattleArtilleryCell"
+local GameObject = CS.UnityEngine.GameObject
+local BroadcastEvent = BroadcastEvent
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local _lang = _lang
+---@class UIPVEBattleView:UIPanel
+local UIPVEBattleView = class("UIPVEBattleView", UIPanel)
+local M = UIPVEBattleView
+
+function M:IsGuide()
+    local guideCustomIds = ConfigHandler:GetEntry(GameDefine.TableName.Global, "NewbiesStrikePirateNotBack") or {}
+    for _, id in pairs(guideCustomIds) do
+        if self.targetId and self.targetId == id then
+            return true
+        end
+    end
+    return false
+end
+
+function M:IsUnPopSkillTips()
+    local guideCustomIds = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleNotGuideUltraskill") or {}
+    for _, id in pairs(guideCustomIds) do
+        if self.targetId and self.targetId == id then
+            return true
+        end
+    end
+    return false
+end
+
+function M:GetConfigAssetPath()
+    return UIPanelAsset.UIPVEBattleView
+end
+
+function M:GetPanelConfig()
+    return UIPanelConfig.Default_Default
+end
+
+------UIPanel生命周期 start------
+
+function M:OnParse(params)
+    ---@type BattleInfo
+    self.battleData = params.battleData
+    self.targetId = params.battleData.targetId
+    self.leftPlayer = params.leftTeam or {}
+    self.rightPlayer = params.rightTeam or {}
+    self.isReplay = params.isReplay or false
+    self.battleType = params.battleData.battleType or BattleEnum.BattlePlayType.Normal
+    self.battleLogicType = BattleHelper:getLogicTypeByBattleType(params.battleData.battleType)
+    ---@type BattleContext
+    self.battleContext = params.battleContext
+    self.isUnPopSkillTips = self:IsUnPopSkillTips()
+    self._battleSpeed = BattleHelper:getBattleSpeedByBattleInfo(self.battleData)
+    self._isAuto = BattleHelper:getBattleAutoByBattleInfo(self.battleData) == BattleEnum.BattleIsAuto.auto
+    ---@type UIBattleHeadItem[]
+    self.heroItemList = {}
+    self.totalLen = 0
+    self.canPlaySkillIds = {}
+    self._jumpIsOpen = false
+    self._logicEnd = false
+    self._isShowGrid = true
+    ---@type UIBattleGunCell[]
+    self._listGuns = {}
+    ---@type UIBattleGunRightCell[]
+    self._listGuns_Right = {}
+    ---@type UIBattleArtilleryCell
+    self._click_gun_cell = nil
+end
+
+function M:OnCreate()
+    self:init()
+end
+
+function M:OnClose()
+    if self.heroItemList ~= nil then
+        for k, _ in pairs(self.heroItemList) do
+            if self.heroItemList[k] ~= nil then
+                GameObject.Destroy(self.heroItemList[k]._gameObject)
+                self.heroItemList[k]:Dispose()
+            end
+        end
+        self.heroItemList = {}
+    end
+    self.isFighting = false
+end
+
+function M:OnAddListener()
+    if self.OnUpdate ~= nil and self.update_handle == nil then
+        self.update_handle = UpdateBeat:CreateListener(self.OnUpdate, self)
+        UpdateBeat:AddListener(self.update_handle)
+    end
+
+    self._BtnPause.onClick:AddListener(function()
+        self:_onClickPause()
+    end)
+    self._btn_auto.onClick:AddListener(function()
+        self:_onClickAuto()
+    end)
+    self._btn_speed.onClick:AddListener(function()
+        self:_onClickSpeed(1)
+    end)
+    self._BtnJump.onClick:AddListener(function()
+        self:_onClickJump()
+    end)
+
+    self.btn_speed_1.onClick:AddListener(function()
+        self:_onClickSpeed(2)
+    end)
+    self._m_btn_speed_2.onClick:AddListener(function()
+        self:_onClickSpeed(3)
+    end)
+    BroadcastEvent.subscribe(BattleEventId.MSG_BATTLE_ATTRIBUTE_CHANGED, self.onAttributeChanged, self)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_SkillCanPlay, self.onSkillCanPlay, self)
+    BroadcastEvent.subscribe(BattleEventId.TriggerTime_PlaySkill_14, self.onSkillPlay, self)
+    BroadcastEvent.subscribe(BattleEventId.MSG_BATTLE_CHARACTER_DIE, self.onCharacterDie, self) -- 角色死亡
+
+    BroadcastEvent.subscribe(BattleEventId.MSG_BATTLE_FIGHT_END, self.onEndFight, self)         -- 战斗结束
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_CreateUIHeadCell, self.onCreateHeadCell, self)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_LogicEnd, self.battleLogicEnd, self)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_CreateGunCell, self.onCreateGunCell, self)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_GunFire, self.onGunFire, self)
+end
+
+function M:OnRemoveListener()
+    self._BtnPause.onClick:RemoveAllListeners()
+    -- self._BtnPause.onClick = nil
+    self._btn_auto.onClick:RemoveAllListeners()
+    -- self._btn_auto.onClick = nil
+    self._btn_speed.onClick:RemoveAllListeners()
+    -- self._btn_speed.onClick = nil
+    self._BtnJump.onClick:RemoveAllListeners()
+    -- self._BtnJump.onClick = nil
+    self.btn_speed_1.onClick:RemoveAllListeners()
+    self._m_btn_speed_2.onClick:RemoveAllListeners()
+
+    BroadcastEvent.unsubscribe(BattleEventId.MSG_BATTLE_ATTRIBUTE_CHANGED, self.onAttributeChanged, self)
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_SkillCanPlay, self.onSkillCanPlay, self)
+    BroadcastEvent.unsubscribe(BattleEventId.TriggerTime_PlaySkill_14, self.onSkillPlay, self)
+    BroadcastEvent.unsubscribe(BattleEventId.MSG_BATTLE_CHARACTER_DIE, self.onCharacterDie, self) -- 角色死亡
+    BroadcastEvent.unsubscribe(BattleEventId.MSG_BATTLE_FIGHT_END, self.onEndFight, self)         -- 战斗结束
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_CreateUIHeadCell, self.onCreateHeadCell, self)
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_LogicEnd, self.battleLogicEnd, self)
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_CreateGunCell, self.onCreateGunCell, self)
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_GunFire, self.onGunFire, self)
+    if self.update_handle ~= nil then
+        UpdateBeat:RemoveListener(self.update_handle)
+    end
+    self.update_handle = nil
+end
+
+function M:OnDispose()
+    if self.delayTimer then
+        self.delayTimer:Dispose()
+        self.delayTimer = nil
+    end
+    if self.delayTimer_gun then
+        self.delayTimer_gun:Dispose()
+        self.delayTimer_gun = nil
+    end
+end
+
+function M:OnOpen()
+    self:openAni()
+end
+
+function M:openAni()
+    if self._panel_boss and self._panel_boss.openAni then
+        self._panel_boss:openAni()
+    end
+end
+
+function M:closeAni(cb)
+    if self._panel_boss and self._panel_boss.closeAni then
+        self._panel_boss:closeAni()
+    end
+
+    if self.delayTimer ~= nil then
+        self.delayTimer:reset(0.3, 0, false, false, cb, self)
+    else
+        self.delayTimer = Timer.new(0.3, 0, false, false, cb, self)
+    end
+    self.delayTimer:start()
+end
+
+------事件监听回调 start------
+
+function M:_onClickPause()
+    if self._logicEnd then
+        UIUtils:showTips2(_lang(1142))
+        return
+    end
+    UIManager.panel:Open(UIPanelType.UIPVEPauseView,
+        { customId = self.battleData.targetId, battleContext = self.battleContext, isReplay = self.isReplay })
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Pause)
+end
+
+function M:_onClickAuto()
+    if self._logicEnd then
+        UIUtils:showTips2(_lang(1142))
+        return
+    end
+    if not self:_isUnlockAuto() then
+        UIUtils:showTips2(_lang(1279))
+        return
+    end
+    if not self.battleContext:isCanOperation() then
+        return
+    end
+    self._isAuto = not self._isAuto
+    --- todo sendMsg 通知服务器 或者 保存在本地
+    BattleHelper:setBattleAutoSet(self.battleType, self._isAuto)
+    self:_refreshAutoActiveImg()
+    -- BroadcastEvent.dispatch(BattleEventId.Event_Battle_Logic_AutoBattle,self._isAuto)
+    if self._isAuto then
+        for _, headInfo in pairs(self.heroItemList) do
+            headInfo:autoClick()
+        end
+        self:showSkillTips(false)
+    end
+
+    if self.battleContext:isCanOperation() then
+        self.battleContext:GetFrameControl():disPatchEventMsg(BattleEventId.Event_Battle_Logic_AutoBattle,
+            self._isAuto and BattleEnum.BattleIsAuto.auto or BattleEnum.BattleIsAuto.manual)
+    end
+end
+
+function M:_onClickSpeed(index)
+    if self._logicEnd then
+        UIUtils:showTips2(_lang(1142))
+        return
+    end
+    local type = 1
+    if self._battleSpeed == BattleEnum.BattleSpeedType.One then
+        type = index == 1 and BattleEnum.BattleSpeedType.One or
+            (index == 2 and BattleEnum.BattleSpeedType.Double or BattleEnum.BattleSpeedType.Quadruple)
+    elseif self._battleSpeed == BattleEnum.BattleSpeedType.Double then
+        type = index == 1 and BattleEnum.BattleSpeedType.Double or
+            (index == 2 and BattleEnum.BattleSpeedType.One or BattleEnum.BattleSpeedType.Quadruple)
+    else
+        type = index == 1 and BattleEnum.BattleSpeedType.Quadruple or
+            (index == 2 and BattleEnum.BattleSpeedType.One or BattleEnum.BattleSpeedType.Double)
+    end
+
+    if not self:_isUnlockSpeed(type) then
+        if type == BattleEnum.BattleSpeedType.One then
+
+        elseif type == BattleEnum.BattleSpeedType.Double then
+            UIUtils:showTips2(_lang(1280))
+        else
+            UIUtils:showTips2(_lang(1281))
+        end
+        self._isShowSpeedChoose = false
+        self:_showSpeedChooseBtn(self._isShowSpeedChoose)
+        return
+    end
+
+    if index == 1 then
+        self._isShowSpeedChoose = not self._isShowSpeedChoose
+        self:_showSpeedChooseBtn(self._isShowSpeedChoose, self._battleSpeed)
+    else
+        self._battleSpeed = type
+        self._isShowSpeedChoose = false
+        self:_showSpeedChooseBtn(self._isShowSpeedChoose)
+        self:_refreshSpeedText()
+        BattleHelper:setBattleSpeedSet(self.battleType, self._battleSpeed)
+        self.battleContext:GetFrameControl():disPatchEventMsg(BattleEventId.Event_Battle_Logic_BattleSpeed,
+            self._battleSpeed)
+    end
+end
+
+function M:_showSpeedChooseBtn(isActive, type)
+    GameObjectUtil.SafeSetActiveSelf(self.btn_speed_1.gameObject, isActive)
+    GameObjectUtil.SafeSetActiveSelf(self._m_btn_speed_2.gameObject, isActive)
+    if isActive and type then
+        if type == BattleEnum.BattleSpeedType.One then
+            GameObjectUtil.SafeSetActiveSelf(self._img_lock_speed_1.gameObject,
+                not self:_isUnlockSpeed(BattleEnum.BattleSpeedType.Double))
+            GameObjectUtil.SafeSetActiveSelf(self._img_lock_speed_2.gameObject,
+                not self:_isUnlockSpeed(BattleEnum.BattleSpeedType.Quadruple))
+            self._TextSpeed_1.text = string.format("x%s", BattleEnum.BattleSpeedType.Double)
+            self._TextSpeed_2.text = string.format("x%s", BattleEnum.BattleSpeedType.Quadruple)
+        elseif self._battleSpeed == BattleEnum.BattleSpeedType.Double then
+            GameObjectUtil.SafeSetActiveSelf(self._img_lock_speed_1.gameObject,
+                not self:_isUnlockSpeed(BattleEnum.BattleSpeedType.One))
+            GameObjectUtil.SafeSetActiveSelf(self._img_lock_speed_2.gameObject,
+                not self:_isUnlockSpeed(BattleEnum.BattleSpeedType.Quadruple))
+            self._TextSpeed_1.text = string.format("x%s", BattleEnum.BattleSpeedType.One)
+            self._TextSpeed_2.text = string.format("x%s", BattleEnum.BattleSpeedType.Quadruple)
+        else
+            GameObjectUtil.SafeSetActiveSelf(self._img_lock_speed_1.gameObject,
+                not self:_isUnlockSpeed(BattleEnum.BattleSpeedType.One))
+            GameObjectUtil.SafeSetActiveSelf(self._img_lock_speed_2.gameObject,
+                not self:_isUnlockSpeed(BattleEnum.BattleSpeedType.Double))
+            self._TextSpeed_1.text = string.format("x%s", BattleEnum.BattleSpeedType.One)
+            self._TextSpeed_2.text = string.format("x%s", BattleEnum.BattleSpeedType.Double)
+        end
+    end
+end
+
+function M:_onClickJump()
+    if self._logicEnd then
+        UIUtils:showTips2(_lang(1142))
+        return
+    end
+    if not self._jumpIsOpen then
+        if self.battleType == BattleEnum.BattlePlayType.Arena then
+            UIUtils:showTips2(_lang(1291))
+        end
+        return
+    end
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Jump_To_Result)
+end
+
+------UIPanel生命周期 end------
+
+-- 初始化
+function M:init()
+    self:_initCampBuff()
+    self:_initBossHpRoot()
+    self:_initJumpBtnActive()
+    self:_initAutoBtnActive()
+end
+
+function M:_refreshStopBtnActive()
+    GameObjectUtil.SafeSetActiveSelf(self._BtnPause.gameObject,
+        (self.battleLogicType == BattleEnum.BattleLogicType.PVE or self.isReplay) and not self:IsGuide())
+end
+
+function M:_initJumpBtnActive()
+    local isShow = self.battleLogicType == BattleEnum.BattleLogicType.PVP and not self.isReplay
+    if isShow and self.battleType == BattleEnum.BattlePlayType.Arena then
+        isShow = Game.BusinessManager.FunctionUnlockManager:IsFunctionUnlock(FunctionUnlockType_Enum.ArenaSkip)
+    end
+    if self.battleType == BattleEnum.BattlePlayType.SecretArea then
+        isShow = false
+    end
+    self._jumpIsOpen = isShow
+    if self.battleType == BattleEnum.BattlePlayType.Arena and not self.isReplay then
+        GameObjectUtil.SafeSetActiveSelf(self._BtnJump.gameObject, true)
+        GameObjectUtil.SafeSetActiveSelf(self._img_lock_Jump.gameObject, not isShow)
+    else
+        GameObjectUtil.SafeSetActiveSelf(self._BtnJump.gameObject, isShow)
+    end
+end
+
+function M:_initAutoBtnActive()
+    GameObjectUtil.SafeSetActiveSelf(self._btn_auto.gameObject, not self.isReplay)
+    GameObjectUtil.SafeSetActiveSelf(self._goPlayback.gameObject, self.isReplay)
+end
+
+function M:_initBossHpRoot()
+    if self.battleLogicType == BattleEnum.BattleLogicType.PVP then
+        GameObjectUtil.SetActiveByScale(self._goBossHpRoot, false)
+        return
+    end
+    local customId = self.battleData.targetId
+    local con_stage = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, customId)
+    if con_stage.boss and con_stage.bossLifebar then
+        GameObjectUtil.SetActiveByScale(self._goBossHpRoot, true)
+        self:refreshBossHpPanel(customId)
+    else
+        GameObjectUtil.SetActiveByScale(self._goBossHpRoot, false)
+    end
+end
+
+function M:refreshBossHpPanel(customId)
+    if self._panel_boss == nil then
+        self._panel_boss = UIBattleBossBloodBar.new({ stageId = customId })
+        self._panel_boss:Bind(self._UIBattleBossBloodbarItem)
+    else
+        self._panel_boss:Refresh({ stageId = customId })
+    end
+    -- self._panel_boss:setData(self._teamType, self._customId)
+end
+
+function M:_initCampBuff()
+    self._campBuffCell_l = UICampFetterCell.new()
+    self._campBuffCell_l:Bind(self._LeftCampAdd.gameObject)
+    self._campBuffCell_r = UICampFetterCell.new()
+    self._campBuffCell_r:Bind(self._RightCampAdd.gameObject)
+end
+
+function M:OnRefresh()
+    self:_guideInitLogic()
+    self:_refreshTopCell()
+    self:_initCharacters()
+    self:_refreshAutoLockImg()
+    self:_refreshAutoActiveImg()
+    self:_refreshSpeedLockImg()
+    self:_refreshSpeedText()
+    self:_refreshJumpBtn()
+    self:_refreshCamp()
+    self:_refreshStopBtnActive()
+    self.isFighting = true
+end
+
+function M:_refreshTopCell()
+    self._campBuffCell_l:Refresh({ heroList = self.leftPlayer, isClickOpen = true, isShowEff = true })
+    self._campBuffCell_r:Refresh({ heroList = self.rightPlayer, isClickOpen = true, isShowEff = true })
+end
+
+function M:battleLogicEnd()
+    self._logicEnd = true
+end
+
+---@param battleCharacter BattleCharacter
+function M:onCreateHeadCell(battleCharacter)
+    local isAttack = battleCharacter:GetCharacterContext():GetBattleCamp() == BattleEnum.BattleCamp.Attack
+    if isAttack then
+        local param = {}
+        param.characterId = battleCharacter:GetBattleId()
+        param.heroId = battleCharacter:GetHeroConfigId()
+        param.heroUuid = battleCharacter:GetHeroUId()
+        param.posIndex = battleCharacter.battleData._posIndex
+        param.hpMax = battleCharacter:GetBaseAtt():GetHpTotal()
+        param.hpCurrent = battleCharacter:GetBaseAtt():GetCurrentHpValue()
+        param.rageCurrent = battleCharacter:GetRageManager():GetCurrentRage()
+        param.rageMax = battleCharacter:GetRageManager():GetMaxRage()
+        param.quality = battleCharacter.battleData._quality
+        param.battleContext = battleCharacter:GetBattleContext()
+        param.isReplay = self.isReplay
+        param.playCallBack = function(id) self:removeCanPlaySkill(id) end
+        local item = GameObject.Instantiate(self.go_head)
+        item.transform:SetParent(self._m_go_head_root.transform)
+        item.transform.localScale = Vector3.one
+        local cell                = UIBattleHeadItem.new(param)
+        cell:Bind(item.gameObject)
+        self.heroItemList[battleCharacter:GetBattleId()] = cell
+        self.totalLen = self.totalLen + 1
+    end
+end
+
+function M:onCreateGunCell(params)
+    params = params or {}
+    local camp = params.camp
+    local index = params.index
+    if camp == BattleEnum.BattleCamp.Attack then
+        if self._listGuns[index] == nil then
+            local gunCell = UIBattleGunCell.new(params)
+            gunCell:SetParentGo(self._artilleryList)
+            gunCell:Load()
+            self._listGuns[index] = gunCell
+        else
+            self._listGuns[index]:Refresh(params)
+        end
+        self:createOrAddGun(params)
+    else
+        if self._listGuns_Right[index] == nil then
+            local gunCell = UIBattleGunRightCell.new(params)
+            gunCell:SetParentGo(self._artilleryListRight)
+            gunCell:Load()
+            self._listGuns_Right[index] = gunCell
+        else
+            self._listGuns_Right[index]:Refresh(params)
+        end
+    end
+end
+
+function M:createOrAddGun(params)
+    local entityId = params.entityId
+    local gunId = params.gunId
+    params.isReplay = self.isReplay
+    params.battleContext = self.battleContext
+    if self._click_gun_cell then
+        self._click_gun_cell:AddCharacters(entityId, gunId)
+    else
+        local gun_cell = UIBattleArtilleryCell.new(params)
+        gun_cell:SetParentGo(self._goGunSkillRoot)
+        gun_cell:Load()
+        self._click_gun_cell = gun_cell
+    end
+end
+
+function M:onGunFire(param)
+    param = param or {}
+    local entityId = param.entityId
+    local camp = param.camp
+    if camp == BattleEnum.BattleCamp.Attack then
+        for _, gunCell in pairs(self._listGuns) do
+            if gunCell and gunCell._entityId == entityId then
+                gunCell:PlayFire()
+            end
+        end
+    else
+        for _, gunCell in pairs(self._listGuns_Right) do
+            if gunCell and gunCell._entityId == entityId then
+                gunCell:PlayFire()
+            end
+        end
+    end
+end
+
+function M:_playRightGunFire()
+    -- GameObjectUtil.SafeSetActiveSelf(self._releaseNode, true)
+    -- if self.delayTimer_gun ~= nil then
+    --     self.delayTimer_gun:reset(1.05, 0, false, false, function()
+    --         GameObjectUtil.SafeSetActiveSelf(self._releaseNode, false)
+    --     end, self)
+    -- else
+    --     self.delayTimer_gun = Timer.new(1.05, 0, false, false, function()
+    --         GameObjectUtil.SafeSetActiveSelf(self._releaseNode, false)
+    --     end, self)
+    -- end
+    -- self.delayTimer_gun:start()
+end
+
+function M:_initCharacters()
+    -- local index = 1
+    -- for i = 1, 5 do
+    --     if self.leftPlayer[i] then
+    --         if self.heroItemList[index] == nil then
+    --             local item = GameObject.Instantiate(self.go_head)
+    --             item.transform:SetParent(self._m_go_head_root.transform)
+    --             item.transform.localScale = Vector3.one
+    --             self.heroItemList[index] = UIBattleHeadItem.new(self.leftPlayer[i])
+    --             self.heroItemList[index]:Bind(item.gameObject)
+    --         else
+    --             self.heroItemList[index]:Refresh(self.leftPlayer[i])
+    --         end
+    --         index = index + 1
+    --     end
+    -- end
+    -- for i = index + 1, #self.heroItemList do
+    --     if self.heroItemList[i] then
+    --         self.heroItemList[i]:SetActive(false)
+    --     end
+    -- end
+end
+
+-----------------------------------------------------------------------------------------------
+function M:OnUpdate()
+    if self._logicEnd then
+        return
+    end
+    local fighting = self.isFighting or false
+    if not fighting then
+        return
+    end
+
+    local timeCounter = 0
+    if self.battleContext ~= nil then
+        timeCounter = self.battleContext:GetBattleManager():GetFightTime() * 0.001
+    end
+    timeCounter = timeCounter > 0 and timeCounter or 0
+    local totalSeconds = math.floor(timeCounter)
+    local seconds = math.fmod(totalSeconds, 60)
+    local minute = math.floor(totalSeconds / 60)
+
+    self._Text_Checkpoint.text = string.format("%02d: %02d", minute, seconds) -- tostring(self.battleTimeCounter)
+end
+
+--- params = {characterId = {rage = 1, hp = 2}}
+function M:onAttributeChanged(params)
+    local data = params
+    if data == nil then
+        return
+    end
+
+    local infoItem = self.heroItemList[data.characterBattleId]
+    if infoItem ~= nil then
+        infoItem:OnRefreshInfo(data)
+    end
+end
+
+function M:onCharacterDie(iCharacterBattleId)
+    local characterBattleId = iCharacterBattleId or 0
+    if characterBattleId <= 0 then
+        return
+    end
+    ---@type UIBattleHeadItem
+    local infoItem = self.heroItemList[characterBattleId]
+    if infoItem == nil then
+        return
+    end
+    if self.canPlaySkillIds[characterBattleId] then
+        self.canPlaySkillIds[characterBattleId] = nil
+        self:refreshSkillTipsData()
+    end
+    infoItem:OnCharacterDie()
+end
+
+function M:removeCanPlaySkill(characterBattleId)
+    if self.canPlaySkillIds[characterBattleId] then
+        self.canPlaySkillIds[characterBattleId] = nil
+        self:refreshSkillTipsData()
+    end
+end
+
+function M:onSkillCanPlay(data)
+    local characterBattleId = data.entityId or 0
+    if characterBattleId <= 0 then
+        return
+    end
+    ---@type UIBattleHeadItem
+    local infoItem = self.heroItemList[characterBattleId]
+    if infoItem == nil then
+        return
+    end
+    if data.isCanPlay then
+        BroadcastEvent.dispatch(EnumLuaEventId.GUIDE_BATTLE_SKILL)
+        if self.canPlaySkillIds[characterBattleId] == nil then
+            self.canPlaySkillIds[characterBattleId] = 1
+            self:refreshSkillTipsData()
+        end
+    else
+        if self.canPlaySkillIds[characterBattleId] then
+            self.canPlaySkillIds[characterBattleId] = nil
+            self:refreshSkillTipsData()
+        end
+    end
+
+    infoItem:OnSkillCanPlay(data.isCanPlay)
+end
+
+function M:refreshSkillTipsData()
+    if self._isAuto then
+        return
+    end
+    if self.isUnPopSkillTips then
+        return
+    end
+    local len = 0
+    for _, __ in pairs(self.canPlaySkillIds) do
+        len = len + 1
+    end
+    if self.totalLen >= 3 and len >= self.totalLen - 1 then
+        self:showSkillTips(true)
+    else
+        self:showSkillTips(false)
+    end
+end
+
+function M:showSkillTips(isShow)
+    if isShow then
+        if self._skillPlayPanel == nil then
+            self._skillPlayPanel = UIGuideMoveView.new()
+            self._skillPlayPanel:SetParentGo(self._goSkillguideroot)
+            self._skillPlayPanel:Load()
+        else
+            self._skillPlayPanel:Show()
+            -- self._skillPlayPanel:Refresh()
+        end
+    else
+        if self._skillPlayPanel then
+            self._skillPlayPanel:Hide()
+        end
+    end
+end
+
+function M:onSkillPlay(data)
+    local characterBattleId = data.entityId or 0
+    if characterBattleId <= 0 then
+        return
+    end
+    ---@type UIBattleHeadItem
+    local infoItem = self.heroItemList[characterBattleId]
+    if infoItem == nil then
+        return
+    end
+
+    infoItem:OnSkillPlay()
+end
+
+function M:onEndFight(data)
+    self.isFighting = false
+    UIManager.panel:Close(UIPanelType.UITipsTextView)
+end
+
+------事件监听回调 end------
+
+--------------------------------------------------------------------------------
+function M:_isUnlockAuto()
+    return Game.BusinessManager.FunctionUnlockManager:IsFunctionUnlock(FunctionUnlockType_Enum.AutoBattle)
+end
+
+function M:_refreshAutoLockImg()
+    GameObjectUtil.SafeSetActiveSelf(self._img_lock_auto.gameObject, not self:_isUnlockAuto())
+end
+
+function M:_refreshAutoActiveImg()
+    local isUnlockAuto = self:_isUnlockAuto()
+    local isActive = self._isAuto or false
+    GameObjectUtil.SafeSetActiveSelf(self.go_a_Active.gameObject, isActive and isUnlockAuto)
+    GameObjectUtil.SafeSetActiveSelf(self.go_a_Deactive.gameObject, (not isActive) or (not isUnlockAuto))
+end
+
+--------------------------------------------------------------------------
+function M:_isActiveSpeed()
+    return true
+end
+
+function M:_isUnlockSpeed(speedType)
+    if speedType == BattleEnum.BattleSpeedType.One then
+        return true
+    elseif speedType == BattleEnum.BattleSpeedType.Double then
+        return Game.BusinessManager.FunctionUnlockManager:IsFunctionUnlock(FunctionUnlockType_Enum.Speed2)
+    else
+        return Game.BusinessManager.FunctionUnlockManager:IsFunctionUnlock(FunctionUnlockType_Enum.Speed4)
+    end
+end
+
+function M:_refreshSpeedLockImg()
+    local isActive = self:_isActiveSpeed()
+    self._btn_speed.gameObject:SetActive(isActive)
+    if isActive then
+        -- GameObjectUtil.SetActiveByScale(self._img_lock_speed.gameObject,
+        --     self:_isUnlockSpeed(BattleEnum.BattleSpeedType.Double))
+    end
+end
+
+function M:_refreshSpeedText()
+    local speed = self._battleSpeed or 1
+    speed = math.floor(speed)
+    self.txt_speed.text = string.format("x%s", speed)
+end
+
+function M:_refreshJumpBtn()
+    GameObjectUtil.SetActiveByScale(self._BtnJump.gameObject,
+        self.battleLogicType and self.battleLogicType == BattleEnum.BattleLogicType.PVP)
+end
+
+function M:_refreshCamp()
+    -- Game.BusinessManager.BattleTeamManager:SetCampImgGroup(self.leftPlayer, self._left_camp)
+    -- Game.BusinessManager.BattleTeamManager:SetCampImgGroup(self.rightPlayer, self._right_camp)
+end
+
+----------------------------------------------------------------------------------
+---
+function M:_guideInitLogic()
+    local NewbiesStrikePirateGuide = ConfigHandler:GetEntry(GameDefine.TableName.Global, "NewbiesStrikePirateGuide")
+    if NewbiesStrikePirateGuide then
+        for _, info in pairs(NewbiesStrikePirateGuide) do
+            if self.targetId == info[1] then
+                Game.BusinessManager.GuideManager:StartGuide(TutorialTriggerType_Enum.Guide_TriggerDirectly, info[2])
+            end
+        end
+    end
+end
+
+return M

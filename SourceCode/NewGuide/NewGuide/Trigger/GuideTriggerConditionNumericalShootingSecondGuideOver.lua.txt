@@ -1,0 +1,9 @@
+---@class GuideTriggerConditionNumericalShootingSecondGuideOver:GuideTriggerCondition
+local GuideTriggerConditionNumericalShootingSecondGuideOver = class("GuideTriggerConditionNumericalShootingSecondGuideOver", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionNumericalShootingSecondGuideOver
+
+function M:equals(param)
+    return true
+end
+
+return M

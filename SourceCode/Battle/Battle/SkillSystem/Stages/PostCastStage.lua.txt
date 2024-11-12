@@ -1,0 +1,26 @@
+----------------------------------------------------------------------
+--------- 2023年01月16日 15:11:43 星期一
+----------------------------------------------------------------------
+
+--[[
+    后摇阶段： 处理后摇一些内容
+]]
+
+local BaseSkillStage = require "GameLogic.Battle.SkillSystem.Stages.BaseSkillStage"
+
+---@class PostCastStage
+local PostCastStage = class("PostCastStage", BaseSkillStage)
+local M = PostCastStage
+
+----------------------------------------------------------------------
+--- 阶段处理
+function M:_onEnter(...)
+end
+
+function M:_onUpdate(fDeltaTime)
+end
+
+function M:_onExit()
+end
+
+return M

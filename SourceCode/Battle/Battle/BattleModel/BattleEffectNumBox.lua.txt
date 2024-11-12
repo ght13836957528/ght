@@ -1,0 +1,413 @@
+---战斗作用号盒子
+---@class BattleEffectNumBox
+local BattleEffectNumBox = class("BattleEffectNumBox")
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+
+---@param teamLineUpdate BattleLineUpData
+function BattleEffectNumBox:Ctor(teamLineUpdate)
+    self._eff_hero_map = {}
+    self:_init_eff_map(teamLineUpdate)
+    self:Handle(teamLineUpdate.effectMap)
+end
+
+---@param teamLineUpdate BattleLineUpData
+function BattleEffectNumBox:_init_eff_map(teamLineUpdate)
+    teamLineUpdate = teamLineUpdate or {}
+
+    local posInfo = teamLineUpdate.posInfo or {}
+    for index, info in pairs(posInfo) do
+        local heroId = info.heroInfo.heroId
+        local con = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, heroId)
+        self._eff_hero_map[index] = {
+            heroId = heroId,
+            heroCamp = con.race,
+            heroSex = con.male,
+            heroRole = con.role,
+            heroType = con.type,
+            heroRange = con.range,
+            isFrontRow = index <= 2,
+            effMap = {}
+        }
+    end
+end
+
+function BattleEffectNumBox:Handle(effList)
+    effList = effList or {}
+    for effNum, value in pairs(effList) do
+        local funcName = "Handle_" .. effNum
+        if self[funcName] then
+            self[funcName](self, value)
+        else
+            BattleLogger.log_error("to do 扩展 战斗作用号 : ", effNum)
+        end
+    end
+end
+
+--- 所有
+function BattleEffectNumBox:_addEff_all(eff, value)
+    value = value * 0.0001
+    for _, info in pairs(self._eff_hero_map) do
+        info.effMap[eff] = info.effMap[eff] or 0
+        info.effMap[eff] = info.effMap[eff] + value
+    end
+end
+
+--- 所有物理
+function BattleEffectNumBox:_addEff_all_physics(eff, value)
+    value = value * 0.0001
+    for _, info in pairs(self._eff_hero_map) do
+        if info.heroType ~= 3 then
+            info.effMap[eff] = info.effMap[eff] or 0
+            info.effMap[eff] = info.effMap[eff] + value
+        end
+    end
+end
+
+--- 所有法师
+function BattleEffectNumBox:_addEff_all_magic(eff, value)
+    value = value * 0.0001
+    for _, info in pairs(self._eff_hero_map) do
+        if info.heroType == 3 then
+            info.effMap[eff] = info.effMap[eff] or 0
+            info.effMap[eff] = info.effMap[eff] + value
+        end
+    end
+end
+
+function BattleEffectNumBox:_addEff(pos, eff, value)
+    value = value * 0.0001
+    if self._eff_hero_map[pos] then
+        self._eff_hero_map[pos].effMap[eff] = self._eff_hero_map[pos].effMap[eff] or 0
+        self._eff_hero_map[pos].effMap[eff] = self._eff_hero_map[pos].effMap[eff] + value
+    end
+end
+
+---在守城战中，对敌伤害增加{0}%
+function BattleEffectNumBox:Handle_7001(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23, value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24, value)
+end
+
+---在守城战中，己方受到的伤害减少{0}%
+function BattleEffectNumBox:Handle_7002(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14, value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15, value)
+end
+
+---【全局】部队物理攻击力提升 - 全局
+function BattleEffectNumBox:Handle_7008(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队物理攻击力提升 - 敌方领地
+function BattleEffectNumBox:Handle_7009(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队物理攻击力提升 - 攻击旗舰
+function BattleEffectNumBox:Handle_7010(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队物理攻击力提升 - 集结编队中
+function BattleEffectNumBox:Handle_7011(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队物理攻击力提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7012(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队魔法攻击力提升 - 全局
+function BattleEffectNumBox:Handle_7013(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队魔法攻击力提升 - 敌方领地
+function BattleEffectNumBox:Handle_7014(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队魔法攻击力提升 - 攻击旗舰
+function BattleEffectNumBox:Handle_7015(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队魔法攻击力提升 - 集结编队中
+function BattleEffectNumBox:Handle_7016(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队魔法攻击力提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7017(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队物理防御力提升 - 全局
+function BattleEffectNumBox:Handle_7018(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【全局】部队物理防御力提升 - 我方领地
+function BattleEffectNumBox:Handle_7019(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【全局】部队物理防御力提升 - 旗舰防守
+function BattleEffectNumBox:Handle_7020(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【全局】部队物理防御力提升 - 援助盟友
+function BattleEffectNumBox:Handle_7021(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【全局】部队物理防御力提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7022(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【全局】部队魔法防御力提升 - 全局
+function BattleEffectNumBox:Handle_7023(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【全局】部队魔法防御力提升 - 我方领地
+function BattleEffectNumBox:Handle_7024(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【全局】部队魔法防御力提升 - 旗舰防守
+function BattleEffectNumBox:Handle_7025(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【全局】部队魔法防御力提升 - 援助盟友
+function BattleEffectNumBox:Handle_7026(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【全局】部队魔法防御力提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7027(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【全局】部队生命值提升 - 全局
+function BattleEffectNumBox:Handle_7028(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【全局】部队生命值提升 - 我方领地
+function BattleEffectNumBox:Handle_7029(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【全局】部队生命值提升 - 旗舰防守
+function BattleEffectNumBox:Handle_7030(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【全局】部队生命值提升 - 援助盟友
+function BattleEffectNumBox:Handle_7031(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【全局】部队生命值提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7032(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【全局】部队物理攻击力提升 - 攻击港口
+function BattleEffectNumBox:Handle_7033(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队魔法攻击力提升 - 攻击港口
+function BattleEffectNumBox:Handle_7034(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【全局】部队物理防御力提升 - 驻守港口
+function BattleEffectNumBox:Handle_7035(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【全局】部队魔法防御力提升 - 驻守港口
+function BattleEffectNumBox:Handle_7036(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【全局】部队生命值提升 - 驻守港口
+function BattleEffectNumBox:Handle_7037(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+function BattleEffectNumBox:Handle_7501(value)
+
+end
+
+function BattleEffectNumBox:Handle_7502(value)
+
+end
+
+function BattleEffectNumBox:Handle_7503(value)
+
+end
+
+---【单一队列】部队物理攻击力提升 - 单一队列
+function BattleEffectNumBox:Handle_7601(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队物理攻击力提升 - 敌方领地
+function BattleEffectNumBox:Handle_7602(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队物理攻击力提升 - 攻击旗舰
+function BattleEffectNumBox:Handle_7603(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队物理攻击力提升 - 集结编队中
+function BattleEffectNumBox:Handle_7604(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队物理攻击力提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7605(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队魔法攻击力提升 - 单一队列
+function BattleEffectNumBox:Handle_7606(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队魔法攻击力提升 - 敌方领地
+function BattleEffectNumBox:Handle_7607(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队魔法攻击力提升 - 攻击旗舰
+function BattleEffectNumBox:Handle_7608(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队魔法攻击力提升 - 集结编队中
+function BattleEffectNumBox:Handle_7609(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队魔法攻击力提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7610(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队物理防御力提升 - 单一队列
+function BattleEffectNumBox:Handle_7611(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【单一队列】部队物理防御力提升 - 我方领地
+function BattleEffectNumBox:Handle_7612(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【单一队列】部队物理防御力提升 - 旗舰防守
+function BattleEffectNumBox:Handle_7613(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【单一队列】部队物理防御力提升 - 援助盟友
+function BattleEffectNumBox:Handle_7614(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【单一队列】部队物理防御力提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7615(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【单一队列】部队魔法防御力提升 - 单一队列
+function BattleEffectNumBox:Handle_7616(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【单一队列】部队魔法防御力提升 - 我方领地
+function BattleEffectNumBox:Handle_7617(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【单一队列】部队魔法防御力提升 - 旗舰防守
+function BattleEffectNumBox:Handle_7618(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【单一队列】部队魔法防御力提升 - 援助盟友
+function BattleEffectNumBox:Handle_7619(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【单一队列】部队魔法防御力提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7620(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【单一队列】部队生命值提升 - 单一队列
+function BattleEffectNumBox:Handle_7621(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【单一队列】部队生命值提升 - 我方领地
+function BattleEffectNumBox:Handle_7622(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【单一队列】部队生命值提升 - 旗舰防守
+function BattleEffectNumBox:Handle_7623(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【单一队列】部队生命值提升 - 援助盟友
+function BattleEffectNumBox:Handle_7624(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【单一队列】部队生命值提升 - 攻击海盗时
+function BattleEffectNumBox:Handle_7625(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+---【单一队列】部队物理攻击力提升 - 攻击港口
+function BattleEffectNumBox:Handle_7626(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队魔法攻击力提升 - 攻击港口
+function BattleEffectNumBox:Handle_7627(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2, value)
+end
+
+---【单一队列】部队物理防御力提升 - 驻守港口
+function BattleEffectNumBox:Handle_7628(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3, value)
+end
+
+---【单一队列】部队魔法防御力提升 - 驻守港口
+function BattleEffectNumBox:Handle_7629(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4, value)
+end
+
+---【单一队列】部队生命值提升 - 驻守港口
+function BattleEffectNumBox:Handle_7630(value)
+    self:_addEff_all(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1, value)
+end
+
+function BattleEffectNumBox:Clear()
+
+end
+
+return BattleEffectNumBox

@@ -1,0 +1,58 @@
+----------------------------------------------------------------------
+--------- 2023年01月18日 12:05:31 星期三
+----------------------------------------------------------------------
+
+--[[
+    持续性Buff基类，继承自BuffBase
+    根据策划案以及配置表，持续性Buff包含的数据有：
+    1. 持续时长(time)
+    2. 叠加规则(overlayType)
+    3. 最大层数(maxLayer)
+    4. 达到最大层之后，是否转化(transform)
+]]
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BaseBuff = require "GameLogic.Battle.BuffSystem.BaseBuff"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class BasePersistentBuff:BaseBuff
+local BasePersistentBuff = class("BasePersistentBuff", BaseBuff)
+local M = BasePersistentBuff
+
+function M:Update(fDeltaTime)
+    local deltaTime = fDeltaTime or 0
+    self:_onUpdate(deltaTime)
+end
+
+----------------------------------------------------------------------
+--- BasePersistentBuff包含
+function M:_onUpdate(deltaTime)
+
+end
+
+----------------------------------------------------------------------
+--- BuffBase包含
+function M:_onInitialize()
+
+end
+
+--- buff创建开始生效前的处理
+function M:_onEnter()
+
+end
+
+function M:_onExit()
+
+end
+
+function M:_turnTarget()
+    if self.hostCharacter:GetBuffManager():CheckHasBuffType(BattleEnum.BuffType.Buff_NoReturn) then
+        return
+    end
+    local targetId = self.fromId
+    local targetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(targetId)
+    local newPos = targetCharacter:GetTransform():GetRenderPos()
+    self.hostCharacter:GetTransform():LookRotation(newPos)
+    -- self.hostCharacter:GetRender():LookRotation(newPos)
+    BattleEventUtils:DisPath_SynsRotate(self.hostCharacter:GetBattleId(), newPos)
+end
+
+return M

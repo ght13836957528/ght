@@ -1,0 +1,24 @@
+---@class BuffLayer
+local BuffLayer = class("BuffLayer")
+
+function BuffLayer:Ctor()
+    self.countType = 1
+    self.buffList = {}
+end
+
+function BuffLayer:Update(dt)
+
+end
+
+function BuffLayer:isCanRemove()
+    return false
+end
+
+---
+function BuffLayer:addBuffEff(buff)
+    if buff then
+        table.insert(self.buffList, buff)
+    end
+end
+
+return BuffLayer

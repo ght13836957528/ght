@@ -1,0 +1,320 @@
+require "GameLogic.Battle.BattleStatic"
+BattleLogger = {}
+
+local isOpen = true
+local isOpenLog = false
+local isOpenWarning = false
+local isOpenError = true
+local isOpenAILog = false
+local isOpenAtt = false
+local isOpenNumerical = false
+--- 裸体属性
+local isOpenBaseProperty = BattleStatic.isOpenBaseProperty
+--- 布阵属性
+local isOpenTeamProperty = BattleStatic.isOpenTeamProperty
+--- 进战斗属性
+local isOpenBattleProperty = BattleStatic.isOpenBattleProperty
+--- 战斗中属性计算
+local isOpenBattleIngProperty = BattleStatic.isOpenBattleIngProperty
+--- 血量
+local isOpenRealTimeProperty_Hp = BattleStatic.isOpenRealTimeProperty_Hp
+--- 怒气
+local isOpenRealTimeProperty_Rage = BattleStatic.isOpenRealTimeProperty_Rage
+--- 护盾
+local isOpenRealTimeProperty_Shield = BattleStatic.isOpenRealTimeProperty_Shield
+--- 随机
+local isOpenRandomLog = BattleStatic.isOpenRandomLog
+--- 仇恨值
+local isOpenHateLog = BattleStatic.isOpenHateLog
+--- 作用号
+local isOpenEffectNumberLog = BattleStatic.isOpenEffectNumberLog
+--- 秘境
+local isOpenMazeTestLog = BattleStatic.isOpenMazeTest
+
+local LightPink = "#FFB6C1"         -- 浅粉红
+local Crimson = "#DC143C"           -- 猩红
+local Purple = "#800080"            --紫色
+local Indigo = "#4B0082"            --靛青
+local GhostWhite = "#F8F8FF"        -- 	幽灵的白色
+local Blue = "#0000FF"              -- 	纯蓝
+local Cyan = "#00FFFF"              -- 	青色
+local MediumSpringGreen = "#00FF7F" -- 	适中的春天的绿色
+local Green = "#008000"             -- 	纯绿
+local Yellow = "#FFFF00"            -- 纯黄
+local Orange = "#FFA500"            -- 橙色
+local Red = "#FF0000"               -- 	纯红
+
+local function LogConcat(...)
+    local args = { ... }
+    local temp = {}
+
+    for i, v in pairs(args) do
+        if v == nil then
+            table.insert(temp, "nil")
+        else
+            table.insert(temp, tostring(v))
+        end
+        table.insert(temp, "  ")
+    end
+    return table.concat(temp)
+end
+
+BattleLogger.closeLog = function()
+    isOpen = false
+end
+
+BattleLogger.openLog = function()
+    isOpen = false
+end
+
+BattleLogger.log = function(...)
+    if not isOpen then
+        return
+    end
+    if not isOpenLog then
+        return
+    end
+    local msg = LogConcat(...)
+    print(debug.traceback(msg))
+end
+
+BattleLogger.log_warning = function(...)
+    if not isOpen then
+        return
+    end
+    if not isOpenWarning then
+        return
+    end
+    print(...)
+end
+
+BattleLogger.log_error = function(...)
+    if not isOpen then
+        return
+    end
+    if not isOpenError then
+        return
+    end
+    local msg = LogConcat(...)
+    msg = string.format("<color=%s>%s</color>", Crimson, msg)
+    print(debug.traceback(msg))
+end
+--- AI 状态机
+BattleLogger.logAI = function(...)
+    if not isOpen then
+        return
+    end
+    if not isOpenAILog then
+        return
+    end
+    local msg = "AI：" .. LogConcat(...)
+    print(debug.traceback(msg))
+end
+--- 属性计算
+BattleLogger.logAttribute = function(...)
+    if not isOpen then
+        return
+    end
+
+    if not isOpenAtt then
+        return
+    end
+    local msg = "属性：" .. LogConcat(...)
+    print(debug.traceback(msg))
+end
+--- 数值计算
+BattleLogger.logNumerical = function(...)
+    if not isOpen then
+        return
+    end
+
+    if not isOpenNumerical then
+        return
+    end
+    local msg = "数值：" .. LogConcat(...)
+    print(debug.traceback(msg))
+end
+
+
+
+--- 裸体属性
+BattleLogger.logBaseProperty = function(...)
+    if not isOpen then
+        return
+    end
+
+    if not isOpenBaseProperty then
+        return
+    end
+    local msg = "裸体属性：" .. LogConcat(...)
+    msg = string.format("<color=%s>%s</color>", Green, msg)
+    print(debug.traceback(msg))
+end
+
+BattleLogger.IsOpenBaseProperty = function()
+    return isOpen and isOpenBaseProperty
+end
+
+
+--- 布阵属性
+BattleLogger.logTeamProperty = function(...)
+    if not isOpen then
+        return
+    end
+
+    if not isOpenTeamProperty then
+        return
+    end
+    local msg = "布阵属性：" .. LogConcat(...)
+    msg = string.format("<color=%s>%s</color>", MediumSpringGreen, msg)
+    print(debug.traceback(msg))
+end
+
+BattleLogger.IsOpenTeamProperty = function()
+    return isOpen and isOpenTeamProperty
+end
+
+
+--- 进战斗属性
+BattleLogger.logBattleProperty = function(...)
+    if not isOpen then
+        return
+    end
+
+    if not isOpenBattleProperty then
+        return
+    end
+    local msg = "进战斗属性：" .. LogConcat(...)
+    msg = string.format("<color=%s>%s</color>", Cyan, msg)
+    print(debug.traceback(msg))
+end
+
+BattleLogger.IsOpenBattleProperty = function()
+    return isOpen and isOpenBattleProperty
+end
+
+BattleLogger.logBattleIngProperty = function(...)
+    if not isOpen then
+        return
+    end
+
+    if not isOpenBattleIngProperty then
+        return
+    end
+    local msg = "战斗实时属性：" .. LogConcat(...)
+    msg = string.format("<color=%s>%s</color>", GhostWhite, msg)
+    print(debug.traceback(msg))
+end
+
+BattleLogger.IsOpenBattleIngProperty = function()
+    return isOpen and isOpenBattleIngProperty
+end
+
+BattleLogger.logBattleRealTimeBaseProperty = function(...)
+    if not isOpen then
+        return
+    end
+
+    if isOpenRealTimeProperty_Hp or isOpenRealTimeProperty_Rage or isOpenRealTimeProperty_Shield then
+        local msg = "战斗血量怒气护盾：" .. LogConcat(...)
+        msg = string.format("<color=%s>%s</color>", Yellow, msg)
+        print(debug.traceback(msg))
+    end
+end
+
+BattleLogger.IsOpenRealTimeProperty_Hp = function()
+    return isOpen and isOpenRealTimeProperty_Hp
+end
+
+BattleLogger.IsOpenRealTimeProperty_Rage = function()
+    return isOpen and isOpenRealTimeProperty_Rage
+end
+
+BattleLogger.IsOpenRealTimeProperty_Shield = function()
+    return isOpen and isOpenRealTimeProperty_Shield
+end
+
+BattleLogger.logBattleTroop = function(...)
+    if not isOpen then
+        return
+    end
+    local msg = "战斗兵损：" .. LogConcat(...)
+    msg = string.format("<color=%s>%s</color>", LightPink, msg)
+    print(debug.traceback(msg))
+end
+
+
+BattleLogger.logRandomLog = function(...)
+    if not isOpen then
+        return
+    end
+
+    if isOpenRandomLog then
+        local msg = "战斗随机结果：" .. LogConcat(...)
+        msg = string.format("<color=%s>%s</color>", Orange, msg)
+        print(debug.traceback(msg))
+    end
+end
+
+
+BattleLogger.isOpenLogHateLog = function()
+    return isOpen and isOpenHateLog
+end
+
+BattleLogger.logHateLog = function(...)
+    if not isOpen then
+        return
+    end
+
+    if isOpenHateLog then
+        local msg = "战斗仇恨值列表：" .. LogConcat(...)
+        msg = string.format("<color=%s>%s</color>", Red, msg)
+        print(debug.traceback(msg))
+    end
+end
+
+BattleLogger.isOpenLogEffectNumber = function()
+    return isOpenEffectNumberLog
+end
+--
+BattleLogger.logEffectNumber = function(leftEffMap, leftTeamList, rightEffMap, rightTeamList)
+    if isOpenEffectNumberLog then
+        local msg = "EffectNumber:::    leftTeam:"
+        leftEffMap = leftEffMap or {}
+        for key, value in pairs(leftEffMap) do
+            msg = msg .. key .. ":" .. value .. ";"
+        end
+        ---@type BattleCharacterPlayerModel[]
+        local _leftTeamList = leftTeamList or {}
+        for index, value in ipairs(_leftTeamList) do
+            msg = msg .. " pos:" .. index .. "   " .. value:getNumberLogStr() .. ";"
+        end
+        msg = msg .. "    rightTeam:"
+        rightEffMap = rightEffMap or {}
+        for key, value in pairs(rightEffMap) do
+            msg = msg .. key .. ":" .. value .. ";"
+        end
+        ---@type BattleCharacterPlayerModel[]
+        local _rightTeamList = rightTeamList or {}
+        for index, value in ipairs(_rightTeamList) do
+            msg = msg .. " pos:" .. index .. "   " .. value:getNumberLogStr() .. ";"
+        end
+        print(msg)
+    end
+end
+
+BattleLogger.isOpenMazeTest = function()
+    return isOpenMazeTestLog
+end
+
+BattleLogger.logMazeRelic = function(...)
+    if not isOpen then
+        return
+    end
+
+    if isOpenMazeTestLog then
+        local msg = "战斗秘境生效id：" .. LogConcat(...)
+        msg = string.format("<color=%s>%s</color>", Blue, msg)
+        print(debug.traceback(msg))
+    end
+end

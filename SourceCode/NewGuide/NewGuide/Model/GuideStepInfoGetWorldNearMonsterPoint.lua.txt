@@ -1,0 +1,18 @@
+
+---@class GuideStepInfoGetWorldNearMonsterPoint:GuideStepBaseInfo 获取世界上怪物的数据
+---@field public monsterId string 怪物的id(field_monster表)
+local GuideStepInfoGetWorldNearMonsterPoint = class("GuideStepInfoGetWorldNearMonsterPoint",require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoGetWorldNearMonsterPoint
+
+
+function M:onParse(params)
+    if not params then
+        print_error("Get world monster data is nil")
+        return
+    end
+    
+    self.monsterId = params.monsterId
+end
+
+
+return M

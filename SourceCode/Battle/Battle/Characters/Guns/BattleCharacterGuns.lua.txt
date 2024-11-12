@@ -1,0 +1,94 @@
+----------------------------------------------------------------------
+--------- 2022年12月02日 17:25:40 星期五
+----------------------------------------------------------------------
+
+--[[
+    战斗火炮
+]]
+local BattleHelper                 = require "GameLogic.Battle.BattleHelper"
+local BattleCharacter              = require "GameLogic.Battle.Characters.BattleCharacter"
+local BattleCharacterContext       = require "GameLogic.Battle.Characters.BattleCharacterContext"
+local CharacterTransformGuns       = require "GameLogic.Battle.Characters.Guns.CharacterTransformGuns"
+local CharacterFindPathManagerGuns = require "GameLogic.Battle.Characters.Guns.CharacterFindPathManagerGuns"
+local CharacterController          = require "GameLogic.Battle.Characters.CharacterController"
+local BattleCharacterAttribute     = require "GameLogic.Battle.Characters.BattleCharacterAttribute"
+local CharacterRageManager         = require "GameLogic.Battle.Characters.CharacterRageManager"
+local BattleEnum                   = require "GameLogic.Battle.BattleEnum"
+local HatredManager                = require "GameLogic.Battle.Characters.HatredManager"
+local CharacterBuffManager         = require "GameLogic.Battle.BuffSystem.CharacterBuffManager"
+local CharacterSearcher            = require "GameLogic.Battle.Characters.CharacterSearcher"
+local BattleCharacterStepManager   = require "GameLogic.Battle.Characters.BattleCharacterStepManager"
+local BattleCharacterLogicHandler  = require "GameLogic.Battle.Characters.BattleCharacterLogicHandler"
+local BattleCharacterBaseAttribute = require "GameLogic.Battle.Characters.BattleCharacterBaseAttribute"
+local BattleNumericalBox           = require "GameLogic.Battle.BattleStatistics.BattleNumericalBox"
+local BattleDataCounter            = require "GameLogic.Battle.BattleStatistics.BattleDataCounter"
+local CharacterSkillSystemGuns     = require "GameLogic.Battle.Characters.Guns.CharacterSkillSystemGuns"
+---@class BattleCharacterGuns:BattleCharacter
+local BattleCharacterGuns          = class("BattleCharacterGuns", BattleCharacter)
+local M                            = BattleCharacterGuns
+
+------------------------------------------------------------------------------------------------------
+--- @param iCharacterBattleId number 战斗中的角色ID
+--- @param tbConfigData table 角色的配置数据（数据来自Hero_Detail）
+--- @param tbRepresentCharacter RepresentBattleCharacter
+---@param tbBattleContext BattleContext
+function M:Ctor(iCharacterBattleId, tBattleData, tbBattleContext, battleCamp)
+    self.characterBattleId            = iCharacterBattleId
+    self.battleData                   = tBattleData
+    self.battleContext                = tbBattleContext
+    self.characterContext             = BattleCharacterContext.new(battleCamp)
+    self.controller                   = CharacterController.new()
+    self.characterAttribute           = BattleCharacterAttribute.new(self)
+    self.hatredManager                = HatredManager.new(self)
+    self.rageManager                  = CharacterRageManager.new(self) -- 怒气值管理
+    self.skillManager                 = CharacterSkillSystemGuns.new(self.battleContext)
+    self.buffManager                  = CharacterBuffManager.new(self, self.battleContext)
+    self.searcher                     = CharacterSearcher.new(self, self.battleContext)
+    self.findPathManager              = CharacterFindPathManagerGuns.new(self, self.battleContext)
+    self.characterTransform           = CharacterTransformGuns.new(self, self.battleContext)
+    self.stepManager                  = BattleCharacterStepManager.new(self, self.battleContext)
+    self.battleCharacterLogicHandler  = BattleCharacterLogicHandler.new(self, self.battleContext)
+    self.battleCharacterBaseAttribute = BattleCharacterBaseAttribute.new(self, self.battleContext)
+    self.battleNumericalBox           = BattleNumericalBox.new(iCharacterBattleId, tbBattleContext)
+    self.battleDataCounter            = BattleDataCounter.new(iCharacterBattleId, tbBattleContext)
+end
+
+function M:GetCharacterType()
+    return BattleEnum.BattleCharacterType.Gun
+end
+
+function M:Initialize(index)
+    self:registerEvent()
+    self.characterTransform:Initialize(self.battleData._initRotate, index, self.battleData._baseScale) --
+    self.characterContext:Initialize(self.battleData, nil)                                             --
+    self.characterContext:SetIsSummon(false)
+    self.controller:Initialize(self)
+    self.characterAttribute:Initialize(self.battleData._attMap)
+    self.battleCharacterBaseAttribute:Initialize(self.battleData)
+    self.hatredManager:Initialize()
+    self.rageManager:Initialize(self.battleData)
+    self.skillManager:Initialize(self)
+    self.buffManager:Initialize(self.battleData._buff)
+    self.searcher:Initialize()
+    self.findPathManager:Initialize(self.battleData._initRotate, self.battleData._posIndex,
+        BattleHelper:getBattleSceneId(self.battleContext._battlePlayType, self.battleContext._battleStageId)) --
+    self.stepManager:Initialize()
+    self.battleNumericalBox:setParentBox(index)
+    self.battleDataCounter:setParentBox(index)
+    -- self.isPauseLogic = false
+    self.isBrevity = false
+    self.isDied = false
+    self.isSummoner = false
+    self.isGuns = true
+end
+
+function M:GetConfigData()
+    local con = ConfigHandler:GetEntry(GameDefine.TableName.Ship_Cabin_Gun_Detail, self:GetHeroConfigId())
+    if con == nil then
+        BattleLogger.log_error("Hero_Detail 表查找不到数据 ！！ ", self:GetHeroConfigId())
+        return {}
+    end
+    return con
+end
+
+return M

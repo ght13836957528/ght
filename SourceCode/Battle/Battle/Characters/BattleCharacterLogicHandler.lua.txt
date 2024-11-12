@@ -1,0 +1,307 @@
+----------------------------------------------------------------------
+--------- 2022年12月02日 17:29:36 星期五
+--------- character 得逻辑中转站  为了保持 battleCharacter.lua 文件 整洁
+----------------------------------------------------------------------
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local ConfigHandler = ConfigHandler
+local GameDefine = GameDefine
+local BattleLogger = BattleLogger
+local BehaviorStateType = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class BattleCharacterLogicHandler
+local BattleCharacterLogicHandler = class("BattleCharacterLogicHandler")
+local M = BattleCharacterLogicHandler
+---@param character BattleCharacter
+---@param battleContext BattleContext
+function M:Ctor(character, battleContext)
+    self.hostCharacter = character
+    self.battleContext = battleContext
+    self.buffManager = self.hostCharacter:GetBuffManager()
+end
+
+function M:Initialize()
+
+end
+
+function M:Clear()
+
+end
+
+function M:OnUpdate(fDeltaTime)
+    self:_onUpdate(fDeltaTime)
+end
+
+function M:_onUpdate(fDeltaTime)
+
+end
+
+function M:DoDiedAniEnd()
+
+end
+
+------------------------------------------------------------------------------------------------------
+--- public method
+---
+
+function M:OnBeControl(fromId, controlEntityId, pack)
+    -- self.hostCharacter:GetCharacterContext():SetBeControlledTime(time)
+    self.hostCharacter:GetController():OnBeControl(fromId, controlEntityId, pack)
+end
+
+function M:CheckIsCanBeFind()
+    return (not self:CheckHasBuff(BattleEnum.BuffType.Buff_Exile)) and
+        (not self:CheckHasBuff(BattleEnum.BuffType.Buff_CanNotBeFind))
+end
+
+---
+---------------------------------------------------------------------------------------------------------
+--- 消耗
+function M:DoApplyCost(iCostType, iCostValue)
+    local costType = iCostType or 0
+    local costValue = iCostValue or 0
+
+    if costType > 0 or costValue > 0 then
+        self:_doApplyCost(costType, costValue)
+    end
+end
+
+--- 特殊值修改
+--- @param iChangeType number 修改属性的方式：1 - 减 2 - 加 （可扩展）
+--- @param iChangeValueType number 修改的属性的类型（与消耗类型类似，比如1是怒气值修改）
+--- @param iChangeValue number 属性要改变的量(这里主要是整数类型，在lua里是number）
+function M:DoChangeValue(iChangeType, iChangeValueType, iChangeValue)
+    local changeType = iChangeType or 0
+    local changeValueType = iChangeValueType or 0
+    local changeValue = iChangeValue or 0
+    if changeType <= 0 or changeValueType <= 0 or changeValue <= 0 then
+        return
+    end
+
+    if changeType == 1 then
+        self:_decreaseValue(changeValueType, changeValue)
+    elseif changeType == 2 then
+        self:_increaseValue(changeValueType, changeValue)
+    end
+end
+
+function M:AddBuff(fromId, iBuffTypeId)
+    local buffTypeId = iBuffTypeId or 0
+    if buffTypeId == nil then
+        return
+    end
+
+    self.buffManager:AddBuff(fromId, buffTypeId, nil)
+end
+
+--- buff 效果id
+function M:CheckHasBuff(iBuffTypeId, iLayerCount)
+    iLayerCount = iLayerCount or 1
+    return self:_checkHasBuff(iBuffTypeId, iLayerCount)
+end
+
+function M:CheckHasBuffId(iBuffId, iLayerCount)
+    if iBuffId == nil then
+        return false
+    end
+    iLayerCount = iLayerCount or 1
+    return self.buffManager:CheckHasBuffId(iBuffId, iLayerCount)
+end
+
+------------------------------------------------------------------------------------------------------
+--- srcCharacterId给与的伤害值
+function M:AcceptDamage(iSrcCharacterId, fDamage, params, isCritical)
+    local sCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(iSrcCharacterId)
+    local damage = fDamage or 0
+
+    self.buffManager:OnHpChange(fDamage)
+    self.hostCharacter:GetBattleNumericalBox():counter(BattleEnum.NumericalType.AllTakeDamage, fDamage)
+    sCharacter:GetBattleNumericalBox():counter(BattleEnum.NumericalType.AllHarm, fDamage)
+    self.hostCharacter:GetBaseAtt():DeductHp(iSrcCharacterId, damage, params, isCritical, function()
+        BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_Kill_10, iSrcCharacterId)
+        self:_onDie()
+        if sCharacter and not sCharacter:CheckIsDied() then
+            local killValue = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Kill_Power_Bonus") or 200
+            sCharacter:GetRageManager():IncreaseRage(killValue)
+            BattleEventUtils:DisPath_Diff_Rage_JW(sCharacter:GetBattleId(), killValue)
+            if self.hostCharacter:GetIsSummoner() then
+                sCharacter:GetBattleNumericalBox():counter(BattleEnum.NumericalType.Kill_Summoner, 1)
+            else
+                sCharacter:GetBattleNumericalBox():counter(BattleEnum.NumericalType.Kill_Character, 1)
+            end
+        end
+    end)
+    local srcCharacterId = iSrcCharacterId or 0
+    BattleLogger.log("accept damage from: ", srcCharacterId, " - to: ", self.hostCharacter:GetBattleId())
+    self.hostCharacter:GetHatredManager():OnHit(srcCharacterId)
+    -- if self.hostCharacter:GetController()
+    if self.hostCharacter:GetController().behaviorDecisionManager:GetCurrentStateID() == BehaviorStateType.Idle then
+        local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+        BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Hited, aniSpeed)
+    end
+end
+
+function M:AddHp(iSrcCharacterId, fAddValue, ignoreSevereWound)
+    if ignoreSevereWound == nil then ignoreSevereWound = false end
+    
+    fAddValue = fAddValue or 0
+    self.hostCharacter:GetBaseAtt():AddHp(fAddValue, nil, iSrcCharacterId, ignoreSevereWound)
+    local srcCharacterId = iSrcCharacterId or 0
+    local sCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(srcCharacterId)
+    sCharacter:GetBattleNumericalBox():counter(BattleEnum.NumericalType.AllCure, fAddValue)
+    BattleLogger.log("AddHp from: ", srcCharacterId, " - to: ", self.hostCharacter:GetBattleId())
+end
+
+function M:CheckInitHp()
+    if self.hostCharacter:CheckIsDied() then
+        self:_onDie()
+    end
+end
+
+------------------------------------------------------------------------------------------------------
+-------- private method
+--------
+-------------------------------------------------------------------------------
+---
+
+function M:_onDie()
+    if self.hostCharacter:CheckIsDied() then
+        return
+    end
+    local isBoss = self.hostCharacter:GetCharacterContext():isBoss()
+    if isBoss then
+        BattleEventUtils:DisPath_BossShockScene()
+        BroadcastEvent.dispatch(BattleEventId.Event_Battle_Logic_BattleSpeed, BattleEnum.BattleSpeedType.Half)
+    end
+    self.hostCharacter:OnDied()
+    local characterManager = self.battleContext:GetCharacterManager()
+    if characterManager ~= nil then
+        characterManager:OnCharacterDie(self.hostCharacter)
+    end
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_OnDied_9, self.hostCharacter:GetBattleId())
+    BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_CHARACTER_DIE, self.hostCharacter:GetBattleId())
+
+     BattleLogger.log("character died: " .. tostring(self.hostCharacter:GetBattleId()))
+end
+
+function M:_doApplyCost(costType, costValue)
+    if costType == 1 then
+        -- 消耗怒气
+        self.hostCharacter:GetRageManager():UseRage(costValue)
+    elseif costType == 2 then
+        BattleLogger.log_error(" todo  消耗生命值，生命当前百分比")
+        -- 消耗生命值，生命当前百分比
+        -- local currentHPValue = self.hostCharacter:GetBaseAtt():GetCurrentHpValue()
+        -- local toCostHPValue = currentHPValue * costValue / 100
+        -- self.hostCharacter:GetBaseAtt():DeductHp(toCostHPValue, nil, nil)
+    elseif costType == 3 then
+        -- buff
+        -- self:AddBuff(self.hostCharacter:GetBattleId(),costValue)
+        BattleLogger.log_error(" todo  消耗buff 应该是移除buff")
+    end
+end
+
+function M:_increaseValue(valueType, value)
+    -- 暂时只处理怒气
+    if valueType == 1 then
+        -- 检查是否有不增加怒气的buff
+        local bHasBuff = self:_checkHasBuff(BattleEnum.BuffType.Buff_AngerNoIncrease)
+        if not bHasBuff then
+            local battleType = self.battleContext:GetBattleLogicType()
+            local customId = self.battleContext:GetBattleStageId()
+            local pveAddCpd = 0
+            if customId and battleType == BattleEnum.BattleLogicType.PVE then
+                local conStage = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, customId)
+                if conStage then
+                    if self.hostCharacter:IsRobot() then
+                        pveAddCpd = conStage.powerSpdEnemy or 0
+                    else
+                        pveAddCpd = conStage.powerSpdPlayer or 0
+                    end
+                end
+            end
+            local attSped = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+                .AttributeType_AttackRageRecover_28)
+            local result = value * attSped // 100 * (1 + pveAddCpd // 100)
+            self.hostCharacter:GetRageManager():IncreaseRage(result)
+        end
+    elseif valueType == 2 then
+        -- 检查是否有不增加怒气的buff
+        local bHasBuff = self:_checkHasBuff(BattleEnum.BuffType.Buff_AngerNoIncrease)
+        if not bHasBuff then
+            local battleType = self.battleContext:GetBattleLogicType()
+            local customId = self.battleContext:GetBattleStageId()
+            local pveAddCpd = 0
+            if customId and battleType == BattleEnum.BattleLogicType.PVE then
+                local conStage = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, customId)
+                if conStage then
+                    if self.hostCharacter:IsRobot() then
+                        pveAddCpd = conStage.powerSpdEnemy or 0
+                    else
+                        pveAddCpd = conStage.powerSpdPlayer or 0
+                    end
+                end
+            end
+            local attSped = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+                .AttributeType_HitRageRecover_29)
+            local result = value * attSped // 100 * (1 + pveAddCpd // 100)
+            self.hostCharacter:GetRageManager():IncreaseRage(result)
+        end
+    end
+end
+
+function M:_decreaseValue(valueType, value)
+    -- 暂时只处理怒气
+    if valueType == 1 then
+        self.hostCharacter:GetRageManager():UseRage(value)
+    end
+end
+
+function M:_checkHasBuff(iBuffTypeId, iLayerCount)
+    return self.buffManager:CheckHasBuffType(iBuffTypeId, iLayerCount)
+end
+
+function M:GetSkillInfoList()
+    local list = {}
+    local configData = self.hostCharacter:GetConfigData()
+    if configData then
+        -- skill1
+        if configData.skill1 ~= nil then
+            table.insert(list, configData.skill1)
+        end
+
+        if configData.skill2 ~= nil then
+            table.insert(list, configData.skill2)
+        end
+
+        if configData.skill3 ~= nil then
+            table.insert(list, configData.skill3)
+        end
+
+        if configData.skill4 ~= nil then
+            table.insert(list, configData.skill4)
+        end
+        
+        if configData.normalAtk ~= nil then
+            table.insert(list, configData.normalAtk)
+        end
+    end
+    
+    return list
+end
+
+function M:GetFlyBulletForward()
+    local forward = self.hostCharacter:GetTransform():Forward()
+    
+    local result = Vector3.Dot(forward, Vector3.forward)
+    if result > 0 then
+        return Vector3.forward
+    else
+        return -Vector3.forward
+    end
+end
+
+function M:CanPlaySkillBlackScreen()
+    return true    
+end
+
+return M

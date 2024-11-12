@@ -1,0 +1,88 @@
+---@class UICombineWatermelonRankLayer : UIWidget UICombineWatermelonMainView 界面里的【排行榜】界面
+local UICombineWatermelonRankLayer = class("UICombineWatermelonRankLayer", UIWidget)
+local M = UICombineWatermelonRankLayer
+
+local CoinBattleRankListItem = require "GameLogic.CoinBattle.CoinBattleMain.Item.SGRankListItem"
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    if params then
+
+    end
+end
+
+function M:onAddListener()
+    self._tipsBtn:addEventListener(ButtonEvent.CLICK, self.onClickTips, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GetRankData, self.onRefreshRankData, self)
+end
+function M:onRemoveListener()
+    self._tipsBtn:removeEventListener(ButtonEvent.CLICK, self.onClickTips, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GetRankData, self.onRefreshRankData, self)
+end
+
+function M:onCreate()
+    self.refreshRankIsOk = true
+    self.rankListItem = {}
+    self._des.text = ""
+    self._titleName.text = GameGlobal.GameEntry.Localization:GetString("5505037")
+    self._titleRank.text = GameGlobal.GameEntry.Localization:GetString("5505038")
+    self.itemParent = UIWidget.new()
+    self.itemParent:bind(self._itemParent)
+    self:onRefreshRankData()
+end
+
+function M:onClickTips()
+    CS.UIPreAdd.OpenUICommonHelpTips("5505033")
+end
+
+function M:onRefreshRankData()
+    local desc1 = "<color=#938C7A>"..CombineWatermelonModel.getMyRank().."</color>"
+    local desc2 = "<color=#938C7A>"..CombineWatermelonModel.getMyScore().."</color>"
+    self._des.text = GameGlobal.GameEntry.Localization:GetString("5505032", desc1).."  " ..GameGlobal.GameEntry.Localization:GetString("5505031", desc2)
+    if self.refreshRankIsOk then
+        self:refreshItem()
+    end
+end
+
+function M:refreshItem()
+    self.refreshRankIsOk = false
+    local rankList = CombineWatermelonModel.getRankList()
+    local index = #rankList
+    local decreaseF = function()
+        index = index - 1
+        if index == 0 then
+            self.refreshRankIsOk = true
+        end
+    end
+    if index == 0 then
+        self.refreshRankIsOk = true
+    end
+    
+    for i, v in ipairs(rankList) do
+        ---@type CoinBattleRankListItem
+        local ui
+        if self.rankListItem[i] then
+            ui = self.rankListItem[i]
+            ui:onParse(v)
+            ui:onRefreshData()
+            ui:show()
+            decreaseF()
+        else
+            ui = CoinBattleRankListItem.new(v)
+            ui:load(nil, function()
+                decreaseF()
+            end)
+            ui:setParent(self.itemParent)
+            table.insert(self.rankListItem, ui)
+        end
+    end
+end
+
+function M:onDispose()
+
+end
+
+return M

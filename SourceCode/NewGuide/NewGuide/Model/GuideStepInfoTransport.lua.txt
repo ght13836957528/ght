@@ -1,0 +1,10 @@
+---@class GuideStepInfoTransport : GuideStepBaseInfo @引导步骤执行运输类型数据结构
+---@field public time number 等待时间
+local GuideStepInfoTransport = class("GuideStepInfoTransport", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoTransport
+
+function M:onParse(params)
+    self.guideForce = params.guideForce
+end
+
+return M

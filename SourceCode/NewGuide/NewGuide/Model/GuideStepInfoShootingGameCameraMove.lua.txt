@@ -1,0 +1,10 @@
+---@class GuideStepInfoShootingGameCameraMove:GuideStepBaseInfo 是否完成雷达引导
+local GuideStepInfoShootingGameCameraMove = class("GuideStepInfoShootingGameCameraMove", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoShootingGameCameraMove
+
+function M:onParse(params)
+  
+end
+
+
+return M

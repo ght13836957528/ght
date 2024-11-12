@@ -1,0 +1,196 @@
+---@class UINode
+local UINode = class("UINode")
+local M = UINode
+
+UINode.nodes = {}
+
+function M:Ctor()
+    ---@type UnityEngine.GameObject
+    self._gameObject    = nil
+    self._transform     = nil
+    self._rectTransform = nil
+
+    ---@type UINode
+    self._parent        = nil
+    self._parentGo      = nil
+    self._parentTrans   = nil
+    self._parentRectTrans   = nil
+    self._childList     = {}
+    self._childDict     = {}
+end
+
+---@return UINodeType
+function M:GetType()
+    return UINodeType.Node
+end
+---同时代表资源是否加载完
+function M:HasGameObject()
+    return self._gameObject ~= nil and self._gameObject:IsNotNull()
+end
+
+function M:GetGameObject()
+    return self._gameObject
+end
+
+---@return UnityEngine.RectTransform
+function M:GetRectTransform()
+    return self._rectTransform
+end
+
+function M:GetPosition()
+    return self._rectTransform.position
+end
+
+function M:GetParentTrans()
+return self._parentTrans;
+end
+
+function M:GetParentRectTrans()
+return self._parentRectTrans;
+end
+
+---@return UINode
+function M:GetParent()
+    return self._parent
+end
+
+---@return UINode[]
+function M:GetChildren()
+    return self._childList
+end
+
+function M:SetParent(parent)
+    local result = self:_setParent(parent)
+    if result then
+        self:_handleWithParentTransform()
+    end
+end
+
+function M:SetParentGo(parentGo)
+    self._parentGo = parentGo
+    self._parentTrans = self._parentGo.transform
+    self._parentRectTrans = self._parentGo:GetComponent("RectTransform")
+end
+
+function M:Dispose()
+    self._parent = nil
+    self._childList = nil
+    self._childDict = nil
+
+    if self._gameObject ~= nil then
+        UINode.nodes[self._gameObject:GetInstanceID()] = nil
+    end
+    self._gameObject = nil
+
+
+    self._transform = nil
+    self._rectTransform = nil
+    self._parentGo = nil
+    self._parentTrans   = nil
+    self._parentRectTrans = nil
+end
+
+------------------------------------------------------------------------------------------------------------------------
+function M:_setParent(parent)
+    if parent ~= nil and not parent:HasGameObject() then
+        print_error(string.format("%s set parent failed, parent gameObject not prepared", self.__cname))
+        return false
+    end
+
+    if self._parent == parent then
+        return false
+    end
+
+    if self._parent then
+        self._parent:_removeChild(self)
+    end
+
+    self._parent = parent
+    if self._parent then
+        self._parent:_addChild(self)
+    end
+    
+    return true
+end
+
+function M:_handleWithParentTransform()
+    if not self:HasGameObject() then
+        return
+    end
+
+    if self._parent ~= nil then
+        if self._parent:HasGameObject() then
+            self:_bindWithParentTransform()
+        end
+    else
+        self:_unbindWithParentTransform()
+    end
+end
+
+function M:_bindWithParentTransform()
+    self._transform:SetParent(self._parent._transform)
+end
+
+function M:_handleWithLocalParentTransform()
+    self._transform:SetParent(self:GetParentTrans(), false)
+    local parent = self:_findParent(self._rectTransform.parent)
+    self:_setParent(parent)
+end
+
+function M:_unbindWithParentTransform()
+    self._transform:SetParent(nil)
+end
+
+function M:_findParent(rectTransform)
+    if rectTransform == nil then
+        return nil
+    end
+
+    local instanceID = rectTransform.gameObject:GetInstanceID()
+    if UINode.nodes[instanceID] ~= nil then
+        return UINode.nodes[instanceID]
+    else
+        return self:_findParent(rectTransform.parent)
+    end
+end
+
+function M:_addChild(child)
+    if child == nil then
+        print_error(string.format("%s add child failed, child is nil", self.__cname))
+        return
+    end
+
+    local key = tostring(child)
+    if self._childDict[key] then
+        return
+    end
+
+    self._childDict[key] = child
+    table.insert(self._childList, child)
+end
+
+function M:_removeChild(child)
+    if not child then
+        print_error(string.format("%s remove child failed, child is nil", self.__cname))
+        return
+    end
+
+    local key = tostring(child)
+    if not self._childDict[key] then
+        return
+    end
+
+    local index = -1
+    for i, v in ipairs(self._childList) do
+        if v == child then
+            index = i
+            break
+        end
+    end
+
+    table.remove(self._childList, index)
+    self._childDict[key] = nil
+end
+
+
+return M

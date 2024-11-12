@@ -1,0 +1,86 @@
+----------------------------------------------------------------------
+--------- 2022年12月27日 17:46:39 星期二
+----------------------------------------------------------------------
+
+--[[
+    处理角色移动，目前是索敌状态检查状态后，移动状态处理角色的实际移动，移动过程中可能
+    出现角色死亡或者其它异常状态，需要打断移动
+]]
+local BaseBehaviorState   = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+local BehaviorStateType   = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEventUtils    = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class MovingBehaviorState:BaseBehaviorState
+local MovingBehaviorState = class("MovingBehaviorState", BaseBehaviorState)
+local M                   = MovingBehaviorState
+
+-- @param ... 切换场景时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    self.super.OnInit(self, ...)
+end
+
+--- 进入场景
+--- @param ... {fromState = a, moveTarget = b} fromState是从哪个状态转换过来，moveTarget移动到moveTarget角色目标附近（后续可以扩展其他移动方式）
+function M:OnEnter(...)
+    -- BattleLogger.log("In Moving: " , tostring(self:_getCharacterBattleId()))
+    BroadcastEvent.subscribe(BattleEventId.MSG_BATTLE_CHARACTER_DIE, self._onCharacterDie, self)
+
+    local param = ...
+    self.toState = param.toState
+    self:_checkMoveTo(param.moveTarget)
+end
+
+function M:OnUpdate(fDeltaTime)
+
+end
+
+-- 退出场景
+function M:OnExit(callback)
+    BroadcastEvent.unsubscribe(BattleEventId.MSG_BATTLE_CHARACTER_DIE, self._onCharacterDie, self)
+
+    if self.hostCharacter ~= nil then
+        self.hostCharacter.findPathManager:StopMove()
+    end
+
+    if callback ~= nil then
+        callback()
+    end
+end
+
+----------------------------------------------------------------------
+function M:_checkMoveTo(iTargetCharacterId)
+    local canMove = self.hostCharacter.findPathManager:MoveToNormalAttackTarget(iTargetCharacterId,
+        function() self:_handleMoveEnd() end)
+    if not canMove then
+        -- 如果不能移动，直接回到初始状态从头判断
+        self._stateManager:Switch(BehaviorStateType.Idle, nil)
+    else
+        self.hostCharacter:GetSkillManager():SetCanPlayerSuperSkill(false)
+        BattleEventUtils:DisPath_SkillCanPlay(self.hostCharacter:GetBattleId(), false)
+        
+    end
+end
+
+function M:_handleMoveEnd()
+    self.isSearching = false
+    BattleLogger.log("Moving: onMoveEnd => " .. tostring(self:_getCharacterBattleId()))
+
+    self.characterId = self:_getCharacterBattleId()
+    -- 已经移动到目标位置
+    -- 默认回到初始状态
+    local targetState = self.toState or BehaviorStateType.SkillSystem
+    self._stateManager:Switch(targetState, nil)
+end
+
+function M:_onCharacterDie(iCharacterId)
+    local characterId = iCharacterId or 0
+    if characterId <= 0 then
+        return
+    end
+    if characterId ~= self:_getCharacterBattleId() then
+        return
+    end
+
+    self.hostCharacter.findPathManager:StopMove()
+end
+
+return M

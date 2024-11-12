@@ -1,0 +1,36 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 15:43:52 星期四
+----------------------------------------------------------------------
+
+--[[
+    专门处理目标筛选
+]]
+
+local TargetFilterType = require "GameLogic.Battle.Common.TargetFilterType"
+
+---@class CharacterTargetFilter
+local CharacterTargetFilter = class("CharacterTargetFilter")
+local M = CharacterTargetFilter
+
+function M:Ctor(battleContext)
+    self.battleContext = battleContext
+end
+
+--- 从srcList中筛选敌对目标放到targetList
+--- 参数在使用前需要先判断合法性，这里不再判断
+function M:FilterEnemyTargets(srcList, targetList, filterType, filterCount)
+    
+end
+
+--- 从srcList中筛选友军目标放到targetList
+--- 参数在使用前需要先判断合法性，这里不再判断
+--- @param bIncludeSelf boolean 是否包含自己
+function M:FilterAllyTargets(srcList, targetList, filterType, filterCount, bIncludeSelf)
+    
+end
+
+function M:Clear()
+    
+end
+
+return M

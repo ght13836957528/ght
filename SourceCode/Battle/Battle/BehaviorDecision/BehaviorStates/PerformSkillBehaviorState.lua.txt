@@ -1,0 +1,148 @@
+----------------------------------------------------------------------
+--------- 2022年12月27日 17:46:54 星期二
+----------------------------------------------------------------------
+local BattleEventUtils          = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BaseBehaviorState         = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+local BehaviorStateType         = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEnum                = require "GameLogic.Battle.BattleEnum"
+local ConfigHandler             = ConfigHandler
+local GameDefine                = GameDefine
+local BattleEventId             = BattleEventId
+---@class PerformSkillBehaviorState:BaseBehaviorState
+local PerformSkillBehaviorState = class("PerformSkillBehaviorState", BaseBehaviorState)
+local M                         = PerformSkillBehaviorState
+
+-- @param ... 切换场景时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    self.super.OnInit(self, ...)
+    --- 当前正在执行得技能
+    self.currentSkillId = -1
+    self._isSuper = false
+    self.skillManager = self.hostCharacter:GetSkillManager()
+end
+
+--- 进入场景
+--- @param ... {fromState = a, skillType = c}  fromState是从哪个状态转换过来，skillType是释放的技能1-必杀，2-技能，3-普攻
+function M:OnEnter(...)
+    local param = ...
+    self:_performSkill(param.skillId, param.skillTargets)
+end
+
+function M:OnUpdate(fDeltaTime)
+    --- check 大招检测
+    local skillId, skillTargets = self:CheckoutUltSkillState()
+    if skillId > 0 and skillTargets then
+        self:_interruptSkill(true, skillId)
+        self:_performSkill(skillId, skillTargets)
+    end
+end
+
+function M:SwitchSkill(skillId, skillTargets)
+    if skillId > 0 and skillTargets then
+        self:_interruptSkill(true, skillId)
+        self:_performSkill(skillId, skillTargets)
+    end
+end
+
+function M:CheckoutUltSkillState()
+    if self.currentSkillId and self.currentSkillId > 0 and
+        (not self:_currentIsSuperSkill()) and self.skillManager:CheckCanBreakByUltra(self.currentSkillId) then
+        BattleLogger.logAI(self:_getCharacterBattleId(), "  当前技能可以打断 :", self.currentSkillId)
+        return self.skillManager:CheckUltraSkill()
+    else
+        return -1
+    end
+end
+
+--
+function M:OnExit(callback)
+    -- 状态结束时技能还没播放完，直接中断
+    if self.hostCharacter:GetBattleContext():GetPlayType() ~= BattleEnum.BattlePlayType.Mowing then
+        self:_interruptSkill(false, self.curSrentSkillId)
+    end
+    
+    if callback ~= nil then
+        callback()
+    end
+end
+
+----------------------------------------------------------------------
+function M:_performSkill(skillId, skillTargets)
+    BattleLogger.log("In Perform Skill: skillId  = ",
+        tostring(skillId), " - ", tostring(self:_getCharacterBattleId()))
+    if skillId and skillId > 0 then
+        if self.hostCharacter then
+            if self:_isSurperSkill(skillId) then
+                -- print("frameTest: big skill id :" .. skillId .. "   frame :" .. self.hostCharacter:GetBattleContext():GetFrameControl()._frameCount)
+                self:_resetProfoundStatus()
+                self._isSuper = true
+                BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_PlaySkill_14,
+                    self.hostCharacter:GetBattleId())
+            else
+                self._isSuper = false
+            end
+            self.currentSkillId = skillId
+            self:_tryDisPathFireMsg()
+            self:_tryRotateTarget(skillTargets)
+            self.hostCharacter.skillManager:TryExecuteSkill(skillId, skillTargets, nil,
+                function() self:_onPerformEnd() end)
+        end
+    else
+        BattleLogger.log_error("错误的技能ID!")
+    end
+end
+
+function M:_tryDisPathFireMsg()
+    local characterType = self.hostCharacter:GetCharacterType()
+    if characterType == BattleEnum.BattleCharacterType.Gun then
+        BattleEventUtils:DisPath_Gun_FireMsg(self.hostCharacter:GetBattleId(),
+            self.hostCharacter:GetCharacterContext():GetBattleCamp())
+    end
+end
+
+--- callback 技能释放结束后的回调
+function M:_onPerformEnd()
+    -- 技能结束后直接跳到最开始重新判断（也就是判断必杀开始）
+    -- BattleLogger.log("In Perform Skill: 技能结束", " - ", tostring(self:_getCharacterBattleId()))
+    self._stateManager:Switch(BehaviorStateType.SkillSystem, nil)
+end
+
+function M:_tryRotateTarget(skillTargets)
+    skillTargets = skillTargets or {}
+    if skillTargets[1] ~= nil then
+        local battleId = skillTargets[1]
+        if battleId == self:_getCharacterBattleId() then
+            return
+        end
+        local targetCharacter = self.hostCharacter.battleContext:GetCharacterManager():GetCharacterById(battleId)
+        if targetCharacter and not self.hostCharacter:GetBuffManager():CheckHasBuffType(BattleEnum.BuffType.Buff_NoReturn) then
+            BattleEventUtils:DisPath_SynsRotate(self.hostCharacter:GetBattleId(),
+                targetCharacter:GetTransform():GetRenderPos())
+            self.hostCharacter:GetTransform():LookRotation(targetCharacter:GetTransform():GetRenderPos())
+        end
+    end
+end
+
+function M:_interruptSkill(bBySelf, skillId)
+    skillId = skillId or -1
+    bBySelf = bBySelf or false
+    if self.hostCharacter ~= nil then
+        self.skillManager:InterruptSkill(skillId, bBySelf,
+            { isDie = self.hostCharacter:CheckIsDied() })
+    end
+end
+
+function M:_resetProfoundStatus()
+    self.skillManager:ResetClickProfoundSkill()
+end
+
+function M:_isSurperSkill(skillId)
+    local con = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Base, skillId)
+    return con and con.type == BattleEnum.SkillType.SkillSuper
+end
+
+function M:_currentIsSuperSkill()
+    return self._isSuper
+end
+
+return M

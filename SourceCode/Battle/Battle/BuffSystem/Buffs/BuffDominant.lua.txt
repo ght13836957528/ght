@@ -1,0 +1,44 @@
+----------------------------------------------------------------------
+--------- 霸体
+----------------------------------------------------------------------
+---
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+---@class BuffDominant
+local BuffDominant = class("BuffDominant", BasePersistentBuff)
+local M = BuffDominant
+
+function M:_onInitialize()
+    -- 其他初始化
+    self.timeCounter = 0
+
+end
+
+--- buff创建开始生效前的处理
+function M:_onEnter()
+    self:_initDotAtt()
+    self:_doModify()
+end
+
+function M:_onUpdate(deltaTime)
+    -- self.timeCounter = self.timeCounter + deltaTime
+    -- if self.timeCounter >= BattleConstant.BuffDotOrHotInterval then
+    --     self:_doModify()
+    --     self.timeCounter = 0
+    -- end
+end
+
+function M:_onExit()
+   
+end
+
+function M:_initDotAtt()
+   
+end
+
+function M:_doModify()
+   
+end
+
+
+return M

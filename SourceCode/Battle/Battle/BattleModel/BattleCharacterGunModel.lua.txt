@@ -1,0 +1,510 @@
+local BattleCharacterModelBase = require "GameLogic.Battle.BattleModel.BattleCharacterModelBase"
+---@class BattleCharacterGunModel:BattleCharacterModelBase
+local BattleCharacterGunModel = class("BattleCharacterGunModel", BattleCharacterModelBase)
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local M = BattleCharacterGunModel
+
+local ConfigHandler = ConfigHandler
+local BattleStatic = BattleStatic
+function M:Ctor(index, initRotate, isRobot)
+    self._heroUuid = 0
+    self._heroId = 0
+    self._level = 1
+    self._exp = 0
+    self._quality = 1
+    self._posIndex = index
+    self._star = 1
+    self._buildingUuid = 0
+    self._type = BattleEnum.DataType.GunRobot
+    self._combat = 0
+    self._attMapBase = {}
+    self._soldiersMap = {}
+    self._buff = {}
+    self._attMap = {}
+    self._isRobot = isRobot or false
+    self._volumeRadius = 1
+    self._initRotate = initRotate or BattleEnum.InitRotate.Right
+end
+
+function M:initBaseData(heroId, level)
+    self._heroUuid = -heroId
+    self._heroId = heroId
+    self._level = level
+    self._exp = 0
+    self._quality = 1
+    self._buff = {}
+    self:setBaseScale(1)
+    self:setVolumeRadius(1)
+    self:setIsBoss()
+    self:initSoldiersMap({ { 1, 10 } })
+    self:initBaseAtt(heroId)
+    self:initTeamCultivate(nil)
+    -- self:initTeamCombat_robot(self._soldiersMap, self._attMap)
+    self:initTeamAtt()
+    self:logTeamProperty()
+    -- self:diffAtt(systemAttMap, stageCon)
+    -- self:diffSurplusAtt(surplusAttMap)
+    self:logBattleProperty()
+    -- self:initCombat(self._soldiersMap, self._attMap)
+    self:initBaseProperty({}, {})
+end
+
+function M:diffSurplusAtt(surplusAttMap)
+    surplusAttMap = surplusAttMap or {}
+    for id, value in pairs(surplusAttMap) do
+        self._attMap[id] = self._attMap[id] or 0
+        self._attMap[id] = self._attMap[id] + value
+    end
+end
+
+function M:initBaseAtt(heroId)
+    local con_hero = ConfigHandler:GetEntry(GameDefine.TableName.Ship_Cabin_Gun_Detail, heroId)
+    if con_hero then
+        local hpBase   = con_hero.hpBase or 0
+        local atkBase  = con_hero.atkBase or 0
+        local defBase  = con_hero.defBase or 0
+        local mdefBase = con_hero.mdefBase or 0
+
+        local hpCoef   = con_hero.hpCoef or 1
+        local atkCoef  = con_hero.atkCoef or 1
+        local defCoef  = con_hero.defCoef or 1
+        local mdefCoef = con_hero.mdefCoef or 1
+
+        local levelCon = ConfigHandler:GetEntry(GameDefine.TableName.Ship_Cabin_Gun_Level, self._level) or {}
+        if levelCon == nil then
+            levelCon = {}
+            BattleLogger.log_error("Hero_level 表查找不到数据 ！！   _level = ", self._level)
+        end
+        local hp       = levelCon.hp or 0
+        local atk      = levelCon.atk or 0
+        local def      = levelCon.def or 0
+        local mdef     = levelCon.mdef or 0
+
+        local hpRand   = levelCon.hpRank or 0
+        local atkRank  = levelCon.atkRank or 0
+        local defRank  = levelCon.defRank or 0
+        local mdefRank = levelCon.mdefRank or 0
+
+        -- local quailtyCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Quality, self._quality)
+        -- if quailtyCon == nil then
+        --     quailtyCon = {}
+        --     BattleLogger.log_error("Hero_Quality 表查找不到数据 ！！   _quality = ", self._quality)
+        -- end
+        -- local hpAdd                                                               = quailtyCon.hpAdd or 0
+        -- local atkAdd                                                              = quailtyCon.atkAdd or 0
+        -- local defAdd                                                              = quailtyCon.defAdd or 0
+        -- local mdefAdd                                                             = quailtyCon.mdefAdd or 0
+
+        -- local coef                                                                = quailtyCon.coef or 1
+
+
+        local hpAdd                                                               = 0
+        local atkAdd                                                              = 0
+        local defAdd                                                              = 0
+        local mdefAdd                                                             = 0
+
+        local coef                                                                = 1
+
+        self._attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1]   = (hpBase + hp + hpRand + hpAdd) * coef *
+            hpCoef
+        self._attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2]  = (atkBase + atk + atkRank + atkAdd) *
+            coef *
+            atkCoef
+        self._attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3]  = (defBase + def + defRank + defAdd) *
+            coef *
+            defCoef
+        self._attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4] = (mdefBase + mdef + mdefRank + mdefAdd) *
+            coef * mdefCoef
+
+
+
+
+
+        BattleLogger.logBaseProperty("怪 **  heroId : ", self._heroId, "  level：", self._level,
+            "  quality:", self._quality, " \n                       属性 **   HP: ",
+            self._attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1], "  ATK:",
+            self._attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2], "  DEF:",
+            self._attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3], "  MDEF:",
+            self._attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4]
+        )
+    else
+        BattleLogger.log_error("Hero_Detail 表查找不到数据 ！！   heroId = ", heroId)
+    end
+end
+
+---@param equip number 装备ID
+function M:initTeamCultivate(equip)
+    equip = equip or {}
+    local tmpAtt = {}
+    local k = ConfigHandler:GetEntry(GameDefine.TableName.Global, "EquipStrengthenAttParam") or 0
+    for _, equipInfo in pairs(equip) do
+        local equipId = equipInfo[1]
+        local level = equipInfo[2] or 0
+        local equipK = k * level
+        local equipCon = ConfigHandler:GetEntry(GameDefine.TableName.Equip_Detail, equipId)
+        if equipCon and equipCon.att then
+            local att = equipCon.att or {}
+            for _, attInfo in pairs(att) do
+                local attTag = attInfo[1]
+                local attValue = attInfo[2]
+                if attTag and attValue then
+                    tmpAtt[attTag] = tmpAtt[attTag] or 0
+                    tmpAtt[attTag] = tmpAtt[attTag] + attValue + attValue * equipK
+                end
+            end
+        end
+    end
+
+    for _, attTag in pairs(BattleEnum.BattleAttribute) do
+        local att_a_value = self._attMapBase[attTag] or 0
+        local conAtt = ConfigHandler:GetEntry(GameDefine.TableName.Attribute, attTag)
+        if conAtt and conAtt.formula then
+            if conAtt.formula[1] == 1 then
+                local att_b = conAtt.formula[3]
+                local att_b_value = 1
+                if att_b and tmpAtt[att_b] then
+                    att_b_value = att_b_value + tmpAtt[att_b] * 0.0001
+                end
+                local att_c = conAtt.formula[4]
+                local att_c_value = 0
+                if att_c and tmpAtt[att_c] then
+                    att_c_value = tmpAtt[att_c]
+                end
+                self._attMap[attTag] = att_a_value * att_b_value + att_c_value
+            elseif conAtt.formula[1] == 2 then
+                local att_c = conAtt.formula[3]
+                local att_c_value = 0
+                if att_c and tmpAtt[att_c] then
+                    att_c_value = tmpAtt[att_c]
+                end
+                self._attMap[attTag] = att_a_value + att_c_value
+            else
+                BattleLogger.log_error("??? 新得属性计算公式 ！！！", conAtt.formula[1])
+            end
+        end
+    end
+end
+
+function M:initTeamAtt()
+    local troopSum = 0
+    local troopTotal = 0
+    for level, value in pairs(self._soldiersMap) do
+        troopSum = troopSum + value
+        local conNavy = CommonUtils:GetNavyConfigByLevel(level) or {}
+        local attRate = conNavy.attRate or 1
+        troopTotal = troopTotal + value * attRate
+    end
+    local rate = troopTotal / troopSum
+
+    for att, value in ipairs(self._attMap) do
+        if att == BattleEnum.BuffChangeAttributeType.AttributeType_HP_1 then
+            self._attMap[att] = math.floor(value * rate * troopSum)
+        else
+            self._attMap[att] = math.floor(value * rate)
+        end
+    end
+end
+
+function M:logTeamProperty()
+    if not BattleLogger.IsOpenTeamProperty() then
+        return
+    end
+
+    local level = self._level
+    local quality = self._quality
+    local heroId = self._heroId
+
+    local attMap = self._attMap
+    BattleLogger.logTeamProperty("怪 **  heroId: ", heroId, "  level:", level,
+        "  quality:", quality, "  \n                       属性 **   HP: ",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1] or 0,
+        "  ATK:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2] or 0,
+        "  DEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3] or 0,
+        "  MDEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4] or 0,
+        " 暴击:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11] or 0,
+        " 命中:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Hit_12] or 0,
+        " 闪避:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Dodge_13] or 0,
+        " 物理减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14] or 0,
+        " 法术减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15] or 0,
+        " 急速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16] or 0,
+        " 吸血:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17] or 0,
+        " 暴击效果:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21] or 0,
+        " 抗暴:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22] or 0,
+        " 物理增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23] or 0,
+        " 法术增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24] or 0,
+        " 攻击速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25] or 0,
+        " 冷却加速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26] or 0,
+        " 移动速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27] or 0,
+        " 攻击怒气回复速度:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28] or 0,
+        " 受击怒气回复速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29] or 0,
+        " 生命恢复效果加成:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30] or 0,
+        " 治疗效果提升:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31] or 0,
+        " 相克额外系数A:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32] or 0,
+        " 相克额外系数B:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientB_33] or 0,
+        " 相克额外系数C:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientC_34] or 0
+    )
+end
+
+function M:initSoldiersMap(troops)
+    for _, value in pairs(troops) do
+        self._soldiersMap[value[1]] = value[2]
+    end
+end
+
+function M:setIsBoss(stageCon)
+    self._isBoss = (stageCon and stageCon.boss and stageCon.boss == self._posIndex and stageCon.bossLifebar and stageCon.lifebarNum)
+end
+
+---@param systemAttMap {attTag : {  system1: 18, system2: 33}}
+function M:diffAtt(systemAttMap, stageCon)
+    systemAttMap = systemAttMap or {}
+
+    if stageCon and stageCon.boss and stageCon.boss == self._posIndex then
+        if stageCon.HpCoefBoss then
+            systemAttMap[42] = systemAttMap[42] or {}
+            systemAttMap[42].specialPlay = systemAttMap[42].specialPlay or 0
+            systemAttMap[42].specialPlay = stageCon.HpCoefBoss
+        end
+        if stageCon.AtkCoefBoss then
+            systemAttMap[45] = systemAttMap[45] or {}
+            systemAttMap[45].specialPlay = systemAttMap[45].specialPlay or 0
+            systemAttMap[45].specialPlay = stageCon.AtkCoefBoss
+        end
+    else
+        if stageCon.HpCoefEnemy then
+            systemAttMap[42] = systemAttMap[42] or {}
+            systemAttMap[42].specialPlay = systemAttMap[42].specialPlay or 0
+            systemAttMap[42].specialPlay = stageCon.HpCoefEnemy
+        end
+        if stageCon.AtkCoefEnemy then
+            systemAttMap[45] = systemAttMap[45] or {}
+            systemAttMap[45].specialPlay = systemAttMap[45].specialPlay or 0
+            systemAttMap[45].specialPlay = stageCon.AtkCoefEnemy
+        end
+    end
+
+
+    for _, attTag in pairs(BattleEnum.BuffChangeAttributeType) do
+        local att_a_value = self._attMap[attTag] or 0
+        local conAtt = ConfigHandler:GetEntry(GameDefine.TableName.Attribute, attTag)
+        if conAtt and conAtt.formula then
+            if conAtt.formula[1] == 1 then
+                local att_b = conAtt.formula[3]
+                local att_b_value = 1
+                if att_b then
+                    local sys_b_value_map = systemAttMap[att_b] or {}
+                    for _, value in pairs(sys_b_value_map) do
+                        att_b_value = att_b_value * (1 + value * 0.0001)
+                    end
+                    att_b_value = att_b_value
+                end
+                local att_c = conAtt.formula[4]
+                local att_c_value = 0
+                if att_c then
+                    local sys_c_value_map = systemAttMap[att_c] or {}
+
+                    for _, value in pairs(sys_c_value_map) do
+                        att_c_value = att_c_value + value
+                    end
+                    att_c_value = att_c_value
+                end
+                self._attMap[attTag] = att_a_value * att_b_value + att_c_value
+            elseif conAtt.formula[1] == 2 then
+                local att_c = conAtt.formula[3]
+                local att_c_value = 0
+                if att_c then
+                    local sys_c_value_map = systemAttMap[att_c] or {}
+                    for _, value in pairs(sys_c_value_map) do
+                        att_c_value = att_c_value + value
+                    end
+                end
+                self._attMap[attTag] = att_a_value + att_c_value
+            else
+                BattleLogger.log_error("??? 新得属性计算公式 ！！！", conAtt.formula[1])
+            end
+        else
+            local att_c_value = 0
+            local sys_c_value_map = systemAttMap[attTag]
+            if sys_c_value_map then
+                for _, value in pairs(sys_c_value_map) do
+                    att_c_value = att_c_value + value
+                end
+            end
+            self._attMap[attTag] = att_a_value + att_c_value
+        end
+    end
+end
+
+function M:logBattleProperty()
+    if BattleLogger.IsOpenBattleProperty() then
+        local level = self._level
+        local quality = self._quality
+        local heroId = self._heroId
+
+        local attMap = self._attMap
+        BattleLogger.logBattleProperty("怪 **  heroId: ", heroId, "  level:", level,
+            "  quality:", quality, "  \n                       属性 **   HP: ",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1] or 0,
+            "  ATK:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2] or 0,
+            "  DEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3] or 0,
+            "  MDEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4] or 0,
+            " 暴击:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11] or 0,
+            " 命中:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Hit_12] or 0,
+            " 闪避:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Dodge_13] or 0,
+            " 物理减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14] or 0,
+            " 法术减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15] or 0,
+            " 急速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16] or 0,
+            " 吸血:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17] or 0,
+            " 暴击效果:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21] or 0,
+            " 抗暴:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22] or 0,
+            " 物理增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23] or 0,
+            " 法术增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24] or 0,
+            " 攻击速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25] or 0,
+            " 冷却加速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26] or 0,
+            " 移动速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27] or 0,
+            " 攻击怒气回复速度:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28] or 0,
+            " 受击怒气回复速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29] or 0,
+            " 生命恢复效果加成:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30] or 0,
+            " 治疗效果提升:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31] or 0,
+            " 相克额外系数A:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32] or 0,
+            " 相克额外系数B:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientB_33] or 0,
+            " 相克额外系数C:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientC_34] or 0
+        )
+    end
+end
+
+function M:getSystemMapByEquip(equip, stageCon)
+
+end
+
+function M.GetAttMap(heroId, level, quality, equip, navy)
+    local attMapBase = M.InitBaseAtt(heroId, level, quality)
+    local attMap = M.InitTeamCultivate(equip, attMapBase)
+    local solidMap = {}
+    for _, value in pairs(navy) do
+        solidMap[value[1]] = value[2]
+    end
+    return attMap, solidMap
+end
+
+function M.InitBaseAtt(heroId, level, quality)
+    local attMapBase = {}
+    local con_hero = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, heroId)
+    if con_hero then
+        local hpBase   = con_hero.hpBase or 0
+        local atkBase  = con_hero.atkBase or 0
+        local defBase  = con_hero.defBase or 0
+        local mdefBase = con_hero.mdefBase or 0
+
+        local hpCoef   = con_hero.hpCoef or 1
+        local atkCoef  = con_hero.atkCoef or 1
+        local defCoef  = con_hero.defCoef or 1
+        local mdefCoef = con_hero.mdefCoef or 1
+
+        local levelCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Level, level) or {}
+        if levelCon == nil then
+            levelCon = {}
+            BattleLogger.log_error("Hero_level 表查找不到数据 ！！   _level = ", level)
+        end
+        local hp         = levelCon.hp or 0
+        local atk        = levelCon.atk or 0
+        local def        = levelCon.def or 0
+        local mdef       = levelCon.mdef or 0
+
+        local hpRand     = levelCon.hpRank or 0
+        local atkRank    = levelCon.atkRank or 0
+        local defRank    = levelCon.defRank or 0
+        local mdefRank   = levelCon.mdefRank or 0
+
+        local quailtyCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Quality, quality)
+        if quailtyCon == nil then
+            quailtyCon = {}
+            BattleLogger.log_error("Hero_Quality 表查找不到数据 ！！   _quality = ", quality)
+        end
+        local hpAdd                                                         = quailtyCon.hpAdd or 0
+        local atkAdd                                                        = quailtyCon.atkAdd or 0
+        local defAdd                                                        = quailtyCon.defAdd or 0
+        local mdefAdd                                                       = quailtyCon.mdefAdd or 0
+
+        local coef                                                          = quailtyCon.coef or 1
+
+        attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1]   = (hpBase + hp + hpRand + hpAdd) * coef *
+            hpCoef
+        attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2]  = (atkBase + atk + atkRank + atkAdd) *
+            coef *
+            atkCoef
+        attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3]  = (defBase + def + defRank + defAdd) *
+            coef *
+            defCoef
+        attMapBase[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4] = (mdefBase + mdef + mdefRank + mdefAdd) *
+            coef * mdefCoef
+    else
+        BattleLogger.log_error("Hero_Detail 表查找不到数据 ！！   heroId = ", heroId)
+    end
+    return attMapBase
+end
+
+---@param equip number 装备ID
+function M.InitTeamCultivate(equip, attMapBase)
+    local tmpAttMap = {}
+    equip = equip or {}
+    local tmpAtt = {}
+    local k = ConfigHandler:GetEntry(GameDefine.TableName.Global, "EquipStrengthenAttParam") or 0
+    for _, equipInfo in pairs(equip) do
+        local equipId = equipInfo[1]
+        local level = equipInfo[2] or 0
+        local equipK = k * level
+        local equipCon = ConfigHandler:GetEntry(GameDefine.TableName.Equip_Detail, equipId)
+        if equipCon and equipCon.att then
+            local att = equipCon.att or {}
+            for _, attInfo in pairs(att) do
+                local attTag = attInfo[1]
+                local attValue = attInfo[2]
+                if attTag and attValue then
+                    tmpAtt[attTag] = tmpAtt[attTag] or 0
+                    tmpAtt[attTag] = tmpAtt[attTag] + attValue + attValue * equipK
+                end
+            end
+        end
+    end
+
+    for _, attTag in pairs(BattleEnum.BattleAttribute) do
+        local att_a_value = attMapBase[attTag] or 0
+        local conAtt = ConfigHandler:GetEntry(GameDefine.TableName.Attribute, attTag)
+        if conAtt and conAtt.formula then
+            if conAtt.formula[1] == 1 then
+                local att_b = conAtt.formula[3]
+                local att_b_value = 1
+                if att_b and tmpAtt[att_b] then
+                    att_b_value = att_b_value + tmpAtt[att_b] * 0.0001
+                end
+                local att_c = conAtt.formula[4]
+                local att_c_value = 0
+                if att_c and tmpAtt[att_c] then
+                    att_c_value = tmpAtt[att_c]
+                end
+                tmpAttMap[attTag] = att_a_value * att_b_value + att_c_value
+            elseif conAtt.formula[1] == 2 then
+                local att_c = conAtt.formula[3]
+                local att_c_value = 0
+                if att_c and tmpAtt[att_c] then
+                    att_c_value = tmpAtt[att_c]
+                end
+                tmpAttMap[attTag] = att_a_value + att_c_value
+            else
+                BattleLogger.log_error("??? 新得属性计算公式 ！！！", conAtt.formula[1])
+            end
+        end
+    end
+    return tmpAttMap
+end
+
+return M

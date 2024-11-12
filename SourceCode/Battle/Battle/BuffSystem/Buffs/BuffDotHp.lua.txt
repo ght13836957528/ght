@@ -1,0 +1,82 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:52:45 星期一
+--------- Dot
+----------------------------------------------------------------------
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local TriggerTimeType = require "GameLogic.Battle.Common.TriggerTimeType"
+-- local BattleEventId = require "GameLogic.Battle.BattleEvent.BattleEventId"
+---@class BuffDotHp:BasePersistentBuff
+local BuffDotHp = class("BuffDotHp", BasePersistentBuff)
+local M = BuffDotHp
+
+function M:_onInitialize()
+    -- 其他初始化
+    self.timeCounter = 0
+
+    self.result = 0
+end
+
+--- buff创建开始生效前的处理
+function M:_onEnter()
+    self:_initDotAtt()
+    self:_doModify()
+end
+
+function M:_onUpdate(deltaTime)
+    self.timeCounter = self.timeCounter + deltaTime
+    if self.timeCounter >= BattleConstant.BuffDotOrHotInterval then
+        self:_doModify()
+        self.timeCounter = 0
+    end
+end
+
+function M:_onExit()
+    self.result = 0
+end
+
+function M:_initDotAtt()
+    local fromCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.fromId)
+
+    --- 血量
+    local hpMax = fromCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_HP_1)
+    BattleLogger.logNumerical("血量上限 : ", hpMax)
+    --- 血量百分比
+    local hp_percent = self.buffParams[2] or 0
+    hp_percent = hp_percent * 0.01
+
+    -- --- 杀伤力
+    -- local attValue = self:GetAttValue(fromCharacter)
+    -- BattleLogger.logNumerical("杀伤力 : ", attValue)
+    -- --- 物理 或者 魔法伤害
+    -- local hitValue = self:GetHitValue(fromCharacter, self.hostCharacter, attValue, self.buffParams)
+    --- 相克系数
+    local beC_k = self:controlK(fromCharacter, self.hostCharacter)
+    BattleLogger.logNumerical("相克系数 : ", beC_k)
+    --- 等级相克系数
+    local level_k = self:levelCon(fromCharacter, self.hostCharacter)
+    BattleLogger.logNumerical("等级相克系数 : ", level_k)
+
+    local result = hpMax * hp_percent * beC_k * level_k
+    result = FixedCalculateHandler:keepPoint(result, 0)
+    result = result <= 0 and 1 or result
+    BattleLogger.logNumerical("最终伤害 : ", result)
+    self.result = result
+end
+
+function M:_doModify()
+    -- self.hostCharacter:GetLogicHandle():AcceptDamage(self.fromId,self.result)
+    --- 造成伤害时的事件
+    -- BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_TRIGGER_EVENT, TriggerTimeType.TriggerTime_OnHurt)
+
+    BattleLogger.log("每秒治疗：", self.result)
+
+    self.hostCharacter:GetLogicHandle():AddHp(self.fromId, self.result)
+    ---- 造成伤害时的事件
+    -- BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_TRIGGER_EVENT, TriggerTimeType.TriggerTime_OnAcceptCure)
+end
+
+return M

@@ -1,0 +1,628 @@
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleDataHandler = require "GameLogic.Battle.BattleModel.BattleDataHandler"
+local BattleEventId = BattleEventId
+local ConfigHandler = ConfigHandler
+local BattleHelper = {}
+local _lang = _lang
+-- 1 被 4 克制
+local controlMap = {
+    [1] = 4,
+    [2] = 1,
+    [3] = 2,
+    [4] = 3,
+    [5] = 6,
+    [6] = 5,
+}
+--- 克制
+function BattleHelper:isBeControl(sHeroId, mHeroId)
+    local heroCon_s = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, sHeroId)
+    local heroCon_m = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, mHeroId)
+    if heroCon_s == nil then
+        BattleLogger.log_error("Hero_Detail 找不到hero 数据", sHeroId)
+        return false
+    end
+
+    if heroCon_m == nil then
+        BattleLogger.log_error("Hero_Detail 找不到hero 数据", mHeroId)
+        return false
+    end
+
+    local s_race = heroCon_s.race or 0
+    local m_race = heroCon_m.race or 0
+    return controlMap[m_race] and controlMap[m_race] == s_race
+end
+
+function BattleHelper:getTriggerEventIdByType(type)
+    if type then
+        if type == BattleEnum.TriggerTime.EnterBattle_1 then
+            return BattleEventId.TriggerTime_EnterBattle_1
+        elseif type == BattleEnum.TriggerTime.OutputDamage_2 then
+            return BattleEventId.TriggerTime_OutputDamage_2
+        elseif type == BattleEnum.TriggerTime.InputDamage_3 then
+            return BattleEventId.TriggerTime_InputDamage_3
+        elseif type == BattleEnum.TriggerTime.OutputCure_4 then
+            return BattleEventId.TriggerTime_OutputCure_4
+        elseif type == BattleEnum.TriggerTime.InputCure_5 then
+            return BattleEventId.TriggerTime_InputCure_5
+        elseif type == BattleEnum.TriggerTime.GetBuff_6 then
+            return BattleEventId.TriggerTime_GetBuff_6
+        elseif type == BattleEnum.TriggerTime.RemoveBuff_7 then
+            return BattleEventId.TriggerTime_RemoveBuff_7
+        elseif type == BattleEnum.TriggerTime.OnOneSDeathbed_8 then
+            return BattleEventId.TriggerTime_OnOneSDeathbed_8
+        elseif type == BattleEnum.TriggerTime.OnDied_9 then
+            return BattleEventId.TriggerTime_OnDied_9
+        elseif type == BattleEnum.TriggerTime.Kill_10 then
+            return BattleEventId.TriggerTime_Kill_10
+        elseif type == BattleEnum.TriggerTime.OnOtherDied_11 then
+            return BattleEventId.TriggerTime_OnOtherDied_11
+        elseif type == BattleEnum.TriggerTime.OnBattleStart_12 then
+            return BattleEventId.TriggerTime_OnBattleStart_12
+        elseif type == BattleEnum.TriggerTime.HpChange_13 then
+            return BattleEventId.TriggerTime_HpChange_13
+        elseif type == BattleEnum.TriggerTime.PlaySkill_14 then
+            return BattleEventId.TriggerTime_PlaySkill_14
+        elseif type == BattleEnum.TriggerTime.CharacterNumberChange_15 then
+            return BattleEventId.TriggerTime_CharacterNumberChange_15
+        elseif type == BattleEnum.TriggerTime.PosChange_16 then
+            return BattleEventId.TriggerTime_PosChange_16
+        elseif type == BattleEnum.TriggerTime.DischargeSkill_17 then
+            return BattleEventId.TriggerTime_DischargeSkill_17
+        elseif type == BattleEnum.TriggerTime.Time_Update_18 then
+            return BattleEventId.TriggerTime_Time_Update_18
+        else
+            BattleLogger.log_error("未处理得被动类型！！！", type)
+        end
+    end
+end
+
+----ppppppppppppppppppppppppppppppppppppppppppppppp
+function BattleHelper:getTeamTypeByGamePlay(gamePlayType)
+    if gamePlayType == BattleEnum.BattlePlayType.Normal or gamePlayType == BattleEnum.BattlePlayType.PVE_Common then
+        return BattleEnum.TeamType.NormalTeam_one
+    elseif gamePlayType == BattleEnum.BattlePlayType.Explore then
+        return BattleEnum.TeamType.Explore_team
+    elseif gamePlayType == BattleEnum.BattlePlayType.Arena then
+        return BattleEnum.TeamType.ArenaTeam_Attack
+    elseif gamePlayType == BattleEnum.BattlePlayType.MoreTeamArena then
+        return BattleEnum.TeamType.MoreTeamArena_Attack
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve
+        or gamePlayType == BattleEnum.BattlePlayType.World_Pvp
+        or gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss
+        or gamePlayType == BattleEnum.BattlePlayType.World_Pve_Mass
+        or gamePlayType == BattleEnum.BattlePlayType.World_Pve_Port
+        or gamePlayType == BattleEnum.BattlePlayType.World_Pve_BigWorld
+        or gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss_Win then
+        return BattleEnum.TeamType.WorldTeam
+    elseif gamePlayType == BattleEnum.BattlePlayType.SecretArea then
+        return BattleEnum.TeamType.Mystery_team
+    elseif gamePlayType == BattleEnum.BattlePlayType.TopOfTheHour then
+        return BattleEnum.TeamType.TopOfTime_team
+    elseif gamePlayType == BattleEnum.BattlePlayType.Guide_Pve then
+        return BattleEnum.TeamType.Guide_Team
+    else
+        BattleLogger.log_error("未处理得玩法类型 : ", gamePlayType)
+    end
+end
+
+----ppppppppppppppppppppppppppppppppppppppppppppppp
+function BattleHelper:getBattleOperationType(gamePlayType)
+    if gamePlayType == BattleEnum.BattlePlayType.Normal or gamePlayType == BattleEnum.BattlePlayType.PVE_Common then
+        return BattleEnum.BattleOperationType.CanOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.Explore then
+        return BattleEnum.BattleOperationType.CanOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.Arena then
+        return BattleEnum.BattleOperationType.NoOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.MoreTeamArena then
+        return BattleEnum.BattleOperationType.NoOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve then
+        return BattleEnum.BattleOperationType.NoOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.SecretArea then
+        return BattleEnum.BattleOperationType.CanOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.TopOfTheHour then
+        return BattleEnum.BattleOperationType.NoOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pvp then
+        return BattleEnum.BattleOperationType.NoOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.Guide_Pve then
+        return BattleEnum.BattleOperationType.CanOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss then
+        return BattleEnum.BattleOperationType.NoOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Mass then
+        return BattleEnum.BattleOperationType.NoOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Port then
+        return BattleEnum.BattleOperationType.NoOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_BigWorld then
+        return BattleEnum.BattleOperationType.CanOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss_Win then
+    	return BattleEnum.BattleOperationType.NoOperation
+    elseif gamePlayType == BattleEnum.BattlePlayType.Mowing then
+        return BattleEnum.BattleOperationType.NoOperation
+    else
+        BattleLogger.log_error("未处理得玩法类型 : ", gamePlayType)
+        return BattleEnum.BattleOperationType.NoOperation
+    end
+end
+
+----ppppppppppppppppppppppppppppppppppppppppppppppp
+function BattleHelper:getLogicTypeByBattleType(gamePlayType)
+    if gamePlayType == BattleEnum.BattlePlayType.Normal or gamePlayType == BattleEnum.BattlePlayType.PVE_Common then
+        return BattleEnum.BattleLogicType.PVE
+    elseif gamePlayType == BattleEnum.BattlePlayType.Explore then
+        return BattleEnum.BattleLogicType.PVE
+    elseif gamePlayType == BattleEnum.BattlePlayType.Arena then
+        return BattleEnum.BattleLogicType.PVP
+    elseif gamePlayType == BattleEnum.BattlePlayType.MoreTeamArena then
+        return BattleEnum.BattleLogicType.PVP
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve then
+        return BattleEnum.BattleLogicType.PVE
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pvp then
+        return BattleEnum.BattleLogicType.PVP
+    elseif gamePlayType == BattleEnum.BattlePlayType.SecretArea then
+        return BattleEnum.BattleLogicType.PVP
+    elseif gamePlayType == BattleEnum.BattlePlayType.TopOfTheHour then
+        return BattleEnum.BattleLogicType.PVE
+    elseif gamePlayType == BattleEnum.BattlePlayType.Guide_Pve then
+        return BattleEnum.BattleLogicType.PVE
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss then
+        return BattleEnum.BattleLogicType.PVE
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Mass then
+        return BattleEnum.BattleLogicType.PVE
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Port then
+        return BattleEnum.BattleLogicType.PVE
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_BigWorld then
+        return BattleEnum.BattleLogicType.PVE
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss_Win then
+        return BattleEnum.BattleLogicType.PVE
+    else
+        BattleLogger.log_error("未处理得玩法类型 : ", gamePlayType)
+    end
+end
+
+---治疗
+function BattleHelper:ModifiedSummonEffValue_Cure(value)
+    return value
+end
+
+---减伤
+function BattleHelper:ModifiedSummonEffValue_ReduceHarm(value)
+    return value
+end
+
+---护盾
+function BattleHelper:ModifiedSummonEffValue_Shield(value)
+    return value
+end
+
+function BattleHelper:GetBattleJpIsShow()
+    local isShow = StorageUtils:getPrivateNumberWithDefaultValue("BattleJpIsShow", 1) == 1
+    local close = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleSwitch_ShowCombatInfo") == 2
+    return isShow or close
+end
+
+function BattleHelper:SetBattleJpIsShow(isShow)
+    StorageUtils:setNumber("BattleJpIsShow", isShow and 1 or 2)
+end
+
+function BattleHelper:GetBattleHpIsShow()
+    local default_hp = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleSwitch_ShowLifeBarDefaultIsOn") or 2
+    local isShow = StorageUtils:getPrivateNumberWithDefaultValue("BattleHpIsShow", default_hp) == 1
+    local close = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleSwitch_ShowLifeBar") == 2
+    return isShow or close
+end
+
+function BattleHelper:SetBattleHpIsShow(isShow)
+    StorageUtils:setPrivateNum("BattleHpIsShow", isShow and 1 or 2)
+end
+
+function BattleHelper:GetBattleGridIsShow()
+    return StorageUtils:getPrivateNumberWithDefaultValue("BattleGridIsShow", 2) == 1
+end
+
+function BattleHelper:SetBattleGridIsShow(isShow)
+    StorageUtils:setPrivateNum("BattleGridIsShow", isShow and 1 or 2)
+end
+
+function BattleHelper:setBattleSpeedSet(gameType, speed)
+    StorageUtils:setPrivateNum(string.format("BattleSpeed_%s", gameType), speed)
+end
+
+---@param isAuto boolean
+function BattleHelper:setBattleAutoSet(gameType, isAuto)
+    local isAutoNum = isAuto and 2 or 1
+    StorageUtils:setPrivateNum(string.format("BattleAuto_%s", gameType), isAutoNum)
+end
+
+function BattleHelper:getBattleSpeed(gameType)
+    return StorageUtils:getPrivateNumberWithDefaultValue(string.format("BattleSpeed_%s", gameType), 1)
+end
+
+function BattleHelper:getBattleAuto(gameType)
+    return StorageUtils:getPrivateNumberWithDefaultValue(string.format("BattleAuto_%s", gameType), 1)
+end
+
+----ppppppppppppppppppppppppppppppppppppppppppppppp
+function BattleHelper:getBattleSceneId(battleType, targetId)
+    local gamePlayType = battleType or 1
+    local targetId = targetId
+    if gamePlayType == BattleEnum.BattlePlayType.Normal
+        or gamePlayType == BattleEnum.BattlePlayType.Guide_Pve
+        or gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss
+        or gamePlayType == BattleEnum.BattlePlayType.Explore
+        or gamePlayType == BattleEnum.BattlePlayType.PVE_Common
+        or gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss_Win then
+        if targetId == nil then
+            BattleLogger.log_error("推图targetID不能为空 : ", targetId)
+            return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_Default")
+        else
+            local con = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, targetId)
+            if con and con.sceneSrc then
+                return con.sceneSrc
+            else
+                BattleLogger.log_error("Stage_Battle.sceneSrc不能为空 : ", targetId)
+                return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_Default")
+            end
+        end
+        -- elseif gamePlayType == BattleEnum.BattlePlayType.Explore then
+        --     return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_Default")
+    elseif gamePlayType == BattleEnum.BattlePlayType.Arena then
+        return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_Arena")
+    elseif gamePlayType == BattleEnum.BattlePlayType.MoreTeamArena then
+        return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_MultiteamArena")
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve then
+        return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_WorldTeam")
+    elseif gamePlayType == BattleEnum.BattlePlayType.SecretArea then
+        return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_Default")
+    elseif gamePlayType == BattleEnum.BattlePlayType.TopOfTheHour then
+        return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_Default")
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pvp then
+        return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_WorldTeam")
+    else
+        BattleLogger.log_error("未处理得玩法类型 : ", gamePlayType)
+        return ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleScene_Default")
+    end
+end
+
+---@param battleInfo BattleInfo
+function BattleHelper:getBattleSpeedByBattleInfo(battleInfo)
+    local clientFrame = battleInfo.clientFrame or {}
+    local clientData = clientFrame[-1] or {}
+    local zero_frame = clientData.frameData or {}
+    for _, frameData in ipairs(zero_frame) do
+        if frameData.eventId == BattleEventId.Event_Battle_Logic_BattleSpeed then
+            return frameData.data or 1
+        end
+    end
+    return 1
+end
+
+---@param battleInfo BattleInfo
+function BattleHelper:getBattleAutoByBattleInfo(battleInfo)
+    local battleType = battleInfo.battleType
+    local isCanOperation = self:getBattleOperationType(battleType) == BattleEnum.BattleOperationType.CanOperation
+    if isCanOperation then
+        local clientFrame = battleInfo.clientFrame or {}
+        local clientData = clientFrame[-1] or {}
+        local zero_frame = clientData.frameData or {}
+        for _, frameData in ipairs(zero_frame) do
+            if frameData.eventId == BattleEventId.Event_Battle_Logic_AutoBattle then
+                return frameData.data or BattleEnum.BattleIsAuto.manual
+            end
+        end
+        -- 1
+        return BattleHelper:getBattleAuto(battleType)
+    else
+        return BattleEnum.BattleIsAuto.auto
+    end
+end
+
+function BattleHelper:packBattlefieldReport(battleType, worldBattleData)
+    local result = {}
+
+    if battleType == BattleEnum.BattlePlayType.World_Pve
+        or battleType == BattleEnum.BattlePlayType.World_Pvp
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Boss
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Boss_Win then
+        result.worldBattleData = worldBattleData
+    end
+    return result
+end
+
+---@return BattleResult
+function BattleHelper:packBattleResult(battleEndData)
+    ---@type BattleResult
+    local result = {}
+    result.battleUuid = battleEndData.battleSceneUUId
+    result.result = battleEndData.result
+
+    result.battlefieldReport = BattleHelper:packFieldReport(battleEndData)
+    result.worldData = BattleHelper:packWorldData(battleEndData)
+    return result
+end
+
+---@return BattlefieldReport
+function BattleHelper:packFieldReport(battleEndData)
+    ---@type BattlefieldReport
+    local result = {}
+    result.battleTotalTime = battleEndData.worldData.battleTotalTime
+    ---@type StatisticData
+    local left = self:packStatisticData(battleEndData.gamePlayType, battleEndData.left)
+    local right = self:packStatisticData(battleEndData.gamePlayType, battleEndData.right)
+    result.left = left
+    result.right = right
+    return result
+end
+
+---@return StatisticData
+function BattleHelper:packStatisticData(gamePlayType, teamData)
+    ---@type StatisticData
+    local result = {}
+    local posStatisticData = {}
+    for _, info in pairs(teamData.teamSet) do
+        local pos = tostring(info.battlePos)
+        ---@type PosStatisticData
+        local posStaData = {}
+        local minorWoundNum, severeWoundNum = BattleHelper:getTroopsLossNum(info)
+        posStaData.minorWound = minorWoundNum
+        posStaData.severeWound = severeWoundNum
+        posStaData.hpBase = info.hpBase
+        posStaData.hpCurrent = info.hpCurrent
+        posStaData.power = info.power or 0
+        posStatisticData[pos] = BattleHelper:copyStatisticalData(posStaData, info.statisticalData)
+    end
+    result.posStatisticData = posStatisticData
+    return result
+end
+
+function BattleHelper:copyStatisticalData(posStaData, statisticalData)
+    local ks = BattleEnum.NumericalTypeToString or {}
+    for key, value in pairs(statisticalData) do
+        local k = ks[key]
+        if k == nil then
+            k = "unKnow" .. key
+        end
+        posStaData[k] = math.floor(value)
+    end
+    return posStaData
+end
+
+function BattleHelper:getTroopsLossNum(info)
+    local soldiersMap = info.soldiersMap
+    local totalTroop = 0
+    for _, value in pairs(soldiersMap) do
+        totalTroop = totalTroop + value
+    end
+    if totalTroop <= 0 then
+        print(">>> error 兵力不能未0")
+        return 0, 0
+    end
+    local onceHp = info.hpBase // totalTroop
+    local severeWound = info.troopsLoss.severeWound
+    local minorCure = info.troopsLoss.minorCure
+    local minorWound = info.troopsLoss.minorWound
+    local total = severeWound + minorWound - minorCure
+    local totalNum = total // onceHp
+    local severeWoundNum = severeWound // onceHp
+    local minorWoundNum = totalNum - severeWoundNum
+    return minorWoundNum, severeWoundNum
+end
+
+function BattleHelper:packWorldData(battleEndData)
+    -- do
+    --     return battleEndData.worldData
+    -- end
+    if battleEndData and battleEndData.gamePlayType then
+        if battleEndData.gamePlayType == BattleEnum.BattlePlayType.World_Pve
+            or battleEndData.gamePlayType == BattleEnum.BattlePlayType.World_Pvp
+            or battleEndData.gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss
+            or battleEndData.gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss_Win
+        then
+            return battleEndData.worldData
+        end
+    end
+end
+
+--- 战斗结算要用得数据
+function BattleHelper:handleBattleUserData(userData, pushData)
+    -- local playInfo = Game.BusinessManager.PlayerInfoManager:GetMyPlayerInfo()
+    -- userData.left.uuid = playInfo.uid
+    -- userData.left.name = playInfo.name
+    -- userData.left.headIcon = playInfo.pic or "hero_head_12"
+    -- userData.left.combat = 0
+    -- for _, value in pairs(userData.left.teamSet) do
+    --     userData.left.combat = userData.left.combat + value.battleData._combat
+    -- end
+
+    -- local targetId = pushData.battleInfo.targetId
+    -- local con_strike = ConfigHandler:GetEntry(GameDefine.TableName.Strike_Pirate_Enemy, targetId)
+    -- local con_stage = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, con_strike.stageBattle)
+    -- local enemyInfoId = con_stage.enemyInfo or 11
+    -- local con_hero = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, enemyInfoId)
+    -- userData.right.uuid = "-1"
+    -- userData.right.name = _lang(con_hero.name)
+    -- userData.right.headIcon = con_hero.icon or "hero_head_12"
+    -- userData.right.combat = 0
+    -- for _, value in pairs(userData.right.teamSet) do
+    --     userData.right.combat = userData.right.combat + value.battleData._combat
+    -- end
+    return userData
+end
+
+function BattleHelper:getDiedEff(heroId)
+    if heroId then
+        local config = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+        if config and config.dieEffect then
+            return config.dieEffect
+        else
+            return "Effect_Common_Die"
+        end
+    else
+        return "Effect_Common_Die"
+    end
+end
+
+function BattleHelper:newFrameServerData(frame, battleEventId, speed)
+    return {
+        frame = frame,
+        eventId = battleEventId,
+        data = speed,
+    }
+end
+
+function BattleHelper:isControlBuffForDomination(buffConfig)
+    local g_BattleImmuneControlBuff = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleImmuneControlBuff") or
+        {}
+    local tmp = {}
+    for index, value in ipairs(g_BattleImmuneControlBuff) do
+        tmp[value] = index
+    end
+    local effList = buffConfig.eff or {}
+    for _, effInfo in ipairs(effList) do
+        if tmp[effInfo[1]] then
+            return true
+        end
+    end
+    return false
+end
+
+function BattleHelper:getBattleStartClientFrame(battleType)
+    local frame = -1
+    local speed = BattleHelper:getBattleSpeed(battleType)
+    local auto = BattleHelper:getBattleAuto(battleType)
+    local zero_frame_data = {}
+    table.insert(zero_frame_data,
+        BattleHelper:newFrameServerData(frame, BattleEventId.Event_Battle_Logic_BattleSpeed, speed))
+    table.insert(zero_frame_data,
+        BattleHelper:newFrameServerData(frame, BattleEventId.Event_Battle_Logic_AutoBattle, auto))
+    return { [frame] = { frameData = zero_frame_data } }
+end
+
+function BattleHelper:getHeroModelSrc(heroId, sex)
+    --- 海格力斯  全游戏唯一一个最特殊得将
+    if heroId == 101 then
+        if sex == 1 or sex == 0 then
+            local heroShowCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+            return heroShowCon.src or "Assets/GameAsset/Role/Baron/Baron_man.prefab"
+        else
+            return "Assets/GameAsset/Role/LowModel/101_Hercules_female/prefab/101_Hercules_Battle_female.prefab"
+        end
+    else
+        local heroShowCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+        return heroShowCon.src or "Assets/GameAsset/Role/Baron/Baron_man.prefab"
+    end
+end
+
+function BattleHelper:getHeroModelIcon(heroId, sex)
+    --- 海格力斯  全游戏唯一一个最特殊得将
+    if heroId == 101 then
+        if sex == 1 or sex == 0 then
+            local heroShowCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+            return heroShowCon.icon
+        else
+            return "hero_head_101_female"
+        end
+    else
+        local heroShowCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+        return heroShowCon.icon
+    end
+end
+
+--释放技能立绘
+function BattleHelper:getHeroModelImg(heroId, sex)
+    if heroId == 101 then
+        if sex == 1 or sex == 0 then
+            local heroShowCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+            return heroShowCon.img3
+        else
+            local characterShowInfo = ConfigHandler:GetDataTable(GameDefine.TableName.Character_Show_Info)
+            return characterShowInfo.hero_img3[2]
+        end
+    else
+        local heroShowCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+        return heroShowCon.img3
+    end
+end
+
+function BattleHelper:getBattleBGM(gamePlayType)
+    if gamePlayType == BattleEnum.BattlePlayType.Normal then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.PVE_Common then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.Explore then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.Arena then
+        return "bgm_battle_colosseum"
+    elseif gamePlayType == BattleEnum.BattlePlayType.MoreTeamArena then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.SecretArea then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.TopOfTheHour then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pvp then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.World_Pve_Boss_Win then
+        return "bgm_battle_common"
+    elseif gamePlayType == BattleEnum.BattlePlayType.Guide_Pve then
+        return "bgm_battle_common"
+    else
+        BattleLogger.log_error("未处理得玩法类型 : ", gamePlayType)
+        return "bgm_battle_common"
+    end
+end
+
+function BattleHelper:IsNewbiesStrikePirateNotBack(customId)
+    local guideCustomIds = ConfigHandler:GetEntry(GameDefine.TableName.Global, "NewbiesStrikePirateNotBack") or {}
+    for _, id in pairs(guideCustomIds) do
+        if customId and customId == id then
+            return true
+        end
+    end
+    return false
+end
+
+function BattleHelper:getPvpTestData()
+    return {}
+end
+
+function BattleHelper:transitionFrame(frame)
+    local s = BattleConstant.LogicBaseFPS / BattleConstant.FPS
+    return math.ceil(frame / s)
+end
+
+function BattleHelper:getRemanentAttValue(attId, attInfo)
+    for _, info in pairs(attInfo) do
+        if attId == info.id then
+            return info.value
+        end
+    end
+    return 0
+end
+
+---@return hp , 损失得万分比
+function BattleHelper:GetWorldBossHp(id, map)
+    if id == nil or map == nil then
+        return 0, 0
+    end
+    local teamMap = BattleDataHandler:packEnemyRobotDataList_normal(id, map)
+    for _, info in pairs(teamMap) do
+        if info._isBoss then
+            return info._attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1],
+                info._attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_LOSS_5]
+        end
+    end
+end
+
+-- function BattleHelper:GetNavyConfigByLevel(level)
+--     local configId = level
+--     if configId == 0 then
+--         ---------- 别问我为什么这么写 因为有煞笔 但是我不想改了 就这样儿吧 毁灭吧
+--         configId = 11
+--     end
+--     return ConfigHandler:GetEntry(GameDefine.TableName.Navy, configId)
+-- end
+
+return BattleHelper

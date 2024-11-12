@@ -1,0 +1,189 @@
+require "GameLogic.NewGuide.Trigger.GuideTriggerType"
+
+---@class GuideTriggerManager @引导触发器管理器
+local GuideTriggerManager = class("GuideTriggerManager")
+local M = GuideTriggerManager
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+local cannotInterrupt = false
+
+function M:ctor()
+    self._conditionGroups = {}
+    self._isStartInfoGroups = {}
+end
+
+function M:initListener()
+    local versionControl = GuideManager.getGuideVersionControl()
+    local tableName = versionControl:getCurGuideName()
+    if CS.CommonUtils:CheckIsNewCity() then
+        return;
+    end
+    if string.isNilOrEmpty(tableName) then
+        print_error("versionControl tableName is nil")
+        return
+    end
+    print("versionControl guide table name is "..tableName)
+    local configTable
+    if GuideManager.ifUseLocalLuaConfig() then
+        configTable = DataTable.getTable(tableName)
+    else
+        configTable = CS.LuaDataTableUtil.GetDatable(tableName)
+    end
+    for _,v in pairs(configTable) do
+        if v.type == GuideStepType.trigger then
+            v.triggerType = tonumber(v.triggerType)
+            local condition = self:_createCondition(v.triggerType)
+            if condition then
+                condition:parse(v)
+                local group = self._conditionGroups[v.triggerType]
+                if not group then
+                    group = {}
+                    self._conditionGroups[v.triggerType] = group
+                end
+                table.insert(group, condition)
+            end
+        end
+        if v.isStart and tonumber(v.isStart) == 1 then
+            table.insert(self._isStartInfoGroups, v)
+        end
+    end
+   
+    self.cSharpCallBack = function(sender, eventArg)
+        self:onRecCSharpTrigger(sender, eventArg)
+    end
+    self:addEventListener()
+end
+
+function M:onRecCSharpTrigger(sender,eventArg)
+    local triggerType
+    if eventArg.UserData then
+        triggerType = eventArg.UserData
+    elseif eventArg.TriggerType then
+        triggerType = eventArg.TriggerType
+    end
+    local param 
+    if eventArg and eventArg.Param then
+        param = eventArg.Param
+    end
+    self:onTrigger(triggerType,param)
+end
+
+function M:addEventListener()
+    BroadcastEvent.subscribe(GuideEvent.Trigger, self.onTrigger, self)
+    GameEntry.Event:Subscribe(CS.EventId.GuideEvent_Trigger, self.cSharpCallBack )
+end
+
+function M:removeEventListener()
+    BroadcastEvent.unsubscribe(GuideEvent.Trigger, self.onTrigger, self)
+    if self.cSharpCallBack then
+        GameEntry.Event:Unsubscribe(CS.EventId.GuideEvent_Trigger, self.cSharpCallBack )
+    end
+end
+
+function M:onTrigger(triggerType, ...)
+    if not triggerType then
+        print_error("triggerType is nil")
+        return
+    end
+    
+    local conditionGroup = self._conditionGroups[triggerType]
+    if not conditionGroup then
+        return
+    end
+    
+    -- 查找匹配条件
+    local args = {...}
+    ---@type GuideTriggerCondition
+    local matchCondition
+    for _, v in ipairs(conditionGroup) do
+        --todo : 预留多参数，如果某种类型的触发器条件判断需要多个参数，可以在这里拓展
+        if v:equals(args[1]) then
+            matchCondition = v
+            break
+        end
+    end
+
+    --没有找到匹配条件
+    if not matchCondition then
+        return
+    end
+
+    GuideManager.recordCurStep(matchCondition.id,0)
+    if matchCondition.isNeedRecord == 1 then
+        GuideManager.recordStep(matchCondition.id)
+    end
+    GuideManager.recordCurStep(matchCondition.id,1)
+    --当前正在播放的引导步骤等待触发执行下一步
+    if GuideManager.isRunning() then
+        local curStepId = GuideManager.getCurStepId()
+        if curStepId == matchCondition.id then
+            GuideManager._moveNext()
+            return
+        else
+            if cannotInterrupt then
+                print("打断引导，接收到的id为"..matchCondition.id)
+                local guideInfo = GuideManager.getGuideInfo()
+                guideInfo:addToDoGuideIdList(matchCondition.jumpId)
+            end
+        end
+    end
+    
+    --触发一段新的引导
+    GuideManager.play(matchCondition.jumpId)
+end
+
+---@generic T : GuideTriggerCondition
+---@param triggerType GuideTriggerType 引导触发类型
+---@return T
+function M:_createCondition(triggerType)
+    -- todo : 如果某种类型的触发器条件特殊，可以在这里拓展
+    local condition = GuideFactory.createCondition(triggerType)
+    return condition
+end
+
+---判断当前taskId是否有对应的GuideId
+---@param taskId string 引导触发类型
+---@return boolean
+function M:getIfHaveGuideByTaskId(taskId)
+    for k,v in pairs(self._isStartInfoGroups) do
+        if v and v.taskId and v.taskId == tonumber(taskId) then
+            return true
+        end
+    end
+    return false
+end
+
+
+---判断当前Trigger类型是否已经完成
+---@param stepInfo GuideStepBaseInfo 引导步骤数据
+---@return boolean
+function M:checkTriggerIfHasFinished(stepInfo)
+    local triggerType = stepInfo.triggerType
+    if string.isNilOrEmpty(triggerType) then
+        print_error("triggerType is nil,id==="..stepInfo.id)
+        return
+    end
+    local conditionGroup = self._conditionGroups[triggerType]
+    if not conditionGroup then
+        return
+    end
+    local ifComplete = false
+    local triggerCondition 
+    for _, v in ipairs(conditionGroup) do
+        if stepInfo.id == v.id then
+            triggerCondition = v
+            break
+        end
+    end
+    if triggerCondition:ifStepActionComplete(stepInfo) then
+        ifComplete = true
+    end
+    return ifComplete
+end
+
+function M:dispose()
+    self:removeEventListener()
+    self._conditionGroups = {}
+    self._isStartInfoGroups = {}
+end
+
+return M

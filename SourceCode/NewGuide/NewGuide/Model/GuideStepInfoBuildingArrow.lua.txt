@@ -1,0 +1,20 @@
+---@class GuideStepInfoBuildingArrow : GuideStepBaseInfo @引导步骤等待类型数据结构
+---@field public time number 持续时间
+---@field public gridPos string 网格坐标  例：26;39
+local GuideStepInfoBuildingArrow = class("GuideStepInfoBuildingArrow", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoBuildingArrow
+
+function M:onParse(params)
+    self.time = params.time
+    self.gridPos = params.gridPos
+end
+
+--手动调用，不走表 初始哈
+function M:initData(params)
+    self.id = ""  --默认是空
+    self.type = GuideStepType.buildingArrow
+    self.time = params.time
+    self.gridPos = params.gridPos
+end
+
+return M

@@ -1,0 +1,401 @@
+local Vector2 = Vector2
+local Vector2Int = Vector2Int
+local Point = require "GameLogic.Battle.BattleAStar.Point"
+local BattleLogger = BattleLogger
+--- @class AStar
+local AStar = class("AStar")
+function AStar:Ctor()
+    self._startPos = nil
+    self._width = 0
+    self._height = 0
+    self._gridSize = 0
+    ---@type Point[]
+    self._grids = {}
+    ---@type Point[]
+    self._openList = {}
+    ---@type Point[]
+    self._closeList = {}
+
+    self._totalGrids = 0
+
+    --- 动态障碍物
+    ---@type number[]
+    self._dynamicObstacle = {}
+    ---@type Point[]
+    self._pointCache = {}
+end
+
+function AStar:Init(width, height, gridSize, startPosX, startPosZ)
+    self._width = width
+    self._height = height
+    self._gridSize = gridSize
+    self._startPos = Vector2(startPosX, startPosZ)
+    self._totalGrids = width * height
+
+    self:InitGrids()
+end
+
+function AStar:InitGrids()
+    for i = 1, self._height do
+        for j = 1, self._width do
+            local h = i - 1
+            local index = j + h * self._width
+            self._grids[index] = Point.new(j, i)
+        end
+    end
+end
+
+function AStar:SetStaticObstacle(x, z, isObstacle)
+    local obstaclePos = Vector2(x, z) - self._startPos
+    local targetIndexX, targetIndexZ = self:GetIndexByPos(obstaclePos)
+    local targetIndex = targetIndexX + (targetIndexZ - 1) * self._width
+    if #self._grids >= targetIndex then
+        self._grids[targetIndex]:SetObstacle(isObstacle)
+    end
+end
+
+function AStar:SetDynamicObstacle(x, z, isObstacle)
+    local obstaclePos = Vector2(x, z) - self._startPos
+    local targetIndexX, targetIndexZ = self:GetIndexByPos(obstaclePos)
+    local targetIndex = targetIndexX + (targetIndexZ - 1) * self._width
+    self:SetDynamicObstacleByIndex(targetIndex, isObstacle)
+end
+
+function AStar:SetDynamicObstacleByIndex(targetIndex, isObstacle)
+    if self._totalGrids >= targetIndex then
+        self._dynamicObstacle[targetIndex] = isObstacle and 1 or 0
+    end
+end
+
+function AStar:IsObstacleByPos(x, z)
+    local obstaclePos = Vector2(x, z) - self._startPos
+    local targetIndexX, targetIndexZ = self:GetIndexByPos(obstaclePos)
+    return self:IsObstacleByXZ(targetIndexX, targetIndexZ)
+end
+
+function AStar:IsObstacleByXZ(x, z)
+    local targetIndex = x + (z - 1) * self._width
+    return self:IsObstacleByIndex(targetIndex)
+end
+
+---@param point Point
+function AStar:IsObstacleByPoint(point)
+    return self:IsObstacleByXZ(point._x, point._z)
+end
+
+function AStar:IsObstacleByIndex(gridIndex)
+    if self._totalGrids >= gridIndex then
+        local dy = self._dynamicObstacle[gridIndex] or 0
+        local grid = self._grids[gridIndex]
+        if grid == nil then
+            BattleLogger.log_error(" ???  gridIndex == ", gridIndex)
+        end
+        return self._grids[gridIndex]._isObstacle or dy > 0
+    end
+    return true
+end
+
+function AStar:IsStaticObstacle(gridIndex)
+    if self._totalGrids >= gridIndex and gridIndex > 0 then
+        return self._grids[gridIndex]._isObstacle
+    end
+    return true
+end
+
+function AStar:IsDynamicObstacle(gridIndex)
+    if gridIndex <= 0 or gridIndex > #self._totalGrids then
+        return false
+    end
+    local tmp = self._dynamicObstacle[gridIndex] or 0
+    return tmp > 0
+end
+
+function AStar:SetStaticObstacles(arrIndex)
+    for _, value in ipairs(arrIndex) do
+        self:SetStaticObstacleByIndex(value)
+    end
+end
+
+function AStar:SetStaticObstacleByIndex(index)
+    if #self._grids >= index then
+        self._grids[index]:SetObstacle(true)
+    end
+end
+
+function AStar:SetDynamicObstacles(arrIndex)
+    for _, index in ipairs(arrIndex) do
+        if self._totalGrids >= index then
+            self._dynamicObstacle[index] = 1
+        end
+    end
+end
+
+---@return number,number
+function AStar:GetIndexByPos(pos)
+    BattleLogger.log_error("overwrite me !!!!!!!!!!   AStar:GetIndexByPos ")
+end
+
+function AStar:SetPriority(posX, posZ, value)
+    local pos = Vector2(posX, posZ) - self._startPos
+    local indexX, indexY = self:GetIndexByPos(pos)
+    if indexX < 1 or indexX > self._width or indexY < 1 or indexY > self._height then
+        return
+    end
+    local gridIndex = indexX + indexY * self._width
+    self:SetPriorityByIndex(gridIndex, value)
+end
+
+function AStar:SetPriorityByIndex(gridIndex, value)
+    if gridIndex < 1 or gridIndex > #self._grids then
+        return
+    end
+    local point = self._grids[gridIndex]
+    point:SetPriority(value)
+end
+
+---@param beginPos Vector2
+---@param endPos Vector2
+---@param resultPath Vector2[]
+function AStar:FindPath(beginPos, endPos, resultPath, includeStartPoint, usePriority, ignoreDyObstacle)
+    includeStartPoint = includeStartPoint or false
+    usePriority = usePriority or false
+    ignoreDyObstacle = ignoreDyObstacle or false
+    local startGridPos = beginPos - self._startPos
+    local endGridPos = endPos - self._startPos
+    local startIndexX, startIndexY = self:GetIndexByPos(startGridPos)
+    if startIndexX <= 0 or startIndexX > self._width or startIndexY <= 0 or startIndexY > self._height then
+        return
+    end
+    local endIndexX, endIndexY = self:GetIndexByPos(endGridPos)
+    if endIndexX <= 0 or endIndexX > self._width or endIndexY <= 0 or endIndexY > self._height then
+        return
+    end
+    local startIndex = startIndexX + (startIndexY - 1) * self._width
+    local endIndex = endIndexX + (endIndexY - 1) * self._width
+    if startIndex == endIndex then
+        return
+    end
+    local startPoint = self._grids[startIndex]
+    local endPoint = self._grids[endIndex]
+    self:FindPathByPoint(startPoint, endPoint, resultPath, includeStartPoint, usePriority, ignoreDyObstacle)
+end
+
+---@param startPoint Point
+---@param endPoint Point
+---@param resultPath Vector2[]
+function AStar:FindPathByPoint(startPoint, endPoint, resultPath, includeStartPoint, usePriority, ignoreDyObstacle, usehz)
+    includeStartPoint = includeStartPoint or false
+    usePriority = usePriority or false
+    ignoreDyObstacle = ignoreDyObstacle or false
+    usehz = usehz or false
+    if self:IsObstacleByPoint(startPoint) or self:IsObstacleByPoint(endPoint) then
+        return
+    end
+    if startPoint:Equal(endPoint) then
+        BattleLogger.log_error("起始位置与目标位置一致")
+        return
+    end
+    self._openList = {}
+    self._closeList = {}
+    table.insert(self._openList, startPoint)
+    local hasFind = false
+    while #self._openList > 0 do
+        if #self._openList > self._totalGrids then
+            break
+        end
+        ---@type Point
+        local currentPoint
+        for _, tmpPoint in ipairs(self._openList) do
+            if currentPoint == nil then
+                currentPoint = tmpPoint
+            else
+                if tmpPoint:FCost() > currentPoint:FCost() then
+                    -- nothing to do
+                else
+                    if tmpPoint:HCost() < currentPoint:HCost() then
+                        currentPoint = tmpPoint
+                    end
+                end
+            end
+        end
+        table.removebyvalue(self._openList, currentPoint)
+        table.insert(self._closeList, currentPoint)
+        if currentPoint == endPoint then
+            hasFind = true
+            break
+        end
+        if usePriority then
+            self:FindPointByPriority(currentPoint, endPoint, ignoreDyObstacle)
+        else
+            self:FindPoint(currentPoint, endPoint, ignoreDyObstacle)
+        end
+    end
+    if hasFind then
+        local currentNode = endPoint
+        repeat
+            if usehz then
+                table.insert(resultPath, Vector2(currentNode._x, currentNode._z))
+            else
+                table.insert(resultPath, self:GetPositionByPoint(currentNode))
+            end
+            currentNode = currentNode._Parent
+        until (currentNode == startPoint)
+
+        if includeStartPoint then
+            if usehz then
+                table.insert(resultPath, Vector2(currentNode._x, currentNode._z))
+            else
+                table.insert(resultPath, self:GetPositionByPoint(currentNode))
+            end
+        end
+        table.reverse(resultPath)
+    end
+end
+
+function AStar:FindPathByIndex(beginIndex, endIndex, resultPath)
+    if beginIndex < 1 or beginIndex > self._totalGrids or endIndex < 1 or endIndex > self._totalGrids or beginIndex == endIndex then
+        return
+    end
+    local startPoint = self._grids[beginIndex]
+    local endPoint = self._grids[endIndex]
+    self:FindPathByPoint(startPoint, endPoint, resultPath)
+end
+
+function AStar:FindPathHZByIndex(beginIndex, endIndex, resultPath)
+    if beginIndex < 1 or beginIndex > self._totalGrids or endIndex < 1 or endIndex > self._totalGrids or beginIndex == endIndex then
+        return
+    end
+    local startPoint = self._grids[beginIndex]
+    local endPoint = self._grids[endIndex]
+    self:FindPathByPoint(startPoint, endPoint, resultPath, false, true, false, true)
+end
+
+---@param point Point
+---@return Vector2Int[]
+function AStar:GetSurroundList(point)
+    BattleLogger.log_error("overwrite me !!!!!!!!!!  AStar:GetSurroundList ")
+end
+
+---@param point Point
+---@return Point[]
+function AStar:GetSurroundPoints(point)
+    self._pointCache = {}
+    ---@type Vector2Int
+    local points = self:GetSurroundList(point)
+    for _, offest in ipairs(points) do
+        local neighPointX = point._x + offest.x
+        local neighPointZ = point._z + offest.y
+        if self:IsValid(neighPointX, neighPointZ) then
+            local targetIndex = neighPointX + (neighPointZ - 1) * self._width
+            table.insert(self._pointCache, self._grids[targetIndex])
+        end
+    end
+    table.sort(self._pointCache, function(a, b)
+        return a._Priority > b._Priority
+    end)
+    local tab = {}
+    for _, value in ipairs(self._pointCache) do
+        table.insert(tab, value)
+    end
+    return tab
+end
+
+---@param currentPoint Point
+---@param endPoint Point
+function AStar:FindPoint(currentPoint, endPoint, ignoreDyObstacle)
+    ignoreDyObstacle = ignoreDyObstacle or false
+    local surroundList = self:GetSurroundList(currentPoint)
+    for _, neighbor in ipairs(surroundList) do
+        local neighPointX = currentPoint._x + neighbor.x
+        local neighPointZ = currentPoint._z + neighbor.y
+        if self:IsValid(neighPointX, neighPointZ) then
+            local targetIndex = neighPointX + (neighPointZ - 1) * self._width
+            local neighPoint = self._grids[targetIndex]
+            local isObstacle = ignoreDyObstacle and self:IsStaticObstacle(neighPoint) or
+                self:IsObstacleByPoint(neighPoint)
+            local index = table.indexof(self._closeList, neighPoint)
+            if not isObstacle and index == false then
+                local costToNeighbor = currentPoint:GCost() + self:GetDistance(currentPoint, neighPoint)
+                local index = table.indexof(self._openList, neighPoint)
+                if costToNeighbor < neighPoint:GCost() or index == false then
+                    neighPoint._GCost = costToNeighbor
+                    neighPoint._HCost = self:GetDistance(neighPoint, endPoint)
+                    neighPoint._Parent = currentPoint
+                    if index == false then
+                        table.insert(self._openList, neighPoint)
+                    end
+                end
+            end
+        end
+    end
+end
+
+---@param currentPoint Point
+---@param endPoint Point
+function AStar:FindPointByPriority(currentPoint, endPoint, ignoreDyObstacle)
+    ignoreDyObstacle = ignoreDyObstacle or false
+    local points = self:GetSurroundPoints(currentPoint)
+    if points == nil or #points <= 0 then
+        return
+    end
+    for _, neighPoint in ipairs(points) do
+        local isObstacle = ignoreDyObstacle and self:IsStaticObstacle(neighPoint) or
+            self:IsObstacleByPoint(neighPoint)
+        local index = table.indexof(self._closeList, neighPoint)
+        if not isObstacle and index == false then
+            local costToNeighbor = currentPoint:GCost() + self:GetDistance(currentPoint, neighPoint)
+            local index = table.indexof(self._openList, neighPoint)
+            if costToNeighbor < neighPoint:GCost() or index == false then
+                neighPoint._GCost = costToNeighbor
+                neighPoint._HCost = self:GetDistance(neighPoint, endPoint)
+                neighPoint._Parent = currentPoint
+                if index == false then
+                    table.insert(self._openList, neighPoint)
+                end
+            end
+        end
+    end
+end
+
+function AStar:GetPositionByIndex(index)
+    local point = self._grids[index]
+    if point == nil then
+        return Vector2.zero
+    else
+        return self:GetPositionByPoint(point)
+    end
+end
+
+---@return Vector2
+---@param point Point
+function AStar:GetPositionByPoint(point)
+    BattleLogger.log_error("overwrite me !!!!!!!!!!  AStar:GetPositionByPoint ")
+end
+
+---@return number
+---@param currentPoint Point
+---@param neighPoint Point
+function AStar:GetDistance(currentPoint, neighPoint)
+    BattleLogger.log_error("overwrite me !!!!!!!!!!  AStar:GetDistance ")
+end
+
+function AStar:IsValid(pointX, pointZ)
+    if pointX > 0 and pointX <= self._width and pointZ > 0 and pointZ <= self._height then
+        return true
+    end
+    return false
+end
+
+function AStar:Release()
+    self._grids = nil
+
+    self._openList = nil
+
+    self._closeList = nil
+
+    self._dynamicObstacle = nil
+
+    self._pointCache = nil
+end
+
+return AStar

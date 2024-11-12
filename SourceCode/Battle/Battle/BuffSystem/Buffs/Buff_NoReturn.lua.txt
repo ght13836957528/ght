@@ -1,0 +1,12 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:58:36 星期一
+----------------------------------------------------------------------
+---------- 不转向buff
+-------------------------------------------------------------------------------------------------------------------------------------------------
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+---@class Buff_NoReturn:BasePersistentBuff
+local Buff_NoReturn = class("Buff_NoReturn", BasePersistentBuff)
+local M = Buff_NoReturn
+
+return M

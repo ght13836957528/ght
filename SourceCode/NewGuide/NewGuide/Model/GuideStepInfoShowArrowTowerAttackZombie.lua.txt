@@ -1,0 +1,9 @@
+---@class GuideStepInfoShowArrowTowerAttackZombie : GuideStepBaseInfo @箭塔扫荡丧尸效果
+local GuideStepInfoShowArrowTowerAttackZombie = class("GuideStepInfoShowArrowTowerAttackZombie", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoShowArrowTowerAttackZombie
+
+function M:onParse(params)
+    
+end
+
+return M

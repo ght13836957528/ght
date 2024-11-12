@@ -1,0 +1,48 @@
+local BattleRenderEntityManager = require "GameLogic.Battle.BattleRender.BattleRenderEntityManager"
+local BattleRenderSystemManager = require "GameLogic.Battle.BattleRender.BattleRenderSystemManager"
+
+
+
+---@class BattleRenderWorld
+local BattleRenderWorld = class("BattleRenderWorld")
+local M = BattleRenderWorld
+---@param battleContext BattleContext
+function M:Ctor(battleContext)
+    self.battleContext = battleContext
+
+    self.renderSystemManager = BattleRenderSystemManager.new(self)
+    self.entityManager = BattleRenderEntityManager.new(self.renderSystemManager, self)
+end
+
+function M:Initialize(iBattleId, callback)
+    self.renderSystemManager:Initialize()
+    self.entityManager:Initialize()
+end
+
+---- 这里按理说不会处理具体逻辑  但是 介于现在还是没有完全剥离显示层 暂时 姑且 先 在这这么写
+function M:OnMapLoad(mapObj)
+
+end
+
+---@desc 界面点击开始按钮后，开始战斗
+---@param resourceCache BattleResourceContainer
+function M:StartFight(resourceCache)
+    self._resourceCache = resourceCache
+end
+
+function M:OnEndFight(iResult)
+
+end
+
+function M:OnUpdate(dt)
+    self.entityManager:OnUpdate(dt)
+end
+
+function M:Clear()
+    self.entityManager:Clear()
+    self.renderSystemManager:Clear()
+    self.renderSystemManager = nil
+    self.entityManager = nil
+end
+
+return M

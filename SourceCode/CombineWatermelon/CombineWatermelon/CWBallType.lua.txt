@@ -1,0 +1,43 @@
+
+---@class CWBallType 掉落的球类型
+---@field public Ball string 正常的球
+---@field public Color string 道具球，彩球
+---@field public Blast string 道具球，炸弹
+CWBallType = {
+    Ball = "Ball",
+    Color = "Color",
+    Blast = "Blast",
+}
+
+---@field public BasketBall_11 number 当前最大的小球
+---@field public ColorBall number 彩色道具球
+---@field public BlastBall number 爆炸道具球
+---@class CWBall 小球id
+CWBall = {
+    PingPong_1 = 1,
+    PingPong_2 = 2,
+    PingPong_3 = 3,
+    Baseball_1 = 4,
+    Baseball_2 = 5,
+    Tennis_1 = 6,
+    Tennis_2 = 7,
+    Football_1 = 8,
+    Football_2 = 9,
+    BasketBall_10 = 10,
+    BasketBall_11 = 11,
+    ColorBall = 12,
+    BlastBall = 13,
+}
+
+---@class CWBallCreateType 合成大西瓜，小球创建方式
+---@field public Drop string 正常掉落创建
+---@field public Combine string 小球合并创建
+CWBallCreateType = {
+    Drop = "Drop",
+    Combine = "Combine",
+}
+
+CWBallColliderSize = {
+    [1] = 21.5,
+
+}

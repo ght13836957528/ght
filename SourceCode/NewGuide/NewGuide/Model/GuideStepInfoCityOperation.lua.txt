@@ -1,0 +1,12 @@
+---@class GuideStepInfoCityOperation : GuideStepBaseInfo @引导步骤内城操作引导类型数据结构
+---@field public mainCityOperationName string 内城操作名称  
+---@field public mainCityOperationName string 内城操作第一个参数
+local GuideStepInfoCityOperation = class("GuideStepInfoCityOperation", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoCityOperation
+
+function M:onParse(params)
+    self.mainCityOperationName = params.mainCityOperationName
+    self.mainCityOperationParam1 = params.mainCityOperationParam1
+end
+
+return M

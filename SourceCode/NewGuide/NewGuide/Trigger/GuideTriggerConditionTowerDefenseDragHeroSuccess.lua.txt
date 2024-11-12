@@ -1,0 +1,16 @@
+---@class GuideTriggerConditionTowerDefenseDragHeroSuccess:GuideTriggerCondition
+local GuideTriggerConditionTowerDefenseDragHeroSuccess = class("GuideTriggerConditionTowerDefenseDragHeroSuccess", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionTowerDefenseDragHeroSuccess
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:equals(param)
+    local result = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return result
+    end
+    result = true
+    GameEntry.Event:Fire(self, CS.CommonEventArgs(CS.EventId.HideHandEvent))
+    return result
+end
+
+return M

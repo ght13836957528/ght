@@ -1,0 +1,53 @@
+----------------------------------------------------------------------
+--------- 2023年02月07日 16:28:15 星期二
+----------------------------------------------------------------------
+
+--[[
+    负责同C#端表现层交互
+]]
+---@class RepresentCharacterManager
+local RepresentCharacterManager = class("RepresentCharacterManager")
+local M = RepresentCharacterManager
+
+function M:Ctor()
+    self.atkIdToIndexMap = {}
+    self.defIdToIndexMap = {}
+end
+
+function M:Initialize(csCharacterManager)
+    self.csCharacterManager = csCharacterManager
+end
+
+function M:AddAtkCharacter(iIndex, gObject, positionX, positionY)
+    self.csCharacterManager:AddCharacterObject(iIndex, gObject, positionX, positionY)
+end
+
+function M:RemoveAtkCharacter(iIndex)
+    self.csCharacterManager:RemoveCharacterObject(iIndex)
+end
+
+function M:AddDefCharacter(iIndex, gObject, positionX, positionY)
+    self.csCharacterManager:AddEnemyObject(iIndex, gObject, positionX, positionY)
+end
+
+function M:MapIdToIndexAtk(iIndex, iCharacterBattleId)
+    self.atkIdToIndexMap[iCharacterBattleId] = iIndex
+end
+
+function M:MapIdToIndexDef(iIndex, iCharacterBattleId)
+    self.defIdToIndexMap[iCharacterBattleId] = iIndex
+end
+
+function M:GetModelRoot(type)
+    if type == 1 then
+        return self.csCharacterManager.CharacterContainer
+    else
+        return self.csCharacterManager.EnemyContainer
+    end
+end
+
+function M:Clear()
+    self.csCharacterManager:Clear()
+end
+
+return M

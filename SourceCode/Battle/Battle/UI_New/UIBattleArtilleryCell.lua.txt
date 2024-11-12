@@ -1,0 +1,126 @@
+---@class UIBattleArtilleryCell:UIWidget
+local UIBattleArtilleryCell = class("UIBattleArtilleryCell", UIWidget)
+local M = UIBattleArtilleryCell
+
+function M:OnCreate()
+    -- self._characterGuns = {}
+    self._isCd = true
+end
+
+function M:OnParse(params)
+    self._entityId = params.entityId
+    self._gunId = params.gunId
+    self._camp = params.camp
+    self._index = params.index
+    self._isReplay = params.isReplay
+    self._battleContext = params.battleContext
+    self:AddCharacters(self._entityId, self._gunId)
+end
+
+function M:AddCharacters(characterId, gunId)
+    self._characterGuns = self._characterGuns or {}
+    if self._characterGuns[characterId] == nil then
+        self._characterGuns[characterId] = gunId
+    end
+end
+
+function M:GetConfigAssetPath()
+    return "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UIBattleArtilleryCell.prefab"
+end
+
+function M:OnAddListener()
+    self._Main.onClick:AddListener(function()
+        self:onClickBg()
+    end)
+
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_GunCD, self.OnUpdateCD, self)
+end
+
+function M:OnRemoveListener()
+    self._Main.onClick:RemoveAllListeners()
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_GunCD, self.OnUpdateCD, self)
+end
+
+function M:OnRefresh()
+    -- GameObjectUtil.SafeSetActiveSelf(self._goUp, self._isWin)
+    -- GameObjectUtil.SafeSetActiveSelf(self._goDown, not self._isWin)
+    -- self._txtNum.text = self._arena_data.score
+    -- self._txtNumUp.text = self._arena_data.scoreChange
+    -- self._txtNumDown.text = self._arena_data.scoreChange
+
+    -- self._imgIcon
+end
+
+function M:OnDispose()
+    if self.delayTimer then
+        self.delayTimer:Dispose()
+        self.delayTimer = nil
+    end
+    if self._skillGunGUid then
+        Game.SystemManager.UWAssetManager:unloadGUid(self._skillGunGUid)
+    end
+end
+
+function M:OnUpdateCD(param)
+    if param == nil then
+        return
+    end
+    local entityId = param.entityId
+    local cd = param.cd
+    local baseCD = param.baseCD
+    if entityId == self._entityId then
+        baseCD = baseCD > 0 and baseCD or 1
+        local tmp = cd / baseCD
+        self._imgMask.fillAmount = tmp
+        self._txtNum.text = math.ceil(cd * 0.001)
+        if cd <= 0 then
+            self:enableMask(false)
+        else
+            self:enableMask(true)
+        end
+    end
+end
+
+function M:enableMask(isShow)
+    if self._isCd == isShow then
+        return
+    end
+    if isShow == false then
+        BroadcastEvent.dispatch(EnumLuaEventId.Battle_Gun_Ready)
+    end
+    self._isCd = isShow
+    self:enableSkillEff(not isShow)
+    GameObjectUtil.SafeSetActiveSelf(self._goCountdown, isShow)
+end
+
+function M:onClickBg()
+    if self._isReplay then
+        return
+    end
+    if self._isCd then
+        return
+    end
+    if self._battleContext:isCanOperation() then
+        for entityId, _ in pairs(self._characterGuns) do
+            self._battleContext:GetFrameControl():disPatchEventMsg(BattleEventId.MSG_BATTLE_TRIGGER_PROFOUND, entityId)
+        end
+        BroadcastEvent.dispatch(EnumLuaEventId.Battle_Gun_Fire)
+        self:enableMask(true)
+    end
+end
+
+function M:enableSkillEff(isShow)
+    GameObjectUtil.SafeSetActiveSelf(self._goEff, isShow)
+    if self._skillGunGUid == nil and isShow then
+        local path = "Assets/GameAsset/Effects/UIEffect/Prefab/eff_ui_battle_artillerycell_skillready.prefab"
+        self._skillGunGUid = Game.SystemManager.UWAssetManager:loadResourceAsync(path, function(go, gUid)
+            if go then
+                go.transform:SetParent(self._goEff.transform)
+                go.transform.localPosition = Vector3.zero
+                go.transform.localScale = Vector3.one
+            end
+        end)
+    end
+end
+
+return M

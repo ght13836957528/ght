@@ -1,0 +1,371 @@
+local BattleCharacterModelBase = require "GameLogic.Battle.BattleModel.BattleCharacterModelBase"
+---@class BattleCharacterPlayerModel:BattleCharacterModelBase
+local BattleCharacterPlayerModel = class("BattleCharacterPlayerModel", BattleCharacterModelBase)
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local M = BattleCharacterPlayerModel
+
+function M:Ctor(index, posInfo, heroData, systemAttMap, systemData, basePropertyMap, isLeft, effNumMap)
+    isLeft = isLeft or false
+    heroData = heroData or {}
+    self._heroUuid = heroData.uuid
+    self._heroId = heroData.heroId
+    self._level = heroData.level
+    self._exp = heroData.exp
+    self._quality = heroData.quality
+    self._posIndex = index
+    self._star = 1
+    self._buildingUuid = heroData.buildingUuid
+    self._type = BattleEnum.DataType.Player
+    self._combat = 0
+    self._attMapBase = {}
+    self._soldiersMap = {}
+    self._attMap = {}
+    self._isRobot = false
+    self._initRotate = isLeft and BattleEnum.InitRotate.Left or BattleEnum.InitRotate.Right
+    self._buff = {}
+    self._baseScale = 1
+    self._volumeRadius = 1
+    self._isBoss = false
+    self._effNumLogStr = ""
+    -- self:setBaseScale(1.5)
+    self:logBaseProperty(heroData)
+    self:initBaseAtt(posInfo.info)
+    self:logTeamProperty()
+    self:initSoldiersMap(posInfo.troops)
+    self:initTeamCombat(self._soldiersMap, heroData.attributeInfos.infos)
+    -- self:initCombat(self._soldiersMap, self._attMapBase)
+    self:diffAtt(systemAttMap, systemData)
+    self:logBattleProperty()
+    self:markNumBefore()
+    self:diffEffNumMap(effNumMap)
+    self:markNumAfter()
+    self:initBaseProperty(basePropertyMap, systemAttMap)
+end
+
+function M:getNumberLogStr()
+    return self._effNumLogStr
+end
+
+function M:markNumBefore()
+    if not BattleLogger.isOpenLogEffectNumber() then
+        return
+    end
+    local attMap = self._attMap
+    local _effNumLogStr = self._effNumLogStr
+    _effNumLogStr = _effNumLogStr ..
+        "作用号前：： 将 ** uuid: " .. self._heroUuid .. "   heroId : " .. self._heroId .. "  level：" .. self._level ..
+        "  quality:" .. self._quality .. "  属性 ** "
+    _effNumLogStr = _effNumLogStr .. " HP: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1] or 0
+    _effNumLogStr = _effNumLogStr .. " ATK: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2] or 0
+    _effNumLogStr = _effNumLogStr .. " DEF: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3] or 0
+    _effNumLogStr = _effNumLogStr .. " MDEF: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4] or 0
+    _effNumLogStr = _effNumLogStr .. " 暴击: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11] or 0
+    _effNumLogStr = _effNumLogStr .. " 命中: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Hit_12] or 0
+    _effNumLogStr = _effNumLogStr .. " 闪避: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Dodge_13] or 0
+    _effNumLogStr = _effNumLogStr .. " 物理减伤: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14] or 0
+    _effNumLogStr = _effNumLogStr .. " 法术减伤: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15] or 0
+    _effNumLogStr = _effNumLogStr .. " 急速: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16] or 0
+    _effNumLogStr = _effNumLogStr .. " 吸血: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17] or 0
+    _effNumLogStr = _effNumLogStr .. " 暴击效果: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21] or
+        0
+    _effNumLogStr = _effNumLogStr .. " 抗暴: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22] or
+        0
+    _effNumLogStr = _effNumLogStr .. " 物理增伤: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23] or 0
+    _effNumLogStr = _effNumLogStr .. " 法术增伤: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24] or 0
+    _effNumLogStr = _effNumLogStr .. " 攻击速度: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 冷却加速: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26] or 0
+    _effNumLogStr = _effNumLogStr .. " 移动速度: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27] or
+        0
+    _effNumLogStr = _effNumLogStr ..
+        " 攻击怒气回复速度: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 受击怒气回复速度: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 生命恢复效果加成: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 治疗效果提升: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 相克额外系数A: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 相克额外系数B: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientB_33] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 相克额外系数C: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientC_34] or 0
+    self._effNumLogStr = _effNumLogStr
+end
+
+function M:markNumAfter()
+    if not BattleLogger.isOpenLogEffectNumber() then
+        return
+    end
+    local attMap = self._attMap
+    local _effNumLogStr = self._effNumLogStr
+    _effNumLogStr = _effNumLogStr ..
+        " -------------- 作用号后：： 将 ** uuid: " ..
+        self._heroUuid .. "   heroId : " .. self._heroId .. "  level：" .. self._level ..
+        "  quality:" .. self._quality .. "  属性 ** "
+    _effNumLogStr = _effNumLogStr .. " HP: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1] or 0
+    _effNumLogStr = _effNumLogStr .. " ATK: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2] or 0
+    _effNumLogStr = _effNumLogStr .. " DEF: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3] or 0
+    _effNumLogStr = _effNumLogStr .. " MDEF: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4] or 0
+    _effNumLogStr = _effNumLogStr .. " 暴击: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11] or 0
+    _effNumLogStr = _effNumLogStr .. " 命中: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Hit_12] or 0
+    _effNumLogStr = _effNumLogStr .. " 闪避: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Dodge_13] or 0
+    _effNumLogStr = _effNumLogStr .. " 物理减伤: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14] or 0
+    _effNumLogStr = _effNumLogStr .. " 法术减伤: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15] or 0
+    _effNumLogStr = _effNumLogStr .. " 急速: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16] or 0
+    _effNumLogStr = _effNumLogStr .. " 吸血: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17] or 0
+    _effNumLogStr = _effNumLogStr .. " 暴击效果: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21] or
+        0
+    _effNumLogStr = _effNumLogStr .. " 抗暴: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22] or
+        0
+    _effNumLogStr = _effNumLogStr .. " 物理增伤: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23] or 0
+    _effNumLogStr = _effNumLogStr .. " 法术增伤: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24] or 0
+    _effNumLogStr = _effNumLogStr .. " 攻击速度: " .. attMap
+        [BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 冷却加速: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26] or 0
+    _effNumLogStr = _effNumLogStr .. " 移动速度: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27] or
+        0
+    _effNumLogStr = _effNumLogStr ..
+        " 攻击怒气回复速度: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 受击怒气回复速度: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 生命恢复效果加成: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 治疗效果提升: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 相克额外系数A: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 相克额外系数B: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientB_33] or 0
+    _effNumLogStr = _effNumLogStr ..
+        " 相克额外系数C: " .. attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientC_34] or 0
+    self._effNumLogStr = _effNumLogStr
+end
+
+function M:logBaseProperty(heroData)
+    if not BattleLogger.IsOpenBaseProperty() then
+        return false
+    end
+
+    local attMap = {}
+    local infos = heroData.attributeInfos.infos
+    for _, info in pairs(infos) do
+        attMap[info.id] = info.value
+    end
+
+    BattleLogger.logBaseProperty("将 ** uuid", self._heroUuid, "   heroId : ", self._heroId, "  level：", self._level,
+        "  quality:", self._quality, " \n                       属性 **   HP: ",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1] or 0,
+        "  ATK:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2] or 0,
+        "  DEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3] or 0,
+        "  MDEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4] or 0,
+        " 暴击:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11] or 0,
+        " 命中:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Hit_12] or 0,
+        " 闪避:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Dodge_13] or 0,
+        " 物理减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14] or 0,
+        " 法术减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15] or 0,
+        " 急速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16] or 0,
+        " 吸血:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17] or 0,
+        " 暴击效果:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21] or 0,
+        " 抗暴:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22] or 0,
+        " 物理增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23] or 0,
+        " 法术增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24] or 0,
+        " 攻击速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25] or 0,
+        " 冷却加速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26] or 0,
+        " 移动速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27] or 0,
+        " 攻击怒气回复速度:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28] or 0,
+        " 受击怒气回复速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29] or 0,
+        " 生命恢复效果加成:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30] or 0,
+        " 治疗效果提升:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31] or 0,
+        " 相克额外系数A:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32] or 0,
+        " 相克额外系数B:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientB_33] or 0,
+        " 相克额外系数C:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientC_34] or 0
+    )
+end
+
+--- 这是布阵后属性 已经包含 兵力以及 养成数据
+function M:initBaseAtt(attributeInfos)
+    attributeInfos = attributeInfos or {}
+    local infos = attributeInfos.infos or {}
+    for _, attInfo in ipairs(infos) do
+        self._attMapBase[attInfo.id] = attInfo.value
+    end
+end
+
+function M:logTeamProperty()
+    if not BattleLogger.IsOpenTeamProperty() then
+        return
+    end
+    local level = self._level
+    local quality = self._quality
+    local heroId = self._heroId
+    local uuid = self._heroUuid
+    local attMap = self._attMapBase
+    BattleLogger.logTeamProperty("将 ** uuid: ", uuid, "   heroId: ", heroId, "  level:", level,
+        "  quality:", quality, "  \n                       属性 **   HP: ",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1] or 0,
+        "  ATK:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2] or 0,
+        "  DEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3] or 0,
+        "  MDEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4] or 0,
+        " 暴击:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11] or 0,
+        " 命中:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Hit_12] or 0,
+        " 闪避:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Dodge_13] or 0,
+        " 物理减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14] or 0,
+        " 法术减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15] or 0,
+        " 急速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16] or 0,
+        " 吸血:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17] or 0,
+        " 暴击效果:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21] or 0,
+        " 抗暴:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22] or 0,
+        " 物理增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23] or 0,
+        " 法术增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24] or 0,
+        " 攻击速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25] or 0,
+        " 冷却加速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26] or 0,
+        " 移动速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27] or 0,
+        " 攻击怒气回复速度:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28] or 0,
+        " 受击怒气回复速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29] or 0,
+        " 生命恢复效果加成:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30] or 0,
+        " 治疗效果提升:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31] or 0,
+        " 相克额外系数A:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32] or 0,
+        " 相克额外系数B:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientB_33] or 0,
+        " 相克额外系数C:",
+        attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientC_34] or 0
+    )
+end
+
+function M:initSoldiersMap(troops)
+    troops = troops or {}
+    for sk, value in pairs(troops) do
+        self._soldiersMap[sk] = value
+    end
+end
+
+function M:diffSoldiersMap()
+    -- todo 修改兵力
+end
+
+---@param systemAttMap {attTag : {  system1: 18, system2: 33}}  公共养成得模块
+---@param systemData 玩法相关得公共模块数据
+function M:diffAtt(systemAttMap, systemData)
+    -- todo 非公共模块养成数据
+    systemAttMap = systemAttMap or {}
+
+    for _, attTag in pairs(BattleEnum.BuffChangeAttributeType) do
+        local att_a_value = self._attMapBase[attTag] or 0
+        local conAtt = ConfigHandler:GetEntry(GameDefine.TableName.Attribute, attTag)
+        if conAtt and conAtt.formula then
+            if conAtt.formula[1] == 1 then
+                local att_b = conAtt.formula[3]
+                local att_b_value = 1
+                if att_b then
+                    local sys_b_value_map = systemAttMap[att_b] or {}
+                    for _, value in pairs(sys_b_value_map) do
+                        att_b_value = att_b_value * (1 + value * 0.0001)
+                    end
+                end
+                local att_c = conAtt.formula[4]
+                local att_c_value = 0
+                if att_c then
+                    local sys_c_value_map = systemAttMap[att_c] or {}
+                    for _, value in pairs(sys_c_value_map) do
+                        att_c_value = att_c_value + value
+                    end
+                    att_c_value = att_c_value
+                end
+                self._attMap[attTag] = att_a_value * att_b_value + att_c_value
+            elseif conAtt.formula[1] == 2 then
+                local att_c = conAtt.formula[3]
+                local att_c_value = 0
+                if att_c then
+                    local sys_c_value_map = systemAttMap[att_c] or {}
+                    for _, value in pairs(sys_c_value_map) do
+                        att_c_value = att_c_value + value
+                    end
+                end
+                self._attMap[attTag] = att_a_value + att_c_value
+            else
+                BattleLogger.log_error("??? 新得属性计算公式 ！！！", conAtt.formula[1])
+            end
+        else
+            -- log_Error("  ********** ", attTag, "   ", att_a_value)
+            local att_c_value = 0
+            local sys_c_value_map = systemAttMap[attTag]
+            if sys_c_value_map then
+                for _, value in pairs(sys_c_value_map) do
+                    att_c_value = att_c_value + value
+                end
+            end
+            self._attMap[attTag] = att_a_value + att_c_value
+        end
+    end
+end
+
+function M:logBattleProperty()
+    if BattleLogger.IsOpenBattleProperty() then
+        local level = self._level
+        local quality = self._quality
+        local heroId = self._heroId
+        local uuid = self._heroUuid
+        local attMap = self._attMap
+        BattleLogger.logBattleProperty("将 ** uuid: ", uuid, "   heroId: ", heroId, "  level:", level,
+            "  quality:", quality, "  \n                       属性 **   HP: ",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HP_1] or 0,
+            "  ATK:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2] or 0,
+            "  DEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3] or 0,
+            "  MDEF:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4] or 0,
+            " 暴击:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11] or 0,
+            " 命中:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Hit_12] or 0,
+            " 闪避:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Dodge_13] or 0,
+            " 物理减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14] or 0,
+            " 法术减伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15] or 0,
+            " 急速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16] or 0,
+            " 吸血:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17] or 0,
+            " 暴击效果:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21] or 0,
+            " 抗暴:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22] or 0,
+            " 物理增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23] or 0,
+            " 法术增伤:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24] or 0,
+            " 攻击速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25] or 0,
+            " 冷却加速:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26] or 0,
+            " 移动速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27] or 0,
+            " 攻击怒气回复速度:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28] or 0,
+            " 受击怒气回复速度:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29] or 0,
+            " 生命恢复效果加成:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30] or 0,
+            " 治疗效果提升:", attMap[BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31] or 0,
+            " 相克额外系数A:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32] or 0,
+            " 相克额外系数B:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientB_33] or 0,
+            " 相克额外系数C:",
+            attMap[BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientC_34] or 0
+
+        )
+    end
+end
+
+function M:diffEffNumMap(effNumMap)
+    effNumMap = effNumMap or {}
+    for attTag, attValue in pairs(effNumMap) do
+        self._attMap[attTag] = self._attMap[attTag] or 0
+        self._attMap[attTag] = self._attMap[attTag] * (1 + attValue)
+    end
+end
+
+return M

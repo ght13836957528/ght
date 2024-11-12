@@ -1,0 +1,11 @@
+---@class GuideStepInfoIfCompleteRadarTask:GuideStepBaseInfo 是否完成雷达引导
+local GuideStepInfoIfCompleteRadarTask = class("GuideStepInfoIfCompleteRadarTask", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoIfCompleteRadarTask
+
+function M:onParse(params)
+    self.completeId = params.completeId
+    self.unCompleteId  = params.unCompleteId
+end
+
+
+return M

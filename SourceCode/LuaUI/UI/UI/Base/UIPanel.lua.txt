@@ -1,0 +1,308 @@
+--[[
+    示例
+    1. 打开界面
+    UIManager.panel:Open(UIPanelType.Test, params)
+    
+    2. 关闭界面
+    UIManager.panel:Close(UIPanelType.Test, params)
+    
+    ======================= 覆写接口 ========================
+    GetConfigAssetPath  -- 加载资源路径
+    -- TODO 接口待定 getUISceneType      -- UI场景的枚举
+    getConfigLayerType  -- 指定界面显示层级
+    isPerspectiveUI     -- 是否透视UI
+    AutoWrapInjectObject-- 自动将c#注入对象包装成lua对象
+    
+    -- 下面这三个接口不应该操作UI对象，只能处理纯逻辑
+    OnPreOpen           -- 调用界面打开立即触发
+    OnOpen              -- 界面资源准备好了，真的打开时触发
+    OnClose             -- 调用界面关闭时触发
+    OnParse             -- 处理外部传入的参数
+     
+    -- 资源准备完成后调用
+   
+    OnCreate            -- （等价Awake）首次获得资源，创建内部对象
+    OnShow              -- 显示
+    OnHide              -- 隐藏
+    OnAddListener       -- 添加事件监听
+    OnRemoveListener    -- 移除事件监听
+    OnRefresh           -- 刷新逻辑
+    
+    -- 注意：dispose只是释放lua对象，unity的资源有可能还没加载完，如果
+    -- 需要操作unity对象记得判空
+    OnDispose           -- 销毁逻辑，对创建的逻辑对象断开引用
+    ========================================================
+--]]
+
+---@class UIPanel : UIWidget 界面
+local UIPanel       = class("UIPanel", UIWidget)
+local M             = UIPanel
+
+local HIDE_POSITION = Vector2.New(9999, 9999)
+local SHOW_POSITION = Vector2.zero
+local AUTO_SERIAL_ID = 0
+
+
+function M:AutoSortSubCanvas()
+    return true
+end
+
+function M:GetSerialID()
+    return self._serialId
+end
+
+function M:GetPanelConfig()
+    return UIPanelConfig.Default_Default
+end
+
+function M:GetType()
+    return UINodeType.Panel
+end
+
+function M:GetLayerType()
+    if self._overrideLayerType then
+        return self._overrideLayerType
+    end
+    local config = self:GetPanelConfig()
+    return config.panelLayerType
+end
+
+function M:IsHideSceneUI()
+    local config = self:GetPanelConfig()
+    return config.bHideSceneUI
+end
+
+function M:GetLayer()
+    return UIManager.GetLayer(self:GetLayerType())
+end
+
+function M:SetOverrideLayerType(layerType)
+    self._overrideLayerType = layerType
+end
+
+function M:GetSortingOrder()
+    return self._sortingOrder
+end
+
+function M:SetSortingOrder(value)
+    if self._sortingOrder == value then
+        return
+    end
+
+    self._sortingOrder = value
+    if self._canvas ~= nil and self._canvas:IsNotNull() then
+        self._canvas.sortingOrder = self._sortingOrder
+    end
+end
+
+function M:GetState()
+    return self._state
+end
+
+--- @param value UIPanelState
+function M:SetState(value)
+    self._state = value
+end
+
+function M:SetPanelKey(value)
+    self._panelKey = value
+end
+
+function M:GetPanelKey()
+    return self._panelKey
+end
+
+function M:CloseSelf()
+    if self._panelKey ~= nil then
+        UIManager.panel:Close(self._panelKey)
+    end
+end
+
+function M:FullCovered()
+    self._canvasGroup.alpha = 0
+    self._canvasGroup.blocksRaycasts = false
+
+    self:OnCover()
+end
+
+function M:FullReveal()
+    --TODO 目前先放在这里 待定
+    local isMainUI, scenesType = self:_checkIsMainUI()
+    if(isMainUI) then
+        --检测是否被遮住，或者是当前UI对应的场景是否激活
+        if(self:_checkMainUIIsCovered()) then
+            return 
+        end
+        if(not self:_checkMainUISceneIsActive(scenesType)) then
+            return
+        end
+    end
+    
+    self._canvasGroup.alpha = 1
+    self._canvasGroup.blocksRaycasts = true
+    self:OnReveal()
+end
+
+---动画相关
+function M:OnAnimatedOpen()
+end
+
+function M:OnAnimatedClose(callback)
+end
+
+function M:HasCloseAnimated()
+    return false;
+end
+
+function M:OnPreOpen()
+end
+
+function M:OnOpen()
+end
+
+function M:OnClose()
+end
+
+function M:OnCover()
+end
+
+function M:OnReveal()
+end
+
+-----------------------------------------------------------------------------------------------------------------------
+function M:_init(params)
+    UIWidget._init(self, params)
+
+    AUTO_SERIAL_ID = AUTO_SERIAL_ID + 1
+    self._serialId         = AUTO_SERIAL_ID
+    self._state            = UIPanelState.Opening
+    self._canvas           = nil
+    self._graphicRaycaster = nil
+    self._sortingOrder     = 0
+    self._overrideLayerType = nil
+end
+
+function M:_create()
+    UIWidget._create(self)
+    
+    -- 获取Canvas脚本
+    local canvas = self._gameObject:GetComponent("Canvas")
+    if canvas == nil or canvas:IsNull() then
+        -- print_error(string.format("not find Canvas component on %s, please add component to prefab", self._gameObject.name))
+        canvas = self._gameObject:AddComponent(UnityType.Canvas)
+    end
+    canvas.pixelPerfect    = false
+    canvas.overrideSorting = true
+    canvas.sortingOrder    = self._sortingOrder
+    self._canvas = canvas
+
+    -- 获取GraphicRaycaster脚本
+    local graphicRaycaster = self._gameObject:GetComponent("GraphicRaycaster")
+    if graphicRaycaster == nil or graphicRaycaster:IsNull() then
+        -- print_error(string.format("not find GraphicRaycaster component on %s, please add component to prefab", self._gameObject.name))
+        graphicRaycaster = self._gameObject:AddComponent(UnityType.UIGraphicRaycaster)
+    end
+    self._graphicRaycaster = graphicRaycaster
+
+    -- 获取CanvasGroup
+    local canvasGroup = self._gameObject:GetComponent("CanvasGroup")
+    if canvasGroup == nil or canvasGroup:IsNull() then
+        canvasGroup = self._gameObject:AddComponent(UnityType.CanvasGroup)
+    end
+    canvasGroup.alpha = 1
+    canvasGroup.blocksRaycasts = true
+    self._canvasGroup = canvasGroup
+    
+    -- todo : 这里强制修改下prefab的锚点和中心点设置
+    self._rectTransform.anchorMax = Vector2.New(1, 1)
+    self._rectTransform.anchorMin = Vector2.New(0, 0)
+    self._rectTransform.offsetMax = Vector2.New(0, 0)
+    self._rectTransform.offsetMin = Vector2.New(0, 0)
+end
+
+function M:_afterCreate()
+    self:OnAnimatedOpen()
+end
+
+function M:_handleCanvasSortingOrder()
+    if not self:AutoSortSubCanvas() then
+        return
+    end
+
+    local layer = self:GetLayer()
+    if layer == nil then
+        return
+    end
+
+    local children = self._gameObject:GetComponentsInChildren(UnityType.Canvas, true)
+    if children == nil or children.Length == 0 then
+        return
+    end
+
+    local basesSortingOrder = self:GetSortingOrder()
+    local length = children.Length - 1
+    for i = 0, length do
+        local canvas = children[i]
+        if canvas ~= nil and canvas:IsNotNull() and canvas.gameObject ~= self._gameObject and canvas.overrideSorting then
+            canvas.sortingOrder = canvas.sortingOrder  + basesSortingOrder
+        end
+    end
+end
+
+function M:_refreshVisible()
+    if not self:HasGameObject() then
+        return
+    end
+
+    self:_setCanvasEnable(self._isVisible)
+
+    if self._rectTransform ~= nil and self._rectTransform:IsNotNull() then
+        if self._isVisible then
+            self._rectTransform.anchoredPosition = SHOW_POSITION
+        else
+            self._rectTransform.anchoredPosition = HIDE_POSITION
+        end
+    end
+
+    self:_visibleChange()
+end
+
+function M:_setCanvasEnable(enabled)
+    if self._canvas ~= nil and self._canvas:IsNotNull() then
+        self._canvas.enabled = enabled
+    end
+
+    if self._graphicRaycaster and self._graphicRaycaster:IsNotNull() then
+        self._graphicRaycaster.enabled = enabled
+    end
+end
+
+function M:_checkIsMainUI()
+    local isMainUI = false;
+    local scenesType = {}
+    for k, v in pairs(ScenesUIPanelConfig) do
+        if ((self:GetPanelKey() == tostring(v)) and (SceneAddType.Main == SceneTypeToSceneAddType[tostring(k)])) then
+            isMainUI = true
+            table.insert(scenesType, k)
+        end
+    end
+    return isMainUI, scenesType
+end
+
+--TODO
+function M:_checkMainUIIsCovered()
+    return UIManager.panel:CheckMainUIIsCovered()
+end
+
+--TODO
+function M:_checkMainUISceneIsActive(scenesType)
+    for k,v in ipairs(scenesType) do
+        local isActive = SceneHelper.CheckCurSceneType(v)
+        if(isActive) then 
+            return true 
+        end
+    end
+    return false
+end
+
+return M

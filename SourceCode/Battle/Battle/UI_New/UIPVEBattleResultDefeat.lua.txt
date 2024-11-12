@@ -1,0 +1,199 @@
+----------------------------------------------------------------------
+--------- 2023年01月04日 11:07:12 星期三
+----------------------------------------------------------------------
+local UIBattleDetailsPanel = require "GameLogic.Battle.UI_New.UIBattleDetailsPanel"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+---@class UIPVEBattleResultDefeat
+local UIPVEBattleResultDefeat = class("UIPVEBattleResultDefeat", UIPanel)
+local M = UIPVEBattleResultDefeat
+
+function M:GetConfigAssetPath()
+    return UIPanelAsset.UIPVEBattleResultDefeat
+end
+
+function M:GetPanelConfig()
+    return UIPanelConfig.Default_Default
+end
+
+------UIPanel生命周期 start------
+
+function M:OnParse(params)
+    --LuaBehavior属性
+    -- self._Win            = nil       -- GameObject   胜利界面
+    -- self._Defeat         = nil       -- GameObject   失败界面
+    -- self._Btn_Close      = nil       -- Button       关闭界面按钮
+
+    self._battleData = params.battleData
+    self._battleResult = params.battleResult
+    self._isReplay = params.isReplay or false
+    self._customId = (params.battleResult and params.battleResult.battleInfo) and params.battleResult.battleInfo
+        .targetId or ""
+    self._isOpenD = false
+    if params.battleType then
+        self._battleType = params.battleType
+    else
+        self._battleType = (params.battleResult and params.battleResult.battleInfo) and
+            params.battleResult.battleInfo.battleType or 0
+    end
+end
+
+function M:OnCreate()
+    self:init()
+end
+
+function M:OnAddListener()
+    self._Btn_Close.onClick:AddListener(function() self:_onClickClose() end)
+    self._Btn_Details.onClick:AddListener(function() self:_onClickSwitch() end)
+    self._btnHero0.onClick:AddListener(function()self:_onFirstChargeClick()end)
+    self._btnHero1.onClick:AddListener(function() self:_onClickJump01() end)
+    self._btnHero2.onClick:AddListener(function() self:_onClickJump01() end)
+    self._btnHero3.onClick:AddListener(function() self:_onClickJump01() end)
+    self._Btn_Challenge.onClick:AddListener(function() self:_onClickChallenge() end)
+end
+
+function M:_onFirstChargeClick()
+    self:_onClickClose()
+    UIManager.panel:Open(UIPanelType.UIFirstRechargePopup)
+end
+
+function M:_onClickJump01()
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEBattleResultDefeat)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+
+        SceneHelper.ChangeScene(SceneType.HeroView)
+    end
+    self:closeAni(cb)
+end
+
+function M:_onClickChallenge()
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEBattleResultDefeat)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+
+        SceneHelper.ChangeScene(SceneType.Homeland)
+
+        Game.BusinessManager.BattleTeamManager:SwitchNormalScene(self._customId)
+    end
+    self:closeAni(cb)
+end
+
+function M:_onClickClose()
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEBattleResultDefeat)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+
+        if self._battleType == BattleEnum.BattlePlayType.Normal then
+            SceneHelper.ChangeScene(SceneType.PushGraph)
+        elseif self._battleType == BattleEnum.BattlePlayType.Mowing then
+            MowingGameUtils:ExitMowingScene()
+        else
+            SceneHelper.ChangeSceneToPreScene()
+        end
+    end
+    self:closeAni(cb)
+end
+
+function M:OnRemoveListener()
+    self._Btn_Close.onClick:RemoveAllListeners()
+    self._Btn_Details.onClick:RemoveAllListeners()
+    self._btnHero0.onClick:RemoveAllListeners()
+    self._btnHero1.onClick:RemoveAllListeners()
+    self._btnHero2.onClick:RemoveAllListeners()
+    self._btnHero3.onClick:RemoveAllListeners()
+    self._Btn_Challenge.onClick:RemoveAllListeners()
+end
+
+------UIPanel生命周期 end------
+
+function M:init()
+    -- local result = self.data.result or 0
+    -- if result == 1 then
+    --     GameObjectUtil.SafeSetActiveSelf(self._Win, true)
+    --     GameObjectUtil.SafeSetActiveSelf(self._Defeat, false)
+    -- elseif result == 2 then
+    --     GameObjectUtil.SafeSetActiveSelf(self._Win, false)
+    --     GameObjectUtil.SafeSetActiveSelf(self._Defeat, true)
+    -- else
+    --     print_error("错误结果!!!")
+    -- end
+    -- GameObjectUtil.SetActiveByScale(self._DetailsContent, false)
+    GameObjectUtil.SetActiveByScale(self._ResultContent, true and not self._isReplay)
+    if self._battleResult and self._battleResult.battleInfo then
+        local isNewbiesStrikePirateNotBack = BattleHelper:IsNewbiesStrikePirateNotBack(self._battleResult.battleInfo
+            .targetId)
+        GameObjectUtil.SafeSetActiveSelf(self._Btn_Details.gameObject, not isNewbiesStrikePirateNotBack)
+    else
+        GameObjectUtil.SafeSetActiveSelf(self._Btn_Details.gameObject, false)
+    end
+    self:refreshFirstCharge()
+    self:StartGuide()
+end
+
+function M:closeAni(cb)
+    if self._Main then
+        self._Main:Play("UIPvpResultDetailsClose")
+    end
+
+    if self.delayTimer ~= nil then
+        self.delayTimer:reset(0.1, 0, false, false, cb, self)
+    else
+        self.delayTimer = Timer.new(0.1, 0, false, false, cb, self)
+    end
+    self.delayTimer:start()
+end
+
+function M:_onClickSwitch()
+    -- self._isOpenD = not self._isOpenD
+    -- GameObjectUtil.SetActiveByScale(self._DetailsContent, self._isOpenD)
+    -- GameObjectUtil.SetActiveByScale(self._ResultContent, not self._isOpenD)
+    -- if self._isOpenD then
+    --     self._Main:Play("UIPvpResultDetailsOpen")
+    -- else
+    --     -- self._Main:RewindPlay("UIPvpResultDetailsOpen")
+    -- end
+    self:switchStatistics(self._isOpenD)
+end
+
+function M:switchStatistics(isOpen)
+    Game.BusinessManager.BattleTeamManager:OpenBattleStatisticsView(self._battleResult.battleInfo,
+        self._battleResult.battleResult)
+end
+
+function M:StartGuide()
+    if self._battleResult and self._battleResult.battleInfo then
+        local newbiesPointsEnemyId = self._battleResult.battleInfo.targetId
+        if newbiesPointsEnemyId == nil then
+            return
+        end
+        if newbiesPointsEnemyId == 111006 or newbiesPointsEnemyId == 111007 or newbiesPointsEnemyId == 111008 or newbiesPointsEnemyId == 111009 then
+            Game.BusinessManager.GuideManager:StartGuide(TutorialTriggerType_Enum.Guide_TriggerDirectly, 201002)
+        end
+    end
+end
+
+-- _btnHero0
+-- _goIcon
+-- _TexUpgrade
+
+function M:refreshFirstCharge()
+    local isOpen = Game.BusinessManager.PurchaseModuleManager.FirstRechargeManager:IsOpened()
+    if isOpen then
+        local purchaseData = Game.BusinessManager.PurchaseModuleManager.FirstRechargeManager:GetPurchaseData()
+        if purchaseData then
+            local showParam = purchaseData:GetShowParam() or {}
+            if showParam and showParam[1] and showParam[2] and showParam[3] then
+                local heroId = tonumber(showParam[1])
+                local heroShow = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+                UIUtils:setImage2(showParam[3], self._goIcon)
+                self._TexUpgrade.text = _lang(showParam[2], _lang(heroShow.name))
+            end
+        end
+    end
+    local purchaseData = Game.BusinessManager.PurchaseModuleManager.FirstRechargeManager:GetPurchaseData()
+    local notBuy = purchaseData and purchaseData:GetBuyTimes() == 0
+    GameObjectUtil.SafeSetActiveSelf(self._btnHero0, isOpen and notBuy)
+end
+
+return M

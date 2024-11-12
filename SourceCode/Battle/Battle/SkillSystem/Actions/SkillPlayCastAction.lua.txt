@@ -1,0 +1,71 @@
+----------------------------------------------------------------------
+--------- 2023年01月31日 16:22:48 星期二
+----------------------------------------------------------------------
+
+--[[
+    处理表现效果：播放配音
+]]
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BaseAction = require "GameLogic.Battle.SkillSystem.Actions.BaseAction"
+local ConfigHandler = ConfigHandler
+---@class SkillPlayCastAction
+local SkillPlayCastAction = class("SkillPlayCastAction", BaseAction)
+local M = SkillPlayCastAction
+
+--- 初始化, voiceKey = src，引用Cast_Src表
+function M:_onInitialize()
+    local data = self.actionData or {}
+    self.voiceKey = data.voiceKey -- string
+
+    self:_readConfig()
+end
+
+function M:_onExecute(...)
+    if self.voiceItem == nil then
+        return
+    end
+    if Game then
+        local language = Game.SystemManager.Localization:getLanguageSimpleName()
+        local voiceName = self.voiceItem[language]
+        if voiceName == nil or voiceName == "" then
+            print_error("配音配置不存在，请检查配置!!")
+            return
+        end
+    
+        self:_playVoice(voiceName)
+    end
+end
+
+
+----------------------------------------------------------------------
+
+--- 根据key读取配置表
+function M:_readConfig()
+    local key = self.voiceKey or ""
+    if key == nil or key == "" then
+        print_error("配音配置key不存在，请检查配置!!")
+        return
+    end
+
+    self.voiceItem = ConfigHandler:GetEntry(GameDefine.TableName.Cast_Src, key)
+end
+
+----------------------------------------------------------------------
+function M:_playVoice(voiceName)
+    self._soundID = BattleEventUtils:DisPath_Render_PlaySound(voiceName)
+end
+
+function M:_onClear()
+    if self._soundID then
+        BattleEventUtils:DisPath_Render_BreakSound(self._soundID)
+    end
+end
+
+
+function M:_onExit()
+    if self._soundID then
+        BattleEventUtils:DisPath_Render_BreakSound(self._soundID)
+    end
+end
+
+return M

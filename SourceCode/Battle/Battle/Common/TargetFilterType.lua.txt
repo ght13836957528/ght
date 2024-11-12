@@ -1,0 +1,24 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 15:36:56 星期四
+----------------------------------------------------------------------
+
+---@class TargetFilterType
+local TargetFilterType =
+{
+    FilterType_None             = 0,
+    FilterType_Hatred           = 1,
+    FilterType_Nearest          = 2,
+    FilterType_Front            = 3,
+    FilterType_Place            = 4,
+    FilterType_Furthest         = 5,
+    FilterType_StrongestAttack  = 6,
+    FilterType_Weakest          = 7,
+    FilterType_MinimumDefense   = 8,
+    FilterType_FrontRow         = 9,
+    FilterType_BackRow          = 10,
+    FilterType_Random1          = 11,
+    FilterType_Random2          = 12,
+    FilterType_All              = 13,
+}
+
+return TargetFilterType

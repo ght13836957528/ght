@@ -1,0 +1,666 @@
+--[[
+    示例
+    1. 通过已经存在的gameObject创建逻辑对象，自动向上查找父级，绑定父子级关系
+    local ui = UIWidget.new(params)     -- params：需要传入的参数
+    ui:Bind(gameObject)                 -- 绑定已经存在的显示对象，自动根据GameObject树形结构向上查找父级绑定父子级关系
+
+    2. 通过加载方式创建逻辑对象，手动绑定父级逻辑对象，需要覆写getConfigAssetPath()方法提供资源路径
+    local ui = UIWidget.new(params)     -- params：需要传入的参数
+    ui:SetParentGo(gameObject);         -- parent：父对象GameObject，加载结束自动绑定父子级关系
+    ui:load()                           -- 加载显示对象资源
+
+    ======================= 覆写接口 ========================
+    GetConfigAssetPath           -- 加载资源路径
+    AutoSortSubCanvas            -- 是否必须处理GameObject下所有Canvas的排序
+    AutoWrapInjectObject         -- 自动将c#注入对象包装成lua对象
+
+    -- 资源准备完成后调用
+    OnParse                      -- 处理外部传入的参数
+    OnCreate                     -- （等价Awake）首次获得资源，创建内部对象
+    OnShow                       -- 显示
+    OnHide                       -- 隐藏
+    OnAddListener                -- 添加事件监听（持久事件监听，跟UI对象生命周期一致）
+    OnRemoveListener             -- 移除事件监听（持久事件监听，跟UI对象生命周期一致）
+    --onAddDynamicListener        -- 添加动态事件监听（显示时调用，添加显示时才响应的事件）
+    --onRemoveDynamicListener     -- 移除动态事件监听（隐藏时调用，移除隐藏时不需要响应的事件）
+    OnRefresh                    -- 刷新逻辑
+
+    -- 注意：dispose只是释放lua对象，unity的资源有可能还没加载完，如果
+    -- 需要操作unity对象记得判空
+    OnDispose                    -- 销毁逻辑
+    ========================================================
+--]]
+
+---@class UIWidget : UINode UIWidget是整个UI树状结构中处理显示层逻辑的的基础元素，通过手动绑定或加载两种方式创建
+local UIWidget = class("UIWidget", UINode)
+local M = UIWidget
+
+local unpack = table.unpack or unpack
+---@class InstantiateState
+local InstantiateState =
+{
+    None = -1,
+    Bind = 0,
+    Load = 1,
+}
+
+--======================================================================================================================
+--                                                      主要覆写接口
+--======================================================================================================================
+---资源的加载路径
+---@return string
+function M:GetConfigAssetPath()
+    print_error(string.format("%s get invalid asset path nil, please override GetConfigAssetPath() function",
+        self.__cname))
+    return ""
+end
+
+---是否必须处理GameObject下所有Canvas的排序问题
+---@return boolean
+function M:AutoSortSubCanvas()
+    return false
+end
+
+---是否自动将c#注入对象包装成lua对象
+---@return boolean
+function M:AutoWrapInjectObject()
+    return false
+end
+
+function M:OnTick(elapsedTime, realElapsedTime)
+end
+
+---处理参数
+---@param params any 传入的任意参数
+function M:OnParse(params)
+end
+
+---创建逻辑
+function M:OnCreate()
+end
+
+---显示逻辑
+function M:OnShow()
+end
+
+---隐藏逻辑
+function M:OnHide()
+end
+
+---添加事件监听
+function M:OnAddListener()
+end
+
+---移除事件监听
+function M:OnRemoveListener()
+end
+
+---刷新逻辑
+function M:OnRefresh()
+end
+
+---销毁前清理
+function M:OnDispose()
+end
+
+--======================================================================================================================
+--                                                      主要接口
+--======================================================================================================================
+function M:GetType()
+    return UINodeType.Widget
+end
+
+--[[
+    @public                 构造方法，子类不允许覆写
+    @param gameObject       传入GameObject
+    @param params           初始化参数
+--]]
+function M:Ctor(params)
+    UINode.Ctor(self)
+    self:_init(params)
+end
+
+--[[
+    @public 绑定已经存在的显示对象
+--]]
+function M:Bind(gameObject)
+    self:_bind(gameObject)
+end
+
+function M:SetParentGo(parentGo)
+    UINode.SetParentGo(self, parentGo);
+    --已经加载好,就直接绑定
+    if (self:HasGameObject()) then
+        self:_handleWithLocalParentTransform()
+    end
+end
+
+--[[
+    @public 加载显示对象
+--]]
+function M:Load(overridePath, callback, ...)
+    if self._instantiateState ~= InstantiateState.None then
+        print_error(string.format("%s instantiate state is not none, can't load ,state = %s", self.__cname,self._instantiateState))
+        return
+    end
+
+    self._instantiateState = InstantiateState.Load
+    local loadPath = overridePath or self:GetConfigAssetPath()
+    if string.isNilOrEmpty(loadPath) then
+        print_error(string.format("%s load path is nil or empty", self.__cname))
+        return
+    end
+
+    self._loadPath         = loadPath
+    self._loadCallback     = callback
+    self._loadCallbackArgs = ... ~= nil and { ... } or nil
+
+    self:_load(loadPath)
+end
+
+--[[
+    @public         显示
+    @param params   传入的参数
+    @param isRevert 是否是还原
+--]]
+function M:Show(params)
+    if (params) then
+        self.__params = params
+    end
+
+    if self:HasGameObject() then
+        self:_parse()
+    end
+
+    self:_setVisible(true)
+
+    if self:HasGameObject() then
+        self:_refresh()
+    end
+end
+
+--[[
+    @public 隐藏
+--]]
+function M:Hide()
+    self:_setVisible(false)
+end
+
+--[[
+    @public 刷新
+--]]
+function M:Refresh(params)
+    if (params) then
+        self.__params = params
+    end
+
+    if self:HasGameObject() then
+        self:_parse()
+        self:_refresh()
+    end
+end
+
+--[[
+    @public 显示状态
+    @return 如果显示中，返回true，否则为false
+--]]
+function M:IsVisible()
+    if self._parent and
+        self._parent:GetType() ~= UINodeType.Node and
+        self._parent:GetType() ~= UINodeType.Root and
+        self._parent:GetType() ~= UINodeType.Layer then
+        return self:_isSelfVisible() and self._parent:IsVisible()
+    end
+
+    return self:_isSelfVisible()
+end
+
+--[[
+    @public 销毁
+--]]
+function M:Dispose()
+    if self._disposed then
+        return
+    end
+
+    if self:IsVisible() then
+        self:Hide()
+    end
+
+    self:__dispose()
+    self._disposed = true
+
+    UINode.Dispose(self)
+end
+
+--======================================================================================================================
+--                                                      内部逻辑
+--======================================================================================================================
+--[[
+    @private
+--]]
+function M:_init(params)
+    self._rectTransformCache = nil
+    self._instantiateState = InstantiateState.None
+    self._disposed = false
+
+    self._isVisible = nil
+    --self._dynamicListenerDict = {}  -- TODO : 动态监听事件缓存字典
+    self._isCreating = false
+    self.__params = params
+
+    -- 加载相关参数
+    self._loadPath = nil
+    self._loadCallback = nil
+    self._loadCallbackArgs = nil
+    self._loader = nil
+
+    self._loadGUids = {}
+end
+
+--[[
+    @private
+--]]
+function M:_bind(gameObject)
+    if self._instantiateState ~= InstantiateState.None then
+        print_error(string.format("%s instantiate state is not none, can't load ,state = %s", self.__cname,self._instantiateState))
+        return
+    end
+
+    if gameObject == nil then
+        print_error(string.format("%s Bind gameObject is nil", self.__cname))
+        return
+    end
+
+    if UINode.nodes[gameObject:GetInstanceID()] then
+        print_error(string.format("%s Bind gameObject failed, %s has Bind with %s", self.__cname, gameObject.name,
+            UINode.nodes[gameObject:GetInstanceID()].__cname))
+        return
+    end
+
+    self._instantiateState = InstantiateState.Bind
+    self:_prepare(gameObject)
+end
+
+--[[
+    @private
+--]]
+function M:_load(loadPath)
+   
+    local gUid = Game.SystemManager.UWAssetManager:loadResourceAsync(loadPath, function(obj, gUid)
+        self:_onLoadCompleted(loadPath, obj, gUid)
+    end)
+    table.insert(self._loadGUids, gUid)
+end
+
+--[[
+    @private
+--]]
+function M:_clearLoader()
+    for _, gUid in ipairs(self._loadGUids) do
+        Game.SystemManager.UWAssetManager:unloadGUid(gUid)
+    end
+end
+
+--[[
+    @private
+--]]
+function M:_clearLoadCallback()
+    self._loadCallback = nil
+    self._loadCallbackArgs = nil
+end
+
+--[[
+    @private
+--]]
+function M:_onLoadCompleted(path, gameObject, gUid)
+    if gameObject == nil then
+        return
+    end
+
+    self:_prepare(gameObject)
+
+    if self._loadCallback ~= nil then
+        if self._loadCallbackArgs ~= nil then
+            self._loadCallback(unpack(self._loadCallbackArgs))
+        else
+            self._loadCallback()
+        end
+    end
+    self:_clearLoadCallback()
+end
+
+--[[
+    @private
+--]]
+function M:_prepare(gameObject)
+    self._gameObject    = gameObject
+    self._transform     = gameObject.transform
+    self._rectTransform = gameObject:GetComponent("RectTransform")
+
+    if self._rectTransform ~= nil and self._rectTransform:IsNotNull() then
+        self._rectTransformCache = {
+            localScale    = self._rectTransform.localScale,
+            localPosition = self._rectTransform.localPosition,
+            anchorMax     = self._rectTransform.anchorMax,
+            anchorMin     = self._rectTransform.anchorMin,
+            offsetMax     = self._rectTransform.offsetMax,
+            offsetMin     = self._rectTransform.offsetMin,
+        }
+    end
+
+    UINode.nodes[self._gameObject:GetInstanceID()] = self -- 缓存引用，加快查找速度
+
+    -- 加入树
+    if self._instantiateState == InstantiateState.Load then
+        if self:GetType() == UINodeType.Widget then
+            self:_handleWithLocalParentTransform()
+        elseif self:GetType() == UINodeType.Panel then
+            self:_handleWithParentTransform()
+        else
+            print_error("UIWidget _prepare error " )
+        end
+    elseif self._instantiateState == InstantiateState.Bind then
+        local parent = self:_findParent(self._rectTransform.parent)
+        self:_setParent(parent)
+    end
+
+    -- 处理外部传入的参数
+    self:_parse()
+
+    -- 首次创建
+    self._isCreating = true
+    self:_create()
+    self:_handleCanvasSortingOrder()
+    self:_inject()
+    --self:OnCreate()
+    local status, info = pcall(self.OnCreate, self)
+    if (not status) then
+        print_error("OnCreate function error status:" .. tostring(status) .. ",info:" .. tostring(info) .. ",name = " .. self.__cname)
+    end
+    self:_afterCreate()
+    self:_addListener()
+    self:_start()
+    self._isCreating = false
+
+    -- 更新可见性
+    if self._instantiateState == InstantiateState.Bind then
+        if self._isVisible == nil then
+            self._isVisible = self._gameObject.activeSelf
+        end
+
+        -- 父节点Create之后会遍历子节点的可见状态，防止重复调用
+        if self._parent and not self._parent._isCreating then
+            self:_refreshSelfVisible()
+        end
+    elseif self._instantiateState == InstantiateState.Load then
+        self:_setVisible(self:_isSelfVisible(), true)
+    end
+
+    -- 刷新逻辑
+    self:_refresh()
+end
+
+function M:_bindWithParentTransform()
+    UINode._bindWithParentTransform(self)
+
+    if self._rectTransform ~= nil and self._rectTransform:IsNotNull() then
+        self._rectTransform.localScale = self._rectTransformCache.localScale
+        self._rectTransform.localPosition = self._rectTransformCache.localPosition
+        self._rectTransform.anchorMax = self._rectTransformCache.anchorMax
+        self._rectTransform.anchorMin = self._rectTransformCache.anchorMin
+        self._rectTransform.offsetMax = self._rectTransformCache.offsetMax
+        self._rectTransform.offsetMin = self._rectTransformCache.offsetMin
+        self._rectTransformCache = nil
+    end
+end
+
+--[[
+    @private
+--]]
+function M:_parse()
+    local params = self.__params
+    self.__params = nil
+    if (params) then
+        self:OnParse(params)
+    end
+end
+
+---处理Canvas排序
+function M:_handleCanvasSortingOrder()
+    if not self:AutoSortSubCanvas() then
+        return
+    end
+
+    --如果自身是绑定的形式创建的，就不用处理了，因为父级已经处理
+    if self._instantiateState == InstantiateState.Bind then
+        return
+    end
+
+    local parent = self._gameObject.transform.parent:GetComponentInParent(UnityType.Canvas)
+    if parent == nil or parent:IsNull() then
+        return
+    end
+
+    local children = self._gameObject:GetComponentsInChildren(UnityType.Canvas, true)
+    if children == nil or children.Length == 0 then
+        return
+    end
+
+    local length = children.Length - 1
+    for i = 0, length do
+        local canvas = children[i]
+        if canvas ~= nil and canvas:IsNotNull() and canvas.overrideSorting then
+            canvas.sortingOrder = canvas.sortingOrder + parent.sortingOrder
+        end
+    end
+end
+
+--[[
+    @protected 首次创建，封装供框架子类覆写，保证onCreate干净
+--]]
+function M:_create()
+    self._canvases = self._gameObject:GetComponentInChildren(UnityType.Canvas)
+end
+
+---注入C#脚本引用对象
+function M:_inject()
+    local luaBehaviour = self._gameObject:GetComponent("LuaBehaviour")
+    if luaBehaviour == nil or luaBehaviour:IsNull() then
+        --log_Error("luaBehaviour = nil")
+        return
+    end
+    luaBehaviour:Inject(self)
+    luaBehaviour.tableName = self.__cname;
+    self._luaBehaviour = luaBehaviour
+
+    --自动将c#注入对象包装成lua对象
+    if not self:AutoWrapInjectObject() then
+        return
+    end
+
+    local references = luaBehaviour.references
+    if references == nil or references.Length < 1 then
+        return
+    end
+
+    local length = references.Length - 1
+    for i = 0, length do
+        local reference = references[i]
+        if reference ~= nil and reference.Object ~= nil and reference.Object:IsNotNull() then
+            local wrap = nil
+            local componentType = reference.Component:GetType()
+            if componentType == UnityType.UIButton then
+                wrap = UIButton.new()
+                wrap:Bind(reference.Object.gameObject)
+            else
+                -- todo : 增加其他封装组件的转换
+            end
+
+            if wrap ~= nil then
+                local injectName = string.isNilOrEmpty(reference.Name) and reference.Component.name or reference.Name
+                self[injectName] = wrap
+            end
+        end
+    end
+end
+
+---清除C#脚本引用对象
+function M:_eject()
+    if self._luaBehaviour == nil or self._luaBehaviour:IsNull() then
+        return
+    end
+
+    self._luaBehaviour:Eject()
+end
+
+--[[
+    @protected 首次创建后的逻辑，封装供框架子类覆写
+--]]
+function M:_afterCreate()
+end
+
+--[[
+    @protected 开始，封装供框架子类覆写
+--]]
+function M:_start()
+end
+
+function M:_addListener()
+    self:OnAddListener()
+end
+
+function M:_removeListener()
+    self:OnRemoveListener()
+end
+
+--[[
+    @protected 显示，封装供框架子类覆写，保证onShow干净
+--]]
+function M:_show()
+    if self:HasGameObject() and self.isFirstShow then
+        --self:_addDynamicListener()
+        self.isFirstShow = false
+    end
+    self:OnShow()
+end
+
+--[[
+    @protected 隐藏，封装供框架子类覆写，保证onHide干净
+--]]
+function M:_hide()
+    if self:HasGameObject() then
+        -- self:_removeDynamicListener()
+    end
+    self.isFirstShow = true
+    self:OnHide()
+end
+
+--[[
+    @private 刷新
+--]]
+function M:_refresh()
+    self:OnRefresh()
+end
+
+function M:_isSelfVisible()
+    if self._isVisible == nil then
+        return true
+    end
+
+    return self._isVisible
+end
+
+--[[
+    @protected      设置可见
+    @param value    是否可见
+    @param force    强制执行
+--]]
+function M:_setVisible(value, force)
+    if self._isVisible == value and not force then return end
+    self._isVisible = value
+    self:_refreshVisible()
+end
+
+--[[
+    @private 更新可见
+--]]
+function M:_refreshVisible()
+    if not self:HasGameObject() then return end
+    self._gameObject:SetActive(self:_isSelfVisible())
+    self:_visibleChange()
+end
+
+--[[
+    @protected 更新自身可见
+--]]
+function M:_refreshSelfVisible()
+    if self:IsVisible() then
+        self:_show()
+    else
+        self:_hide()
+    end
+end
+
+--[[
+    @protected 更新可见，遍历调用子节点
+--]]
+function M:_visibleChange()
+    if not self:HasGameObject() then return end
+
+    if self:IsVisible() then
+        self:_show()
+
+        if self._childList then
+            for i, v in ipairs(self._childList) do
+                v:_visibleChange()
+            end
+        end
+    else
+        -- 此处不能先调用_hide(), 如果父类在onHide里面调用子类Destroy，会导致子类走不到onHide
+        if self._childList then
+            for i, v in ipairs(self._childList) do
+                if v:_isSelfVisible() then
+                    v:_visibleChange()
+                end
+            end
+        end
+        self:_hide()
+    end
+end
+
+---销毁，封装供框架子类覆写，保证onDispose干净
+function M:_dispose()
+end
+
+function M:__dispose()
+    if self:HasGameObject() then
+        UINode.nodes[self._gameObject:GetInstanceID()] = nil -- 提前处理掉
+        self:_removeListener()
+    end
+
+    self:_dispose()
+
+    -- 销毁子对象
+    for _, v in pairs(self._childDict) do
+        v:Dispose()
+    end
+    self._childList = nil
+    self._childDict = nil
+    --self:OnDispose()
+    local status, info = pcall(self.OnDispose, self)
+    if (not status) then
+        print_error("status:" .. tostring(status) .. ",info:" .. tostring(info))
+    end
+    self:_setParent(nil)
+    self:_clearLoader()
+    self:_clearLoadCallback()
+    self:_eject()
+
+   
+    self._gameObject = nil
+    self._transform = nil
+    self._rectTransform = nil
+end
+
+return M

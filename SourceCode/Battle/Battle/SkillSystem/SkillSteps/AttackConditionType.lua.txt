@@ -1,0 +1,20 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 18:10:01 星期四
+----------------------------------------------------------------------
+
+---@class AttackConditionType
+local AttackConditionType =
+{
+    Condition_None                          = "0",    --
+    Condition_CashierHpPercentLess          = "1",    -- 施法者生命百分比少于
+    Condition_CashierHpPercentLargeEqual    = "2",    -- 施法者生命百分比大于等于
+    Condition_TargetHpPercentLess           = "3",    -- 受击者生命百分比少于
+    Condition_TargetHpPercentLargeEqual     = "4",    -- 受击者生命百分比大于等于
+    Condition_CastHasBuff                   = "5",    -- 施法者持有buff效果 (比如 21/22)
+    Condition_TargetHasBuff                 = "6",    -- 受击者持有buff效果
+    Condition_A_Dis                         = "7",    -- 远程还是近战
+    Condition_CastHasBuffId                 = "8",    -- 施法者持有buffId
+    Condition_TargetHasBuffId               = "9",    -- 受击者持有buffId
+}
+
+return AttackConditionType

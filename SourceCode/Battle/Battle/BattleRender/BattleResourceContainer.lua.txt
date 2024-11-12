@@ -1,0 +1,673 @@
+---@class BattleResourceContainer
+local BattleResourceContainer = class("BattleResourceContainer")
+local BattleMapPathFinder = require "GameLogic.Battle.BattleScene.BattleMapPathFinder"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+-- local GameObject = CS.UnityEngine.GameObject
+local M = BattleResourceContainer
+
+local MapData = {
+    x = 9,               -- 宽
+    y = 11,              -- 长
+    cellSize = 1.039230, -- 正六边形外径 （内径 = 外径 * 0.866025404 ）
+    off_y = 0.04         -- 场景y轴偏移量
+}
+
+local baseScenePath = "Assets/GameAsset/Scene/BattleScene/BattleSceneBase/sceneprefab/BattleScene.prefab"
+
+function M:Ctor(loadSceneCb)
+    self.assetLoaders = {}
+    self._go_scene = nil
+    self._go_posRoot = nil
+    self._map_model = {}
+    self._posItemMap = {}
+    ---@type BattleMapPathFinder
+    self._mapPathFinder = BattleMapPathFinder.new()
+    self._isOpenRender = true
+
+    self._isShowGrid = true
+    self._teamModel = {}
+    self._teamSummonModel = {}
+    self._hudBehaviour = nil
+    self._loadSceneCb = loadSceneCb
+    self._gUid_map = {}
+    self._go_gUid_map = {}
+    self._sceneConfig = nil
+    self._enterBattleLoadModelLength = 0
+
+    self._gUid_map_obstacle = {}
+end
+
+function M:clear()
+    for gUid, obj in pairs(self._gUid_map) do
+        if obj ~= nil then
+            Game.SystemManager.UWAssetManager:unloadGUid(gUid)
+        end
+    end
+    self._gUid_map = {}
+    for _, gUid in pairs(self._gUid_map_obstacle) do
+        Game.SystemManager.UWAssetManager:unloadGUid(gUid)
+    end
+    self._gUid_map_obstacle = {}
+    GameObjectUtil.SafeSetActiveSelf(self._cm_battle, false)
+    GameObjectUtil.SafeSetActiveSelf(self._cm_teamSet, false)
+
+    self._teamModel = {}
+
+    -- if self._go_baseScene then
+    --     CS.UnityEngine.GameObject.Destroy(self._go_baseScene)
+    -- end
+    self._go_baseScene = nil
+    self._go_scene = nil
+    self._go_posRoot = nil
+    
+    self:releaseHUD()
+end
+
+function M:releaseHUD()
+    if self._hudBehaviour then
+        self._hudBehaviour:Release()
+        self._hudBehaviour = nil
+    end
+end
+
+---@return BattleMapPathFinder
+function M:GetMapPathFinder()
+    return self._mapPathFinder
+end
+
+function M:setOpenRender(isOpen)
+    self._isOpenRender = isOpen
+end
+
+function M:setScene(path, go_scene)
+    self._path_scene = path
+    self._go_scene = go_scene
+end
+
+function M:getSceneManager()
+    return self._sceneManager
+end
+
+function M:tryLoadByStageId(customId, cb, initCellColor, hideMap)
+    local stageCon = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, customId)
+    if stageCon and stageCon.sceneSrc then
+        self:tryLoadBySceneId(stageCon.sceneSrc, cb, initCellColor, hideMap)
+    end
+end
+
+function M:tryLoadBySceneId(sceneId, cb, initCellColor, hideMap)
+    local sceneCon = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Scene, sceneId)
+
+    if sceneCon and sceneCon.src then
+        -- self:tryLoadScene(ScenePath.Fight, cb)
+        self:loadBaseScene(function() self:tryLoadScene(sceneCon.src, cb, sceneCon, initCellColor, hideMap) end, sceneCon)
+    end
+end
+
+function M:loadBaseScene(callBack, sceneCon)
+    if self._go_baseScene == nil then
+        if self._loadSceneCb then
+            self._loadSceneCb(baseScenePath, function(go, gUid)
+                self._go_baseScene = go
+                local root = CS.UnityEngine.GameObject.Find("SceneContainer").transform
+                go.transform:SetParent(root)
+                if self._sceneRoot == nil then
+                    self._sceneRoot = go.transform:Find("SceneRoot")
+                end
+                if self._sceneObstacleRoot == nil then
+                    self._sceneObstacleRoot = go.transform:Find("SceneObstacleRoot")
+                end
+               
+                if callBack then
+                    callBack()
+                end
+            end)
+        else
+            self:Load(baseScenePath, function(path, go)
+                self._go_baseScene = go
+                local root = CS.UnityEngine.GameObject.Find("SceneContainer").transform
+                go.transform:SetParent(root)
+                if self._sceneRoot == nil then
+                    self._sceneRoot = go.transform:Find("SceneRoot")
+                end
+                if self._sceneObstacleRoot == nil then
+                    self._sceneObstacleRoot = go.transform:Find("SceneObstacleRoot")
+                end
+                if callBack then
+                    callBack()
+                end
+            end)
+        end
+    else
+        if callBack then
+            callBack()
+        end
+    end
+end
+
+function M:initScenePos(go, sceneCon)
+    if sceneCon and sceneCon.scenePosition then
+        go.transform.localPosition = Vector3(sceneCon.scenePosition[1], sceneCon.scenePosition[2],
+            sceneCon.scenePosition[3])
+    else
+        go.transform.localPosition = Vector3.zero
+    end
+    if sceneCon and sceneCon.sceneRotation then
+        go.transform.localRotation = Quaternion.Euler(sceneCon.sceneRotation[1], sceneCon.sceneRotation[2],
+            sceneCon.sceneRotation[3])
+    else
+        go.transform.localPosition = Quaternion.Euler(0, 0, 0)
+    end
+end
+
+function M:tryLoadScene(path, callBack, sceneCon, initCellColor, hideMap)
+    if self._path_scene == path and self._go_scene then
+        self:init(sceneCon, initCellColor, hideMap)
+        if callBack then
+            callBack()
+        end
+    else
+        self:Load(path, function(path, go)
+            self:setScene(path, go)
+            go.transform:SetParent(self._sceneRoot)
+            self:initScenePos(go, sceneCon)
+            self:init(sceneCon, initCellColor, hideMap)
+            if callBack then
+                callBack()
+            end
+        end)
+    end
+end
+
+function M:init(sceneCon, initCellColor, hideMap)
+    if self._go_baseScene == nil then
+        return
+    end
+    self._sceneConfig = sceneCon
+    self:initLogic(sceneCon)
+    if self._isOpenRender then
+        self:initRender(sceneCon, initCellColor, hideMap)
+    end
+end
+
+function M:initRender(sceneCon, initCellColor, hideMap)
+    self:initRenderMap(initCellColor, hideMap, sceneCon)
+    self:initializePosGrid(sceneCon)
+    self:initCom()
+    self:initHUD()
+    self:initCameraPos(sceneCon)
+    self:RefreshShowGrid(BattleHelper:GetBattleGridIsShow(), false)
+    self:checkLoadObstacle()
+    self:handleSceneBlack(false)
+end
+
+function M:initCom()
+    self._mainCamera = self.csBattleController:GetSceneCamera()
+    self._go_enemyModelRoot = self._go_baseScene.transform:Find("Enemy Container")
+    self._go_characterModelRoot = self._go_baseScene.transform:Find("Character Container")
+    self._sceneManager = self._go_baseScene:GetComponent(typeof(CS.CharacterManager))
+    self._gridRoot = self._go_baseScene.transform:Find("Hexagon Grid").gameObject
+    self._battle_camera = self._go_baseScene.transform:Find("CameraLayer/BattleCamera"):GetComponent(typeof(CS
+        .UnityEngine.Camera))
+    self._battle_camera_data = self._battle_camera.transform:GetComponent("UniversalAdditionalCameraData")
+    self._cm_teamSet = self._go_baseScene.transform:Find("CameraLayer/CM_TeamSet"):GetComponent(
+        "CinemachineVirtualCamera")
+    self._cm_battle = self._go_baseScene.transform:Find("CameraLayer/CM_Battle"):GetComponent("CinemachineVirtualCamera")
+    self._cm_battle_ani = self._go_baseScene.transform:Find("CameraLayer/CM_Battle"):GetComponent("CinemachineAni")
+    self._scene_mask = self._go_baseScene.transform:Find("CameraLayer/BattleCamera/Mask")
+    self._camera_animation = self._go_baseScene.transform:Find("CameraLayer"):GetComponent(typeof(CS.UnityEngine
+        .Animator))
+end
+
+function M:initHUD()
+    if self._go_baseScene then
+        self._hudBehaviour = self._go_baseScene.transform:Find("HudManagerUW"):GetComponent("HUDBehaviour")
+        self._hudBehaviour:Init()
+    end
+end
+
+function M:GetIsShowGrid()
+    return self._isShowGrid
+end
+
+function M:RefreshShowGrid(isShow, isSave)
+    isSave = isSave or false
+    self._isShowGrid = isShow
+    GameObjectUtil.SafeSetActiveSelf(self._gridRoot, isShow)
+    if isSave then
+        BattleHelper:SetBattleGridIsShow(isShow)
+    end
+end
+
+function M:SetPostProcessing(isOpen)
+    if self._battle_camera and self._battle_camera_data then
+        self._battle_camera_data.renderPostProcessing = isOpen
+    end
+end
+
+function M:GetHudBehaviour()
+    return self._hudBehaviour
+end
+
+function M:initCameraPos(sceneCon)
+    local teamSetFOV = 0
+    if self._cm_teamSet and sceneCon and sceneCon.deployCameraPosition then
+        local pos = Vector3(sceneCon.deployCameraPosition[1], sceneCon.deployCameraPosition[2],
+            sceneCon.deployCameraPosition[3])
+        self._cm_teamSet.transform.localPosition = pos
+
+        self._cm_teamSet.transform.localRotation = Quaternion.Euler(sceneCon.deployRotation[1],
+            sceneCon.deployRotation[2], sceneCon.deployRotation[3])
+
+        -- local tmpLen = CS.Cinemachine.LensSettings(0,0,0,0,0)
+        -- tmpLen.FieldOfView = 10
+        -- self._cm_teamSet.m_Lens = tmpLen
+        teamSetFOV = CS.SceneCameraAdaptor_Cinemachine.AdaptiveCinemachineVirtualCamera_H(1920, 1080, sceneCon.deployFov,
+            self._cm_teamSet, self._battle_camera)
+    end
+
+    if self._cm_battle and sceneCon and sceneCon.cameraPosition then
+        local pos = Vector3(sceneCon.cameraPosition[1], sceneCon.cameraPosition[2],
+            sceneCon.cameraPosition[3])
+        self._cm_battle.transform.localPosition = pos
+
+        self._cm_battle.transform.localRotation = Quaternion.Euler(sceneCon.rotation[1],
+            sceneCon.rotation[2], sceneCon.rotation[3])
+        local targetFov = CS.SceneCameraAdaptor_Cinemachine.GetAdaptiveCinemachineVirtualCameraFov(1920, 1080,
+            sceneCon.fov, self._battle_camera)
+        self._cm_battle_ani:SetAniParam(teamSetFOV, targetFov)
+    end
+    self:tryPlaySceneCameraAni(sceneCon)
+end
+
+function M:handleBattleShockScene()
+    if self._camera_animation then
+        self._camera_animation:Play("BattleCamera_Vibrate", 1, 0)
+    end
+end
+function M:handleBattleBossShockScene()
+    if self._camera_animation then
+        self._camera_animation:Play("BattleCamera_VibrateBoss", 1, 0)
+    end
+end
+
+function M:tryPlaySceneCameraAni(sceneCon)
+    if self._camera_animation and sceneCon and sceneCon.sceneBaseCamera then
+        self._camera_animation:Play(sceneCon.sceneBaseCamera, 0, 0)
+    end
+end
+
+function M:handleSceneBlack(isShow)
+    if self._scene_mask then
+        GameObjectUtil.SafeSetActiveSelf(self._scene_mask.gameObject, isShow)
+    end
+end
+
+function M:enterTeamSet()
+    if self._cm_battle then
+        GameObjectUtil.SafeSetActiveSelf(self._cm_battle, false)
+    end
+    if self._cm_teamSet then
+        GameObjectUtil.SafeSetActiveSelf(self._cm_teamSet, true)
+    end
+end
+
+---@param battleInfo BattleInfo 战斗数据
+---@param leftTeamList BattleCharacterPlayerModel[]
+---@param rightTeamList BattleCharacterRobotModel[]
+function M:loadBattleResource(battleInfo, leftTeamList, rightTeamList)
+    --- todo load model 和 model
+    self:checkAndLoadModel(leftTeamList, rightTeamList)
+    self:checkLoadObstacle()
+end
+
+function M:enterBattle()
+    if self._cm_battle then
+        GameObjectUtil.SafeSetActiveSelf(self._cm_battle, true)
+    end
+    if self._cm_teamSet then
+        GameObjectUtil.SafeSetActiveSelf(self._cm_teamSet, false)
+    end
+    self:RefreshShowGrid(BattleHelper:GetBattleGridIsShow(), false)
+end
+
+function M:getModelRoot(type)
+    if type == 1 then
+        return self._go_characterModelRoot
+    else
+        return self._go_enemyModelRoot
+    end
+end
+
+---@return BattleMapPathFinder
+function M:newLogicMap(battleData)
+    local sceneId = BattleHelper:getBattleSceneId(battleData.battleType, battleData.targetId)
+    local sceneCon = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Scene, sceneId)
+    self._sceneConfig = sceneCon
+    local logic = BattleMapPathFinder.new()
+    logic:Initialize(sceneCon.gridMap[1], sceneCon.gridMap[2], sceneCon.outerRadius, MapData.off_y, sceneCon.Obstacles,
+        sceneCon.battlePointPos)
+    return logic
+end
+
+function M:initLogic(sceneCon)
+    self._mapPathFinder:Initialize(sceneCon.gridMap[1], sceneCon.gridMap[2], sceneCon.outerRadius, MapData.off_y,
+        sceneCon.Obstacles, sceneCon.battlePointPos)
+end
+
+function M:initRenderMap(initCellColor, hideMap, sceneCon)
+    initCellColor = initCellColor or 1
+    hideMap = hideMap or nil
+    self.csBattleController = self._go_baseScene:GetComponent(typeof(CS.BattleSceneController))
+    if self.csBattleController then
+        self.csBattleController:InitializeMapData(sceneCon.gridMap[1], sceneCon.gridMap[2], sceneCon.outerRadius)
+        self.csBattleController:InitializeScene(initCellColor, hideMap)
+        self:showHighlights(sceneCon)
+    end
+end
+
+function M:SetPosGridActive(isShow)
+    GameObjectUtil.SafeSetActiveSelf(self._go_posRoot, isShow)
+end
+
+function M:initializePosGrid(sceneCon)
+    if self._go_baseScene then
+        local posRoot = self._go_baseScene.transform:Find("BattlePos")
+        if posRoot then
+            self._go_posRoot = posRoot.gameObject
+            local selfCoorCfg = sceneCon.battleGridSelfCoor
+            for i = 1, 5 do
+                local tmpGrid = posRoot.transform:Find("Canvas/posItem_" .. i)
+                if tmpGrid then
+                    local v = selfCoorCfg[i]
+                    if v then
+                        self._posItemMap[i] = tmpGrid.gameObject
+                        local pos = self:GetMapPathFinder():GetRenderPositionByRenderPos(v[1] - 1, v[2] - 1)
+                        tmpGrid.transform.position = pos
+                    end
+                end
+            end
+            local enemyCoorCfg = sceneCon.battleGridEnemyCoor
+            if enemyCoorCfg then
+                for i = 6, 10 do
+                    local tmpGrid = posRoot.transform:Find("Canvas/posItem_" .. i)
+                    if tmpGrid then
+                        local v = enemyCoorCfg[i - 5]
+                        if v then
+                            self._posItemMap[i] = tmpGrid.gameObject
+                            local pos = self:GetMapPathFinder():GetRenderPositionByRenderPos(v[1] - 1, v[2] - 1)
+                            tmpGrid.transform.position = pos
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+function M:getSceneCon()
+    return self._sceneConfig
+end
+
+function M:setIsShowRightGrid(isShow)
+    if self._posItemMap then
+        for i = 6, 10 do
+            local node = self._posItemMap[i]
+            GameObjectUtil.SafeSetActiveSelf(node, isShow)
+        end
+    end
+end
+
+function M:getGridPos(type, gridIndex)
+    if self._sceneConfig == nil then
+        log_Error("逻辑错误 self._sceneConfig 不能为空")
+        return Vector3.zero
+    end
+    local con = nil
+    if type == 1 then
+        con = self._sceneConfig.battleGridSelfCoor
+    else
+        con = self._sceneConfig.battleGridEnemyCoor
+    end
+    if con then
+        local v = con[gridIndex]
+        return self:GetMapPathFinder():GetRenderPositionByRenderPos(v[1] - 1, v[2] - 1)
+    end
+    
+    return Vector3.zero
+end
+
+function M:showHighlights(sceneCon)
+    local selfCoorCfg = sceneCon.battleGridSelfCoor
+    if selfCoorCfg then
+        local v1 = selfCoorCfg[1]
+        local v2 = selfCoorCfg[2]
+        local v3 = selfCoorCfg[3]
+        local v4 = selfCoorCfg[4]
+        local v5 = selfCoorCfg[5]
+        self.csBattleController:ShowHighlights(true, 1, v1[1], v1[2], v2[1], v2[2], v3[1], v3[2], v4[1], v4[2], v5[1], v5[2])
+    end
+
+    local enemyCoorCfg = sceneCon.battleGridEnemyCoor
+    if enemyCoorCfg then
+        local v1 = enemyCoorCfg[1]
+        local v2 = enemyCoorCfg[2]
+        local v3 = enemyCoorCfg[3]
+        local v4 = enemyCoorCfg[4]
+        local v5 = enemyCoorCfg[5]
+        self.csBattleController:ShowHighlights(true, 2, v1[1], v1[2], v2[1], v2[2], v3[1], v3[2], v4[1], v4[2], v5[1], v5[2])
+    end
+end
+
+function M:hideHighlights()
+    -- local selfCoorCfg = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleGridSelfCoor")
+    -- local v1 = selfCoorCfg[1]
+    -- local v2 = selfCoorCfg[2]
+    -- local v3 = selfCoorCfg[3]
+    -- local v4 = selfCoorCfg[4]
+    -- local v5 = selfCoorCfg[5]
+    -- self.csBattleController:ShowHighlights(false, 1, v1[1], v1[2], v2[1], v2[2], v3[1], v3[2], v4[1], v4[2], v5[1],
+    --     v5[2])
+
+    -- local enemyCoorCfg = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleGridEnemyCoor")
+    -- v1 = enemyCoorCfg[1]
+    -- v2 = enemyCoorCfg[2]
+    -- v3 = enemyCoorCfg[3]
+    -- v4 = enemyCoorCfg[4]
+    -- v5 = enemyCoorCfg[5]
+    -- self.csBattleController:ShowHighlights(false, 2, v1[1], v1[2], v2[1], v2[2], v3[1], v3[2], v4[1], v4[2], v5[1], v5
+    --     [2])
+end
+
+function M:refreshWorldGridLockStage(stageMap)
+    if self._sceneConfig == nil then
+        log_Error("逻辑错误 self._sceneConfig 不能为空")
+        return
+    end
+    local selfCoorCfg = self._sceneConfig.battleGridSelfCoor
+
+    for index, isUnlock in ipairs(stageMap) do
+        local color = isUnlock and 6 or 5
+        local v = selfCoorCfg[index]
+        self.csBattleController:ChangeGridColor(v[1] - 1, v[2] - 1, color)
+    end
+end
+
+function M:loadModelByHeroId(heroId, initPos, camp, cb)
+    local con_show = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+    local srcShow = con_show.src
+    if string.isNilOrEmpty(srcShow) then
+        return
+    end
+    local guid = Game.SystemManager.UWAssetManager:loadResourceAsync(srcShow, function(obj, gUid)
+        self._gUid_map[gUid] = obj
+        self._go_gUid_map[obj] = gUid
+        local root = self:getModelRoot(camp)
+        GameObjectUtil.setInitPos(camp == 1, obj, root, initPos)
+        obj.transform.localScale = Vector3(1, 1, 1)
+        if cb then
+            cb(obj, gUid)
+        end
+    end)
+    self._gUid_map[guid] = 1
+    return guid
+end
+
+function M:loadModel(src, cb)
+    return self:Load(src, cb)
+end
+
+function M:unloadModel(gUid)
+    if gUid then
+        local obj = self._gUid_map[gUid]
+        self._gUid_map[gUid] = nil
+        self._go_gUid_map[obj] = nil
+        Game.SystemManager.UWAssetManager:unloadGUid(gUid)
+    end
+end
+
+function M:Load(src, cb)
+    if string.isNilOrEmpty(src) then
+        return
+    end
+    local guid = Game.SystemManager.UWAssetManager:loadResourceAsync(src, function(obj, gUid)
+        self._gUid_map[gUid] = obj
+        self._go_gUid_map[obj] = gUid
+        if cb then
+            cb(src, obj, gUid)
+        end
+    end)
+    self._gUid_map[guid] = 1
+    return guid
+end
+
+function M:getCacheModel(camp, posIndex)
+    return self._teamModel[camp][posIndex][2]
+end
+
+function M:cacheModel(type, index, modelGo, heroId)
+    if type and index and modelGo then
+        if self._teamModel[type] == nil then
+            self._teamModel[type] = {}
+        end
+        if self._teamModel[type][index] then
+            log_Error("?????  此阵容 该位置 已经有缓存得 model 检查逻辑 ", type, index)
+        end
+        self._teamModel[type][index] = { heroId, modelGo }
+    end
+end
+
+function M:checkLoadObstacle()
+    if self._sceneConfig and self._sceneConfig.Obstacles then
+        local obsAssetPaths = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Map_Obstacles") or {}
+        for _, info in ipairs(self._sceneConfig.Obstacles) do
+            local x = info[1]
+            local z = info[2]
+            local assetIndex = info[3]
+            if assetIndex and obsAssetPaths[assetIndex] then
+                local pos = self:GetMapPathFinder():GetRenderPositionByRenderPos(x - 1, z - 1)
+                local logicIndex = self:GetMapPathFinder():GetLogicIndexByXZ(z, x)
+                if self._gUid_map_obstacle[logicIndex] == nil then
+                    local gUid = Game.SystemManager.UWAssetManager:loadResourceAsync(obsAssetPaths[assetIndex],
+                        function(obj, gUid)
+                            if obj then
+                                obj.transform:SetParent(self._sceneObstacleRoot.transform)
+                                obj.transform.position = pos
+                            end
+                        end)
+                    self._gUid_map_obstacle[logicIndex] = gUid
+                end
+            end
+        end
+    end
+end
+
+---@param leftTeamList BattleCharacterPlayerModel[]
+---@param rightTeamList BattleCharacterRobotModel[]
+function M:checkAndLoadModel(leftTeamList, rightTeamList)
+    self._enterBattleLoadModelLength = 0
+    for _, v in ipairs(leftTeamList) do
+        self._enterBattleLoadModelLength = self._enterBattleLoadModelLength + 1
+    end
+    for _, v in ipairs(rightTeamList) do
+        self._enterBattleLoadModelLength = self._enterBattleLoadModelLength + 1
+    end
+    for i = 1, 5 do
+        local battleCharacter = leftTeamList[i]
+        if battleCharacter == nil then
+            local info = self._teamModel[1] ~= nil and self._teamModel[1][i] or nil
+            if info and info[2] then
+                local gUid = self._go_gUid_map[info[2]]
+                self:unloadModel(gUid)
+                self._teamModel[1][i] = nil
+            end
+        else
+            local info = self._teamModel[1] ~= nil and self._teamModel[1][i] or nil
+            if info and info[2] then
+                if info[1] == battleCharacter._heroId then
+                    local scale = battleCharacter._baseScale
+                    info[2].transform.localScale = Vector3(scale, scale, scale)
+                    self:tryEnterBattle()
+                else
+                    local gUid = self._go_gUid_map[info[2]]
+                    self:unloadModel(gUid)
+                    self._teamModel[1][i] = nil
+                    self:enterLoadModel(battleCharacter._heroId, 1, i, battleCharacter._baseScale)
+                end
+            else
+                self:enterLoadModel(battleCharacter._heroId, 1, i, battleCharacter._baseScale)
+            end
+        end
+    end
+
+    for i = 1, 5 do
+        local battleCharacter = rightTeamList[i]
+        if battleCharacter == nil then
+            local info = self._teamModel[2] ~= nil and self._teamModel[2][i] or nil
+            if info and info[2] then
+                local gUid = self._go_gUid_map[info[2]]
+                self:unloadModel(gUid)
+                self._teamModel[2][i] = nil
+            end
+        else
+            local info = self._teamModel[2] ~= nil and self._teamModel[2][i] or nil
+            if info and info[2] then
+                if info[1] == battleCharacter._heroId then
+                    local scale = battleCharacter._baseScale
+                    info[2].transform.localScale = Vector3(scale, scale, scale)
+                    self:tryEnterBattle()
+                else
+                    local gUid = self._go_gUid_map[info[2]]
+                    self:unloadModel(gUid)
+                    self._teamModel[2][i] = nil
+                    self:enterLoadModel(battleCharacter._heroId, 2, i, battleCharacter._baseScale)
+                end
+            else
+                self:enterLoadModel(battleCharacter._heroId, 2, i, battleCharacter._baseScale)
+            end
+        end
+    end
+end
+
+function M:enterLoadModel(heroId, camp, pos, scale)
+    local path = BattleHelper:getHeroModelSrc(heroId, Game.BusinessManager.PlayerInfoManager:GetMySex())
+    self:loadModel(path, function(src, obj, gUid)
+        self._teamModel[camp] = self._teamModel[camp] or {}
+        self._teamModel[camp][pos] = { heroId, obj }
+        local vecPos = self:getGridPos(camp, pos)
+        local root = self:getModelRoot(camp, pos)
+
+        GameObjectUtil.setInitPos(camp == 1, obj, root, vecPos)
+        obj.transform.localScale = Vector3(scale, scale, scale)
+        self:tryEnterBattle()
+    end)
+end
+
+function M:tryEnterBattle()
+    self._enterBattleLoadModelLength = self._enterBattleLoadModelLength - 1
+    if self._enterBattleLoadModelLength <= 0 then
+        BroadcastEvent.dispatch(BattleEventId.Event_Battle_Render_LoadFinish)
+    end
+end
+
+return M

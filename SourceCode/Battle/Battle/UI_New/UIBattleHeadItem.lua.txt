@@ -1,0 +1,243 @@
+---@class UIBattleHeadItem:UIWidget
+local UIBattleHeadItem = class("UIBattleHeadItem", UIWidget)
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local M = UIBattleHeadItem
+
+function M:OnParse(param)
+    self.data = param
+
+    self._characterId = param.characterId
+    self._heroId = param.heroId
+    self._heroUuid = param.heroUuid
+    self._posIndex = param.posIndex
+    self._hpMax = param.hpMax
+    self._hpCurrent = param.hpCurrent
+    self._rageMax = param.rageMax
+    self._rageCurrent = param.rageCurrent
+    self._quality = param.quality
+    ---@type BattleContext
+    self._battleContext = param.battleContext
+    self._playCallBack = param.playCallBack
+    self._isMpMax = false
+    self._isDead = false
+    self._isCanPlaySkill = false
+    self._isReplay = param.isReplay
+end
+
+function M:OnCreate()
+
+end
+
+function M:getIsCanPlaySkill()
+    return self._isCanPlaySkill
+end
+
+function M:OnAddListener()
+    self._btn_click.onClick:AddListener(function()
+        self:onClickBg()
+    end)
+end
+
+function M:OnRemoveListener()
+    self._btn_click.onClick:RemoveAllListeners()
+end
+
+function M:onClickBg()
+    if self._isReplay then
+        return
+    end
+    if not self._isDead and self._isCanPlaySkill and not self.spell and self._battleContext:isCanOperation() then
+        self._battleContext:GetFrameControl():disPatchEventMsg(BattleEventId.MSG_BATTLE_TRIGGER_PROFOUND,
+            self._characterId)
+        --self:OnSkillCanPlay(false)
+        self:OnSkillPlay()
+        if self._playCallBack then
+            self._playCallBack(self._characterId)
+        end
+    end
+end
+
+function M:autoClick()
+    if not self._isDead and self._isCanPlaySkill then
+        --self:OnSkillCanPlay(false)
+        self:OnSkillPlay()
+    end
+end
+
+function M:OnRefresh()
+    self:_setVisible(true)
+    self:openAni()
+    self:_setHeroData()
+    self:_setFrameBg()
+    self:_initSolider()
+    self._gameObject.name = self._heroId
+end
+
+function M:_initSolider()
+    self._Hp.fillAmount = self._hpCurrent / self._hpMax
+    self._Mp.fillAmount = self._rageCurrent / self._rageMax
+end
+
+--- public使用，刷新数据
+--- param = {rage = 1, hp = 2}
+function M:OnRefreshInfo(param)
+    local data = param or {}
+    local type = data.type
+    local maxValue = data.maxValue or 1
+    local currentValue = data.currentValue or 0
+    local progress = currentValue / maxValue
+    if type == BattleEnum.BaseProperty.Hp then
+        self._Hp.fillAmount = progress
+    elseif type == BattleEnum.BaseProperty.Rage then
+        self._Mp.fillAmount = progress
+        local isMpMax = progress >= 1
+        if isMpMax then
+            if not self._isMpMax then
+                self:OnRageReachMax()
+            end
+        else
+            if self._isMpMax then
+                self:OnRageReachNoMax()
+            end
+        end
+        self._isMpMax = isMpMax
+    else
+
+    end
+end
+
+function M:OnRageReachMax()
+    self:_playRageEnoughAni(true)
+end
+
+function M:OnRageReachNoMax()
+    self:_playRageEnoughAni(false)
+end
+
+--技能可释放
+function M:OnSkillCanPlay(isCanPlay)
+    if isCanPlay then
+        if not self._isCanPlaySkill then
+            self:_playActiveSkillAni(true)
+            self.spell = false
+        end
+        -- GameObjectUtil.SafeSetActiveSelf(self._ActiveSelect.gameObject, true)
+    else
+        if self._isCanPlaySkill and not self.spell then
+            self:_playActiveSkillAni(false)
+            --self:_playClickKillAni()
+        end
+        -- GameObjectUtil.SafeSetActiveSelf(self._ActiveSelect.gameObject, false)
+    end
+
+    self._isCanPlaySkill = isCanPlay
+end
+
+--技能正在释放
+function M:OnSkillPlay()
+    self.spell = true --释放技能
+    self:_playClickKillAni()
+end
+
+function M:OnCharacterDie()
+    -- print_warning("BattleHeroInfoItem: 角色死亡")
+    GameObjectUtil.SafeSetActiveSelf(self._Death, true)
+    -- self:_playViewAni("UIBattleDetailsCellDeath", true)
+    self:_playActiveSkillAni(false)
+    self:_killAniClose()
+    self._Main:Stop()
+    GameObjectUtil.SafeSetActiveSelf(self._goSkill.gameObject, false)
+    self._isDead = true
+end
+
+function M:_playViewAni(aniClipName, isPlay)
+    -- log_Error(aniClipName, "     ", isPlay)
+    if self._Main and aniClipName then
+        if isPlay then
+            -- log_Error("PlayReset : ", aniClipName)
+            -- self._Main:PlayReset(aniClipName, isPlay)
+            self._Main:Play(aniClipName)
+        else
+            -- log_Error("RewindPlay : ", aniClipName)
+            self._Main:Reset(aniClipName)
+        end
+    end
+end
+
+function M:openAni()
+    self:_playViewAni("UIBattleHeadCellOpen", true)
+end
+
+function M:closeAni()
+    -- self:_playViewAni("UIBattleHeadCellOpen", true)
+end
+
+function M:_playActiveSkillAni(isPlay)
+    self:_playViewAni("UITeamHeroHeadActiveSelect", isPlay)
+end
+
+function M:_killAniClose()
+    if self.timer then
+        self.timer:Dispose()
+        self.timer = nil
+    end
+    GameObjectUtil.SafeSetActiveSelf(self._HPBar, true)
+end
+
+function M:_playClickKillAni()
+    GameObjectUtil.SafeSetActiveSelf(self._UIBattleHeadCellActiveClick, false)
+    GameObjectUtil.SafeSetActiveSelf(self._UIBattleHeadCellActiveClick, true)
+    GameObjectUtil.SafeSetActiveSelf(self._UIBattleHeadCellActiveMask1, false)
+    GameObjectUtil.SafeSetActiveSelf(self._UIBattleHeadCellActive3, false)
+    GameObjectUtil.SafeSetActiveSelf(self._ActiveSelect.gameObject, false)
+    --self:_playViewAni("UITeamHeroHeadActiveSelect", false)
+    self:_playViewAni("UIBattleHeadStretch", true)
+    GameObjectUtil.SafeSetActiveSelf(self._HPBar, false)
+
+    -- local closeCallback = function()
+    --     if self.timer then
+    --         self.timer:Dispose()
+    --         self.timer = nil
+    --     end
+    --     GameObjectUtil.SafeSetActiveSelf(self._HPBar, true)
+    -- end
+    if self.timer then
+        self.timer:reset(0, self.headAnimationlength, false, false, self._killAniClose, self)
+    else
+        self.timer = Timer.new(0, self.headAnimationlength, false, false, self._killAniClose, self)
+    end
+    self.timer:start()
+end
+
+function M:_playRageEnoughAni(isPlay)
+    GameObjectUtil.SafeSetActiveSelf(self._imgFull.gameObject, isPlay)
+end
+
+----------------------------------------------------------------------
+
+
+function M:_onCreate()
+
+end
+
+function M:_setHeroData()
+    -- local heroCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, self._heroId)
+    local icon = BattleHelper:getHeroModelIcon(self._heroId, Game.BusinessManager.PlayerInfoManager:GetMySex())
+    local img = BattleHelper:getHeroModelImg(self._heroId, Game.BusinessManager.PlayerInfoManager:GetMySex())
+    UIUtils:setImage2(icon, self._imgHead)
+    UIUtils:setImage2(icon, self._imgHead1)
+    UIUtils:setImage2(img, self._imgHero)
+    UIUtils:setImage2(img, self._imgHero1)
+    self.headAnimationlength = self._Main:GetAnimationLengthByName("UIBattleHeadStretch")
+end
+
+function M:_setFrameBg()
+    local con_quality = Game.SystemManager.DataTableManager:GetEntry(GameDefine.TableName.Hero_Quality, self._quality)
+    local color = UIUtils:getQualityColor_bt(self._quality)
+    self._qualityBgFrame.color = color
+    UIUtils:setImage2(con_quality.heroFrame, self._qualityTopFrame)
+    UIUtils:setImage2(con_quality.heroFrame, self._qualityTopFrame_die)
+end
+
+return M

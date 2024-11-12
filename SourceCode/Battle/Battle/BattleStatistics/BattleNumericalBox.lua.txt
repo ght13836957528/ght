@@ -1,0 +1,53 @@
+-- local BattleEnum = require "GameLogic.Battle.BattleEnum"
+---@class BattleNumericalBox
+local BattleNumericalBox = class("BattleNumericalBox")
+---@param tbBattleContext BattleContext
+function BattleNumericalBox:Ctor(entityId, tbBattleContext)
+    self._entityId = entityId
+    self._battleContext = tbBattleContext
+    self._map_numerical = {}
+end
+
+---@param rootBox BattleNumericalBox
+function BattleNumericalBox:setParentBox(parentEntityId)
+    if parentEntityId then
+        local character = self._battleContext:GetCharacterManager():GetCharacterById(parentEntityId)
+        if character then
+            self._rootBox = character:GetBattleNumericalBox()
+        end
+    end
+end
+
+function BattleNumericalBox:counter(type, value)
+    if self._rootBox then
+        self._rootBox:counter(type, value)
+    else
+        if self._map_numerical[type] == nil then
+            self._map_numerical[type] = 0
+        end
+        self._map_numerical[type] = self._map_numerical[type] + value
+    end
+end
+
+function BattleNumericalBox:getValue(type)
+    if self._rootBox then
+        BattleLogger.log_error("???? 召唤物得 box 何处调用？？？")
+    end
+    return self._map_numerical[type] or 0
+end
+
+function BattleNumericalBox:cloneData()
+    local data = {}
+    for key, value in pairs(self._map_numerical) do
+        data[key] = value
+    end
+    return data
+end
+
+function BattleNumericalBox:Clear()
+    self._entityId = nil
+    self._battleContext = nil
+    self._map_numerical = nil
+end
+
+return BattleNumericalBox

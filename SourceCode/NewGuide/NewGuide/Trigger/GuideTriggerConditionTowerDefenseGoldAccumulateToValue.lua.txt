@@ -1,0 +1,14 @@
+---@class GuideTriggerConditionTowerDefenseGoldAccumulateToValue:GuideTriggerCondition
+local GuideTriggerConditionTowerDefenseGoldAccumulateToValue = class("GuideTriggerConditionTowerDefenseGoldAccumulateToValue", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionTowerDefenseGoldAccumulateToValue
+
+function M:equals(param)
+    local result = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return result
+    end
+    result = true
+    return result
+end
+
+return M

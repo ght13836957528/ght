@@ -1,0 +1,240 @@
+----------------------------------------------------------------------
+--------- 2023年02月03日 18:57:52 星期五
+----------------------------------------------------------------------
+
+--[[
+    数值型属性值一般分为基础部分和变化的部分，这种数值类型可以用AttributeData来处理，
+    比如HP, ATK等数据
+
+    包含基础值和总值
+]]
+local BattleAttributeHandler = require "GameLogic.Battle.BattleAttribute.BattleAttributeHandler"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class AttributeData
+local AttributeData = class("AttributeData")
+local M = AttributeData
+---@param attributeManager BattleCharacterAttribute
+function M:Ctor(attType, attributeManager)
+    self.attributeManager = attributeManager
+
+    self.attType = attType
+    -- 基础属性值
+    self.baseValue = 0
+    -- 当前的总值，包含了buff等造成的属性变化的部分
+    self.currentValue = 0
+    --- @type BuffChangeAttribute[]
+    self.bufflist = {}
+end
+
+--- 修改永久基础值，在初始化使用
+function M:SetBaseValue(nBaseValue)
+    self.baseValue = nBaseValue or 0
+    self:_updateCurrentValue()
+end
+
+function M:GetBaseValue()
+    return self.baseValue
+end
+
+-- --- 修改当前值，一般只在初始化调用
+-- function M:SetCurrentValue(nCurrentValue)
+--     self.currentValue = nCurrentValue or 0
+-- end
+
+function M:GetCurrentValue()
+    return self.currentValue
+end
+
+---@param buff BuffChangeAttribute
+function M:AddBuff(buff, fromId, skillBuffId)
+    local oldValue = self.currentValue
+    table.insert(self.bufflist, buff)
+    self:_updateCurrentValue(true)
+    self.attributeManager:logAttChange(" 添加buff *** ", self.attType, fromId, skillBuffId, oldValue, self
+        .currentValue)
+end
+
+function M:RemoveBuff(buff, fromId, skillBuffId)
+    local oldValue = self.currentValue
+    table.removebyvalue(self.bufflist, buff)
+    self:_updateCurrentValue()
+    self.attributeManager:logAttChange(" 移除buff *** ", self.attType, fromId, skillBuffId, oldValue, self
+        .currentValue)
+end
+
+local handleAttFuncMap = {
+    [BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11]                 = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_Hit_12]                  = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_Dodge_13]                = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14]          = "_handle_14_15",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15]          = "_handle_14_15",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16]                = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_Suck_17]                 = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21]           = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22]          = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23]          = "_handle_23_24",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24]          = "_handle_23_24",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25]          = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26]         = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27]            = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28]    = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29]       = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30]         = "_handle_30",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31]           = "_handle_30",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32] = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientB_33] = "_handle_11",
+    [BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientC_34] = "_handle_11",
+}
+
+function M:_updateCurrentValue(isHandJW)
+    isHandJW = isHandJW or false
+    if self.attType and handleAttFuncMap[self.attType] and self[handleAttFuncMap[self.attType]] then
+        self[handleAttFuncMap[self.attType]](self, isHandJW)
+    else
+        self:_baseHandle(isHandJW)
+    end
+    if self.attType == BattleEnum.BuffChangeAttributeType.AttributeType_HP_1 then
+        self.attributeManager:UpdateHPOnBaseChange()
+    end
+end
+
+function M:_baseHandle(isHandJW)
+    local m = 1
+    local mOrA = 1
+    local a = 0
+    local mOrAMap = {}
+    for _, buff in ipairs(self.bufflist) do
+        m = m * (1 + buff:GetMultiplyValue() * 0.01)
+        a = a + buff:GetAddValue()
+        local tmpType = buff:GetBelongType()
+        if mOrAMap[tmpType] == nil then
+            mOrAMap[tmpType] = 1
+        end
+        mOrAMap[tmpType] = mOrAMap[tmpType] + buff:GetAddOrMultiplyValue() * 0.01
+    end
+    for _, value in pairs(mOrAMap) do
+        mOrA = mOrA * value
+    end
+    local result = self.baseValue * m * mOrA + a
+    if isHandJW then
+        self:_handleJW(self.currentValue < result)
+    end
+    self.currentValue = result
+end
+
+function M:_handle_11(isHandJW)
+    local a = 0
+    for _, buff in ipairs(self.bufflist) do
+        a = a + buff:GetAddValue()
+    end
+    -- if self.attType == 27 then
+    --     log_Error("27")
+    -- end
+    local result = BattleAttributeHandler:GetGlobalDefaultAtt(self.attType) + self.baseValue + a
+    if isHandJW then
+        self:_handleJW(self.currentValue < result)
+    end
+    self.currentValue = result
+end
+
+function M:_handle_14_15()
+    local g_dmg_rate = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Init_Dmg_Rate")
+    local m = 1
+    local mOrA = 1
+    local a = 0
+    local mOrAMap = {}
+    for _, buff in ipairs(self.bufflist) do
+        m = m * (1 - buff:GetMultiplyValue() / g_dmg_rate)
+        a = a + buff:GetAddValue()
+        local tmpType = buff:GetBelongType()
+        if mOrAMap[tmpType] == nil then
+            mOrAMap[tmpType] = 1
+        end
+        mOrAMap[tmpType] = mOrAMap[tmpType] - buff:GetAddOrMultiplyValue() / g_dmg_rate
+    end
+    for _, value in pairs(mOrAMap) do
+        mOrA = mOrA * value
+    end
+    local result = (1 - self.baseValue / g_dmg_rate) * m * mOrA - a
+    local result = result * 100
+    self.currentValue = result
+end
+
+function M:_handle_23_24()
+    local g_dmg_rate = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Init_Dmg_Rate")
+    local m = 1
+    local mOrA = 1
+    local a = 0
+    local mOrAMap = {}
+    for _, buff in ipairs(self.bufflist) do
+        m = m * (1 + buff:GetMultiplyValue() / g_dmg_rate)
+        a = a + buff:GetAddValue()
+        local tmpType = buff:GetBelongType()
+        if mOrAMap[tmpType] == nil then
+            mOrAMap[tmpType] = 1
+        end
+        mOrAMap[tmpType] = mOrAMap[tmpType] + buff:GetAddOrMultiplyValue() / g_dmg_rate
+    end
+    for _, value in pairs(mOrAMap) do
+        mOrA = mOrA * value
+    end
+    self.currentValue = (1 + self.baseValue / g_dmg_rate) * m * mOrA + a
+    self.currentValue = self.currentValue * 100
+end
+
+function M:_handle_30()
+    local m = 1
+    local mOrA = 1
+    local a = 0
+    local mOrAMap = {}
+    for _, buff in ipairs(self.bufflist) do
+        m = m * (1 + buff:GetMultiplyValue() * 0.01)
+        a = a + buff:GetAddValue()
+        local tmpType = buff:GetBelongType()
+        if mOrAMap[tmpType] == nil then
+            mOrAMap[tmpType] = 1
+        end
+        mOrAMap[tmpType] = mOrAMap[tmpType] + buff:GetAddOrMultiplyValue() * 0.01
+    end
+    for _, value in pairs(mOrAMap) do
+        mOrA = mOrA * value
+    end
+
+    self.currentValue = BattleAttributeHandler:GetGlobalDefaultAtt(self.attType) * (1 + self.baseValue * 0.01) * m * mOrA +
+        a
+end
+
+function M:_handleJW(isAdd)
+    local entityId = self.attributeManager.hostCharacter:GetBattleId()
+    local isLeft = self.attributeManager.hostCharacter:GetTransform():isLeftTeam()
+    if self.attType == BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2 then
+        if isAdd then
+            BattleEventUtils:DisPath_AttAdd(entityId, isLeft)
+        else
+            BattleEventUtils:DisPath_AttSub(entityId, isLeft)
+        end
+    elseif self.attType == BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3 then
+        if isAdd then
+            BattleEventUtils:DisPath_PhysicsDefAdd(entityId, isLeft)
+        else
+            BattleEventUtils:DisPath_PhysicsDefSub(entityId, isLeft)
+        end
+    elseif self.attType == BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4 then
+        if isAdd then
+            BattleEventUtils:DisPath_MagicDefAdd(entityId, isLeft)
+        else
+            BattleEventUtils:DisPath_MagicDefSub(entityId, isLeft)
+        end
+    elseif self.attType == BattleEnum.BuffChangeAttributeType.AttributeType_Rapid_16 then
+        if isAdd then
+            BattleEventUtils:DisPath_AttSpeedAdd(entityId, isLeft)
+        else
+            BattleEventUtils:DisPath_AttSpeedSub(entityId, isLeft)
+        end
+    else
+        -- nothing to do
+    end
+end
+
+return M

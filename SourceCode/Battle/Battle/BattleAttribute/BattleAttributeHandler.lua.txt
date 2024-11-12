@@ -1,0 +1,49 @@
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleAttributeHandler = {}
+
+local getGlobalConfigValue = function(k)
+    return ConfigHandler:GetEntry(GameDefine.TableName.Global, k) or 0
+end
+
+local GlobalDefaultAttPackage = {
+    [BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11]                 = getGlobalConfigValue("Battle_Init_Crit"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_ADSubDamage_14]          = getGlobalConfigValue("Battle_Init_Dmg_Rate"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_APSubDamage_15]          = getGlobalConfigValue("Battle_Init_Dmg_Rate"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_CritEffect_21]           = getGlobalConfigValue("Battle_Init_CritDmg"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_ADAddDamage_23]          = getGlobalConfigValue("Battle_Init_Dmg_Rate"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_APAddDamage_24]          = getGlobalConfigValue("Battle_Init_Dmg_Rate"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_AttackSpeed_25]          = getGlobalConfigValue("Battle_Init_AtkSpd"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_CDAccelerate_26]         = getGlobalConfigValue("Battle_Init_CDReduce"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_MoveSpeed_27]            = getGlobalConfigValue("Battle_Init_Mov"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_AttackRageRecover_28]    = getGlobalConfigValue("Battle_Init_Atk_Power_Param"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_HitRageRecover_29]       = getGlobalConfigValue("Battle_Init_Behit_Power_Param"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_HPRecoverAdd_30]         = getGlobalConfigValue("Battle_Init_RecoverUp_Param"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_CurePrompt_31]           = getGlobalConfigValue("Battle_Init_HealUp_Param"),
+    [BattleEnum.BuffChangeAttributeType.AttributeType_PhaseickCoefficientA_32] = getGlobalConfigValue("Battle_Init_Race_Param_A"),
+}
+
+function BattleAttributeHandler:GetGlobalDefaultAtt(att)
+    return GlobalDefaultAttPackage[att] or 0
+end
+
+function BattleAttributeHandler:GlobalDefaultAttPackage()
+    return
+end
+
+function BattleAttributeHandler:GetAllAttEnum()
+    return BattleEnum.BuffChangeAttributeType or {}
+end
+
+function BattleAttributeHandler:HandlePlayerAtt_pvp(data)
+
+end
+
+function BattleAttributeHandler:HandlePlayerAtt_pve(data)
+
+end
+
+function BattleAttributeHandler:HandleRobotAtt(data)
+
+end
+
+return BattleAttributeHandler

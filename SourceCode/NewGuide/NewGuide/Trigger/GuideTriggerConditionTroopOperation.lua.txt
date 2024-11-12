@@ -1,0 +1,18 @@
+
+---@class GuideTriggerConditionTroopOperation:GuideTriggerCondition
+local GuideTriggerConditionTroopOperation = class("GuideTriggerConditionTroopOperation",require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionTroopOperation
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:equals(param)
+    local complete = false
+    if param  then
+        if param == self.triggerParam then
+            complete = true
+            GameEntry.Event:Fire(self, CS.CommonEventArgs(CS.EventId.GuideTroopsStart,param))
+        end
+    end
+    return complete
+end
+
+return M

@@ -1,0 +1,225 @@
+---@class UIBattleBossBloodBar:UIWidget
+local UIBattleBossBloodBar = class("UIBattleBossBloodBar", UIWidget)
+local M                    = UIBattleBossBloodBar
+local ConfigHandler        = ConfigHandler
+local BattleEnum           = require "GameLogic.Battle.BattleEnum"
+local GameObjectUtil       = GameObjectUtil
+local GameObject           = CS.UnityEngine.GameObject
+---处理参数
+---@param params any 传入的任意参数
+function M:OnParse(params)
+    self._stage_battle_id = params.stageId
+end
+
+---创建逻辑
+function M:OnCreate()
+    self._list_buff = {}
+end
+
+---显示逻辑
+function M:OnShow()
+end
+
+---隐藏逻辑
+function M:OnHide()
+
+end
+
+---添加事件监听
+function M:OnAddListener()
+    -- self._btnLeftRemains.onClick:AddListener(function()
+    --     self:onLeftRemainsClick()
+    -- end)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_CreateUIHeadCell, self.onCreateHeadCell, self)
+    BroadcastEvent.subscribe(BattleEventId.MSG_BATTLE_ATTRIBUTE_CHANGED, self.onAttributeChanged, self)
+end
+
+---移除事件监听
+function M:OnRemoveListener()
+    -- self._btnLeftRemains.onClick:RemoveAllListeners()
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_CreateUIHeadCell, self.onCreateHeadCell, self)
+    BroadcastEvent.unsubscribe(BattleEventId.MSG_BATTLE_ATTRIBUTE_CHANGED, self.onAttributeChanged, self)
+end
+
+function M:openAni()
+    self._Main:Play("UIBattleBossBloodbarItemIn")
+end
+
+function M:closeAni()
+    if self._Main then
+        self._Main:Play("UIBattleBossBloodbarItemOut")
+    end
+end
+
+--
+function M:onLeftRemainsClick()
+    UIUtils:showTips(1211)
+end
+
+-- ---添加动态事件监听
+-- function M:onAddDynamicListener()
+
+-- end
+
+-- ---移除动态事件监听
+-- function M:onRemoveDynamicListener()
+
+-- end
+
+---刷新逻辑
+function M:OnRefresh()
+    local stage_con = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, self._stage_battle_id)
+    self:initPos(stage_con)
+end
+
+function M:initPos(stage_con)
+    self.pos = stage_con.boss
+end
+
+function M:initBaseData()
+    local con_hero = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, self.heroId)
+    UIUtils:setImage2(con_hero.icon, self._imgBossAvatar)
+end
+
+---@param battleCharacter BattleCharacter
+function M:onCreateHeadCell(battleCharacter)
+    local isRobot = battleCharacter:IsRobot()
+    if isRobot then
+        local posIndex = battleCharacter.battleData._posIndex
+        if not posIndex == self.pos then
+            return
+        end
+
+        self.characterId = battleCharacter:GetBattleId()
+        self.heroId = battleCharacter:GetHeroConfigId()
+        -- self.heroUuid = battleCharacter:GetHeroUId()
+
+        self.hpMax = battleCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+            .AttributeType_HP_1)
+        self.hpCurrent = battleCharacter:GetBaseAtt():GetCurrentHpValue()
+        -- param.rageMax = battleCharacter:GetRageManager():GetMaxRage()
+        -- param.quality = battleCharacter.battleData._quality
+        -- param.battleContext = battleCharacter:GetBattleContext()
+
+        self:initBaseData()
+        self:setHp(self.hpCurrent, self.hpMax)
+        self:initBossHp()
+        self:initBossBuff()
+    end
+end
+
+function M:initBossBuff()
+    local stage_con = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, self._stage_battle_id)
+    local boss_index = stage_con.boss
+    local buffKey = string.format("buff%s", boss_index)
+    local buffs = stage_con[buffKey] or {}
+    local iidex = 0
+    for index, value in ipairs(buffs) do
+        local con_buff = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, value)
+        if con_buff and con_buff.icon then
+            iidex = iidex + 1
+            if self._list_buff[index] == nil then
+                local go = GameObjectUtil.createItem(self._img_left_remains_1.gameObject, self._goRemains1.gameObject)
+                self._list_buff[index] = self:getBuffClazz(go, index)
+            end
+            self._list_buff[index].initData(value, con_buff.icon)
+        end
+    end
+    iidex = iidex + 1
+    for i = iidex, #self._list_buff do
+        if self._list_buff[i] then
+            self._list_buff[i].setActive(false)
+        end
+    end
+end
+
+function M:getBuffClazz(go, index)
+    local tmp = {}
+    tmp.gameObject = go
+    tmp.index = index
+    tmp.btn = tmp.gameObject.transform:GetComponent(UnityType.UIButton)
+    tmp.img = tmp.gameObject.transform:GetComponent(UnityType.UIImage)
+    tmp.txt = tmp.gameObject.transform:Find("m_txt_l_remains_1"):GetComponent(UnityType.UITextMeshProUGUI)
+
+    tmp.initData = function(buffId, icon)
+        tmp.buffId = buffId
+        UIUtils:setImage2(icon, tmp.img)
+        tmp.setActive(true)
+    end
+
+    tmp.refreshLayer = function(layer)
+        tmp.txt.text = layer
+    end
+
+    tmp.setActive = function(isActive)
+        GameObjectUtil.SafeSetActiveSelf(tmp.gameObject, isActive)
+    end
+
+    tmp.Dispose = function()
+        tmp.btn.onClick:RemoveAllListeners()
+        GameObject.Destroy(tmp.gameObject)
+    end
+    tmp.btn.onClick:AddListener(function()
+        self:onClickBuffIcon(tmp.gameObject, tmp.buffId)
+    end)
+
+    return tmp
+end
+
+function M:onClickBuffIcon(go, buffId)
+    local con_buff = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, buffId)
+    UIUtils:showTextTips(_lang(con_buff.description), go.transform)
+end
+
+function M:initBossHp()
+    local stage_con = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, self._stage_battle_id)
+    local count = stage_con.lifebarNum or 10
+    local tmp = self.hpMax // count
+    self._bloodbar:Init(math.floor(self.hpMax), tmp, 0.2, 6)
+end
+
+function M:setHp(currentValue, maxValue)
+    self._currentValue = currentValue
+    maxValue = math.floor(maxValue)
+    currentValue = math.floor(currentValue)
+    currentValue = currentValue >= 0 and currentValue or 0
+    self._txtBloodNum.text = string.format("%s / %s", currentValue, maxValue)
+    -- local progress = currentValue / maxValue
+    -- self._imgBloodbarFg.fillAmount = progress
+end
+
+function M:onAttributeChanged(params)
+    local data = params
+    if data == nil then
+        return
+    end
+    local id = data.characterBattleId
+    if self.characterId ~= id then
+        return
+    end
+    local type = data.type
+    local maxValue = data.maxValue or 1
+    local currentValue = data.currentValue or 0
+
+    if type == BattleEnum.BaseProperty.Hp then
+        self._bloodbar:ChangeHp(currentValue - self._currentValue)
+        self:setHp(currentValue, maxValue)
+        if self._Main then
+            self._Main:Play("UIBattleBossBloodbarItemHurt")
+        end
+    elseif type == BattleEnum.BaseProperty.Rage then
+
+    else
+
+    end
+end
+
+function M:OnDispose()
+    for _, clazz in ipairs(self._list_buff) do
+        if clazz and clazz.Dispose then
+            clazz.Dispose()
+        end
+    end
+end
+
+return M

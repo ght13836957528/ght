@@ -1,0 +1,14 @@
+---@class GuideTriggerConditionTowerDefenseWarningOver:GuideTriggerCondition
+local GuideTriggerConditionTowerDefenseWarningOver = class("GuideTriggerConditionTowerDefenseWarningOver", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionTowerDefenseWarningOver
+
+function M:equals(param)
+    local result = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return result
+    end
+    result = true
+    return result
+end
+
+return M

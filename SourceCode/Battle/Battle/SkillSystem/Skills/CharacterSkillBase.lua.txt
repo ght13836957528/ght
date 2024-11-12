@@ -1,0 +1,758 @@
+----------------------------------------------------------------------
+--------- 2023年01月16日 11:43:06 星期一
+----------------------------------------------------------------------
+
+--[[
+    基础技能，对应Skill_Base表
+]]
+local BattleEventUtils    = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattleConstant      = require "GameLogic.Battle.BattleConstant"
+local BattleFormulaHelper = require "GameLogic.Battle.BattleAttribute.BattleFormulaHelper"
+-- local PreCastStage      = require "GameLogic.Battle.SkillSystem.Stages.PreCastStage"
+-- local CastStage         = require "GameLogic.Battle.SkillSystem.Stages.CastStage"
+-- local PostCastStage     = require "GameLogic.Battle.SkillSystem.Stages.PostCastStage"
+
+local SkillArtAction      = require "GameLogic.Battle.SkillSystem.Actions.PlayArtAction"
+local SkillSoundAction    = require "GameLogic.Battle.SkillSystem.Actions.PlaySoundAction"
+local SkillCastAction     = require "GameLogic.Battle.SkillSystem.Actions.SkillPlayCastAction"
+local SkillEventAction    = require "GameLogic.Battle.SkillSystem.Actions.SkillBaseEventAction"
+local PlayEffectAni       = require "GameLogic.Battle.SkillSystem.Actions.PlayEffectAni"
+local AvailableChecker    = require "GameLogic.Battle.SkillSystem.Skills.SkillAvailableChecker"
+
+local ActionContext       = require "GameLogic.Battle.SkillSystem.Actions.ActionContext"
+
+local TriggerTimeType     = require "GameLogic.Battle.Common.TriggerTimeType"
+local BattleEnum          = require "GameLogic.Battle.BattleEnum"
+local BattleHelper        = require "GameLogic.Battle.BattleHelper"
+local BattleStatic        = BattleStatic
+---@class CharacterSkillBase
+local CharacterSkillBase  = class("CharacterSkillBase")
+local M                   = CharacterSkillBase
+----------------------------------------------------------------------
+--- 对外基础API
+---@param battleContext BattleContext
+function M:Ctor(skillData, character, battleContext, isPassive)
+    -- 技能需要的数据
+    self.skillData = skillData
+    self.skillId = skillData.id
+    self.skillType = skillData.type or 0
+    self.isNormal = self.skillType == BattleEnum.SkillType.NormalAttack
+    self.atkRange = self.skillData.range[1] or 0
+    -- 使用角色属性数据，技能计算过程中会需要
+    ---@type BattleCharacter
+    self.hostCharacter = character
+    self.battleContext = battleContext -- battleContext的范围要比actionContext大，actionContext只在技能的action之间使用
+    self.actionContext = ActionContext.new()
+
+    self.availableChecker = AvailableChecker.new(self.hostCharacter, self.skillData, self.battleContext)
+
+    self.isPassive = isPassive
+    self.isTriggerPassive = false
+    ---@type BaseAction[]
+    self.actions = {}
+
+
+    self:_parseSkillData()
+
+    -- self:_initialize()
+end
+
+function M:SetIsTriggerPassive(isTrigger)
+    self.isTriggerPassive = isTrigger
+end
+
+function M:GetSkillStage()
+    return self.skillStage or 0
+end
+
+--- 是否技能前做初始化
+function M:Initialize(skillTargets)
+    self.frameCount = 0
+    self.startCallback = nil
+    self.endCallback = nil
+    self.timeCounter = 0
+    self.isPerforming = false
+    self.skillStage = 0 -- 技能所处阶段 1 - 前摇 2 - 释放中  3 - 后摇
+    if self.skillData.targetParam and next(self.skillData.targetParam) ~= nil then
+        self.skillTargets = skillTargets or {}
+    else
+        self.skillTargets = {}
+    end
+end
+
+function M:OnDied()
+    self:Clear()
+end
+
+--- 全局cd
+function M:ResetFrontCD()
+    -- self:_ResetCD()
+end
+
+--- 检查技能当前是否可以执行
+function M:CheckSkillCurrentAvailable()
+    if self.isPassive and not self.isTriggerPassive then
+        return false, nil
+    end
+    local isInCd, isGcd = self:CheckInCooldown()
+    local checkResult, targets = self.availableChecker:CheckSkillAvailable(isInCd, isGcd)
+    return checkResult, targets
+end
+
+function M:GetSkillId()
+    return self.skillId
+end
+
+function M:GetSkillType()
+    return self.skillType
+end
+
+function M:GetAtkRange()
+    return self.atkRange
+end
+
+--- 添加执行技能的回调
+--- @param startCallback function 技能开始时回调
+--- @param endCallback function 技能结束时回调
+function M:SetExecuteCallback(startCallback, endCallback)
+    self.startCallback = startCallback
+    self.endCallback = endCallback
+end
+
+--- 执行技能，如果因为某些原因(在CD中)不能执行技能，则返回FALSE
+function M:TryStartSkill()
+    local inCD = self:CheckInCooldown()
+    if inCD then
+        return false
+    end
+
+    -- 先增加其他值，再计算消耗
+    self:_applyChangeValue()
+
+    self:_applyCooldown()
+    self:_applyCost()
+
+    return self:_doStartSkill()
+end
+
+function M:CheckSkillEnd()
+    local stage = self.skillStage or 0
+    return stage == 0
+end
+
+function M:UpdateCd(deltaTime)
+    self:_handleCd(deltaTime)
+end
+
+--- 每帧处理
+function M:Update(fDeltaTime)
+    local performing = self.isPerforming or false
+    if not performing then
+        -- 没有开始技能，则不处理
+        return
+    end
+
+    if self:IsNormalAttack() then
+        self:_onUnsteadyUpdate(fDeltaTime)
+    else
+        self:_onUpdate(fDeltaTime)
+    end
+end
+
+function M:Clear()
+    self.frameCount = 0
+    self.startCallback = nil
+    self.endCallback = nil
+    self.timeCounter = 0
+    self.isPerforming = false
+    self.skillStage = 0
+    self.skillTargets = {}
+    for _, actions in pairs(self.actions) do
+        for _, action in ipairs(actions) do
+            if action and action.Clear then
+                action:Exit()
+            end
+        end
+    end
+end
+
+--- 处理被自身技能打断
+function M:InterruptBySkill(iSrcSkillId, otherParams)
+    -- 处理被技能打断，根据策划文档和技能配置，只有在前摇和后摇阶段可以被打断
+    local stage = self.skillStage or 0
+    if stage == 0 then
+        -- 技能没开始或者已经结束了
+        return
+    end
+
+    if stage == 1 then
+        -- 在前摇阶段
+        if self.canBreak1 then
+            -- 处理可以被打断时打断的情况
+            -- TODO: 待完善
+            self.skillStage = 0
+            self.isPerforming = false
+            if self.skillData and self.skillData.isResetCD and self.skillData.isResetCD == 1 and self:GetSkillType() ~= 1 then
+                self.cd2 = 0
+            end
+        end
+    elseif stage == 3 then
+        -- 在后摇阶段
+        if self.canBreak2 then
+            -- 处理可以被打断时打断的情况
+            -- TODO: 待完善
+            self.skillStage = 0
+            self.isPerforming = false
+        end
+    end
+end
+
+--- 处理被敌对角色赋予的异常buff造成的技能中断
+function M:InterruptByBuff(params)
+    -- 可以直接打断
+    -- TODO: 待完善
+    local isDie = params.isDie or false
+    if isDie then
+        self.skillStage = 0
+        self.isPerforming = false
+    else
+        -- self:_onSkillEnd()
+    end
+end
+
+--- 检查是否在CD中。
+function M:CheckInCooldown()
+    -- 1. 检查前置CD，即cd1
+    -- 2. 技能cd，即cd2
+    -- 3. 检查gcd
+    local inCD1 = self.cd1 > 0
+    if inCD1 then
+        return true, false
+    end
+
+    local inCD2 = self.cd2 > 0
+    if inCD2 then
+        return true, false
+    end
+
+    if self.hostCharacter:GetSkillManager():CheckInGCD() then
+        return true, true
+    end
+
+    return false
+end
+
+--- 检查是否可以被自己的大招打断
+function M:CheckCanBreakByUltra()
+    local stage = self:GetSkillStage()
+    --- 中间阶段不能被打断
+    if stage == 2 then
+        return false
+    elseif stage == 1 then
+        return self.canBreak1
+    elseif stage == 3 then
+        return self.canBreak2
+    else
+        return true
+    end
+end
+
+----------------------------------------------------------------------
+--- 构造技能的时候，解析技能数据
+--- 解析部分需要从配置翻译的数据项
+function M:_parseSkillData()
+    self:_parseBaseItems()
+    self:_parseArtActions()
+    self:_parseSoundActions()
+    self:_parseCastActions()
+    if not self:_parseEventActions() then
+        self:_parseEventActions_ani()
+    end
+end
+
+function M:_initialize()
+    -- self.preCastStage = PreCastStage.new({character = self.hostCharacter})
+    -- self.castStage = CastStage.new({character = self.hostCharacter})
+
+    -- self.postCastStage = PostCastStage.new({character = self.hostCharacter})
+end
+
+function M:_parseBaseItems()
+    self.endFrame = self.skillData.endFrame or 0
+    self.endFrame = BattleHelper:transitionFrame(self.endFrame)
+    if self.endFrame == 0 and self.isPassive then
+        self.endFrame = 1
+    end
+
+    self.endOfPreCastFrame = self.skillData.frontHalf or 0 -- 前摇结束时间
+    self.startOfPostFrame = self.skillData.behindHalf or 0 -- 后摇开始时间
+
+    local special = self.skillData.isSpecial or 0
+    self.isSpecialLogic = special ~= 0           -- 如果【isSpecial = 1】则代表是特殊逻辑
+
+    local break1 = self.skillData.canBreak1 or 0 -- 是否能被中断，在技能这里处理
+    local break2 = self.skillData.canBreak2 or 0
+    self.canBreak1 = break1 ~= 0
+    self.canBreak2 = break2 ~= 0
+
+    if self.hostCharacter:GetBattleContext():GetPlayType() == BattleEnum.BattlePlayType.Mowing then
+        self.cd1 = 0
+    else
+        self.cd1 = self.skillData.cd1 or 0
+        self.cd1 = self.cd1 * 1000
+    end
+    
+    self.cd2 = 0
+    self.cdRest = self.skillData.cd2 or 0
+    self.cdRest = self.cdRest * 1000
+end
+
+function M:_addAction(frame, action)
+    frame = BattleHelper:transitionFrame(frame)
+    self.actions = self.actions or {}
+    self.actions[frame] = self.actions[frame] or {}
+    table.insert(self.actions[frame], action)
+end
+
+--- 解析artTimeline配置项，设置为瞬时执行的action   - 美术（这里应该是特效）
+function M:_parseArtActions()
+    local artConfigs = self.skillData.artTimeline
+    if artConfigs == nil then
+        return
+    end
+
+    for i, v in ipairs(artConfigs) do
+        --{41, "skill_daoguang_01", "center"}
+        local type = v[2]
+        if type == 1 then
+            local action = SkillArtAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+            action:Initialize({ effectName = v[3], root = v[4] })
+            self:_addAction(v[1], action)
+        elseif type == 2 then
+            local action = PlayEffectAni.new(self.hostCharacter, self.battleContext, self.actionContext)
+            action:Initialize({ effClipName = v[3] })
+            self:_addAction(v[1], action)
+        end
+    end
+end
+
+--- 解析soundTimeline配置项，设置为瞬时执行的action - 声音
+function M:_parseSoundActions()
+    -- soundTimeline = {{1, src1}, {2, src2}}
+    local soundConfigs = self.skillData.soundTimeline
+    if soundConfigs == nil then
+        return
+    end
+
+    for i, v in ipairs(soundConfigs) do
+        -- v = {1, src1}
+        local action = SkillSoundAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+        action:Initialize({ soundKey = v[2] })
+        self:_addAction(v[1], action)
+    end
+end
+
+--- 解析castTimeline配置项，设置为瞬时执行的action  - 配音
+function M:_parseCastActions()
+    -- castTimeline = {{1, src1 }, {2, src2}}
+    local castConfigs = self.skillData.castTimeline
+    if castConfigs == nil then
+        return
+    end
+
+    for i, v in ipairs(castConfigs) do
+        -- v = {1, src1}
+        local action = SkillCastAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+        action:Initialize({ voiceKey = v[2] })
+        self:_addAction(v[1], action)
+    end
+end
+
+--- 解析eventTimeline配置项，设置为瞬时执行的action  - 事件
+function M:_parseEventActions()
+    -- eventTimeline = {{30, 1, 102}, {35, 1, 102}, {40, 4, 102}}
+    local eventConfigs = self.skillData.eventTimeline
+    if eventConfigs == nil then
+        return
+    end
+
+    -- 全局记录位移参数，如果有位移参数需要，则可以从context中获取
+    self.actionContext:SetMoveParam(self.skillData.movParam)
+    local isHadAni = false
+    for i, v in ipairs(eventConfigs) do
+        local type = v[2]
+        if type == 99 then
+            local skillType = self.skillType
+            local battleSpeed = self.battleContext:GetBattleSpeed()
+            local aniSpeed = battleSpeed
+            if skillType == BattleEnum.SkillType.NormalAttack then
+                aniSpeed = BattleFormulaHelper:NormalAttSpeedMultiple(self.hostCharacter) * battleSpeed
+            end
+
+            local action = SkillEventAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+            action:Initialize({ eventType = v[2], eventParam = { eventAniClipName = v[3], eventAniSpeed = aniSpeed } })
+            self:_addAction(v[1], action)
+            isHadAni = true
+        else
+            local action = SkillEventAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+            action:Initialize({ eventType = v[2], eventParam = v[3] })
+            self:_addAction(v[1], action)
+        end
+    end
+    return isHadAni
+end
+
+function M:_parseEventActions_ani()
+    if self.isPassive then
+        return
+    end
+    local frame_ani = 0
+    local skillType = self.skillType
+    local battleSpeed = self.battleContext:GetBattleSpeed()
+    local aniSpeed = battleSpeed
+    if skillType == BattleEnum.SkillType.NormalAttack then
+        aniSpeed = BattleFormulaHelper:NormalAttSpeedMultiple(self.hostCharacter) * battleSpeed
+    end
+    local aniClipName = ""
+    if skillType == BattleEnum.SkillType.NormalAttack then
+        aniClipName = BattleEnum.AnimationClip.Attack
+    elseif skillType == BattleEnum.SkillType.SkillSuper then
+        aniClipName = BattleEnum.AnimationClip.UltraSkill
+    elseif skillType == BattleEnum.SkillType.Skill1 then
+        aniClipName = BattleEnum.AnimationClip.Skill
+    elseif skillType == BattleEnum.SkillType.Skill2 then
+        aniClipName = BattleEnum.AnimationClip.Skill2
+    elseif skillType == BattleEnum.SkillType.Skill3 then
+        aniClipName = BattleEnum.AnimationClip.Skill3
+    else
+        BattleLogger.log_error(" todo 播放对用得动画 ")
+    end
+
+    if self.skillData.isSpell then
+        ---- *** afk游戏 此处只做三个动画拆分 ***
+        local tmpStartName = aniClipName .. BattleEnum.AnimationClipContinueSuffix.Start
+        local action = SkillEventAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+        action:Initialize({ eventType = 99, eventParam = { eventAniClipName = tmpStartName, eventAniSpeed = aniSpeed } })
+        self:_addAction(frame_ani, action)
+        if #self.skillData.isSpell == 1 then
+            local frameLoop = self.skillData.isSpell[1]
+            local tmpLoopName = aniClipName .. BattleEnum.AnimationClipContinueSuffix.EndIng
+            local action = SkillEventAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+            action:Initialize({
+                eventType = 99,
+                eventParam = { eventAniClipName = tmpLoopName, eventAniSpeed = aniSpeed }
+            })
+            self:_addAction(frameLoop, action)
+        else
+            if self.skillData.isSpell[1] then
+                local frameLoop = self.skillData.isSpell[1]
+                local tmpLoopName = aniClipName .. BattleEnum.AnimationClipContinueSuffix.Loop
+                local action = SkillEventAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+                action:Initialize({
+                    eventType = 99,
+                    eventParam = { eventAniClipName = tmpLoopName, eventAniSpeed = aniSpeed }
+                })
+                self:_addAction(frameLoop, action)
+            end
+
+            if self.skillData.isSpell[2] then
+                local frameLoop = self.skillData.isSpell[2]
+                local tmpEndName = aniClipName .. BattleEnum.AnimationClipContinueSuffix.EndIng
+                local action = SkillEventAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+                action:Initialize({
+                    eventType = 99,
+                    eventParam = { eventAniClipName = tmpEndName, eventAniSpeed = aniSpeed }
+                })
+                self:_addAction(frameLoop, action)
+            end
+        end
+    else
+        local action = SkillEventAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+        action:Initialize({ eventType = 99, eventParam = { eventAniClipName = aniClipName, eventAniSpeed = aniSpeed } })
+        self:_addAction(frame_ani, action)
+    end
+end
+
+function M:AddPassiveAni(aniClipName)
+    local battleSpeed = self.battleContext:GetBattleSpeed()
+    local aniSpeed = battleSpeed
+    local action = SkillEventAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+    action:Initialize({ eventType = 99, eventParam = { eventAniClipName = aniClipName, eventAniSpeed = aniSpeed } })
+    self:_addAction(1, action)
+end
+
+function M:_doStartSkill()
+    local performing = self.isPerforming or false
+    if performing then
+        -- 技能正在释放中，不重复释放
+        return false
+    end
+    self:_handleNormalUpdateInterval()
+    self.isPerforming = true
+    self:_handleProfoundEffect()
+    self:_performSkill()
+    self:_handleNumBox()
+    self:SetIsTriggerPassive(false)
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_DischargeSkill_17, self.hostCharacter:GetBattleId(),
+        self.skillType)
+    return true
+end
+
+function M:_handleNormalUpdateInterval()
+    self._normalTime = 0
+    self._normalInterval = BattleConstant.LogicDeltaTime / BattleFormulaHelper:NormalAttSpeedMultiple(self.hostCharacter)
+end
+
+function M:_handleNumBox()
+    local type = self:GetSkillType()
+    if type == BattleEnum.SkillType.SkillSuper then
+        self.hostCharacter:GetBattleNumericalBox():counter(BattleEnum.NumericalType.AllUniqueSkillNum, 1)
+    elseif type == BattleEnum.SkillType.NormalAttack then
+        self.hostCharacter:GetBattleNumericalBox():counter(BattleEnum.NumericalType.AllNormalSkillNum, 1)
+    elseif type == BattleEnum.SkillType.SkillPassive then
+        -- 暂时不做处理
+    else
+        self.hostCharacter:GetBattleNumericalBox():counter(BattleEnum.NumericalType.AllSkillNum, 1)
+    end
+end
+
+function M:_onUnsteadyUpdate(deltaTime)
+    local actime = self._normalTime + deltaTime
+    local normalInterval = self._normalInterval
+    while actime >= normalInterval do
+        actime = actime - normalInterval
+        self:_onUpdate(normalInterval)
+    end
+    self._normalTime = actime
+end
+
+function M:_onUpdate(deltaTime)
+    local frameCount = self.frameCount
+    if BattleStatic.isOpenSkillLogicFrame then
+        BattleLogger.log_error("skillId == ", self:GetSkillId(), "   frameCount === ", frameCount)
+    end
+
+    self:_toExecuteActions(frameCount, deltaTime)
+    self:_executeStages(frameCount, deltaTime)
+
+    frameCount = frameCount + 1
+    self.frameCount = frameCount
+    if frameCount > self.endFrame then
+        self.isPerforming = false
+        self:_onSkillEnd()
+    end
+end
+
+function M:_handleCd(deltaTime)
+    local cd1 = self.cd1
+    if cd1 > 0 then
+        self.cd1 = cd1 - deltaTime
+    end
+    local cd2 = self.cd2
+    if cd2 > 0 then
+        self.cd2 = cd2 - deltaTime
+    end
+    if self.hostCharacter:GetCharacterType() == BattleEnum.BattleCharacterType.Gun then
+        local cd = self.cd2 > self.cd1 and self.cd2 or self.cd1
+        BattleEventUtils:DisPath_Gun_CD(self.hostCharacter:GetBattleId(),
+            self.hostCharacter:GetCharacterContext():GetBattleCamp(), cd, self.cdRest)
+    end
+end
+
+----------------------------------------------------------------------
+--- 修改属性值，比如消耗怒气
+function M:_applyChangeValue()
+    local powerValue = self.skillData.addPower or 0
+    if powerValue > 0 then
+        -- 这里是增加怒气
+        self.hostCharacter:GetLogicHandle():DoChangeValue(2, 1, powerValue)
+    end
+end
+
+function M:_applyCooldown()
+    -- 当这个技能释放时，只要开始释放就要计CD，则给这个技能增加cd2时间的CD时间
+    self:_resetCD()
+
+    -- 当一个技能释放时，只要开始释放就要计算GCD，则给玩家计算增加gcd时间的GCD
+    local gcd = self.skillData.gcd or 0
+    self.hostCharacter:GetSkillManager():ResetGCD(gcd)
+end
+
+--- 处理技能消耗
+function M:_applyCost()
+    local costData = self.skillData.cost
+    local costDataLength = table_GetMapLength(costData)
+    if costDataLength <= 0 then
+        return
+    end
+
+    local costType = costData[1] or 0
+    local costValue = costData[2] or 0
+    if costType > 0 and costValue > 0 then
+        self:_doApplyCost(costType, costValue)
+    end
+end
+
+function M:_doApplyCost(type, value)
+    self.hostCharacter:GetLogicHandle():DoApplyCost(type, value)
+end
+
+function M:_handleProfoundEffect()
+    local skillType = self.skillType or 0
+    if skillType ~= 5 then
+        -- 只有必杀才处理
+        return
+    end
+    
+    if not self.hostCharacter:GetLogicHandle():CanPlaySkillBlackScreen() then
+        -- 割草角色技能 屏蔽一下黑屏效果
+        return
+    end
+    
+    -- 触发大招事件MSG_BATTLE_TRIGGER_EVENT
+    -- BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_TRIGGER_EVENT, TriggerTimeType.TriggerTime_OnProfound)
+
+    -- 必杀技处理黑屏
+    if self.battleContext:isCanOperation() then
+        if not self.hostCharacter:IsRobot() and self.hostCharacter:GetCharacterType() == BattleEnum.BattleCharacterType.Character then
+            self.battleContext:SetBlackScreenStatus(true, self.hostCharacter:GetBattleId())
+            BattleEventUtils:DisPath_BlackOut(self.hostCharacter:GetBattleId(), BattleEnum.SkillBlackOut.Open,
+                self.battleContext:GetBlackScreenStatus())
+        end
+    else
+        if self.hostCharacter:GetCharacterType() == BattleEnum.BattleCharacterType.Character then
+            self.battleContext:SetBlackScreenStatus(true, self.hostCharacter:GetBattleId())
+            BattleEventUtils:DisPath_BlackOut(self.hostCharacter:GetBattleId(), BattleEnum.SkillBlackOut.Open,
+                self.battleContext:GetBlackScreenStatus())
+        end
+    end
+
+    -- self.battleContext:SetBlackScreenStatus(true)
+end
+
+--- 释放技能：播放动画等
+function M:_performSkill()
+    if self.startCallback ~= nil then
+        self.startCallback()
+    end
+    -- todo
+    -- self:tmpHandleAni()
+    -- 技能开始时进入前摇阶段
+    -- self.preCastStage:Enter()
+    self.skillStage = 1
+end
+
+function M:IsNormalAttack()
+    return self.isNormal
+end
+
+function M:tmpHandleAni()
+    local skillType = self.skillType or 0
+    local battleSpeed = self.battleContext:GetBattleSpeed()
+    local aniSpeed = battleSpeed
+    if skillType == BattleEnum.SkillType.NormalAttack then
+        aniSpeed = BattleFormulaHelper:NormalAttSpeedMultiple(self.hostCharacter) * battleSpeed
+        -- self.hostCharacter:GetRender():SetAnimationSpeed(BattleFormulaHelper:NormalAttSpeedMultiple(self.hostCharacter) * battleSpeed)
+    else
+        -- self.hostCharacter:GetRender():SetAnimationSpeed(battleSpeed)
+    end
+
+    if skillType == BattleEnum.SkillType.NormalAttack then
+        BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Attack, aniSpeed,
+            true)
+        -- self.hostCharacter:GetRender():PlayAnimation(BattleEnum.AnimationClip.Attack,true)
+    elseif skillType == BattleEnum.SkillType.SkillSuper then
+        BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.UltraSkill, aniSpeed)
+        -- self.hostCharacter:GetRender():PlayAnimation(BattleEnum.AnimationClip.Skill,true)
+    elseif skillType == BattleEnum.SkillType.Skill1 then
+        BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Skill, aniSpeed)
+        -- self.hostCharacter:GetRender():PlayAnimation(BattleEnum.AnimationClip.Jump_back,true)
+    else
+        BattleLogger.log_error(" todo 播放对用得动画 ")
+    end
+end
+
+--- 按帧执行的action
+function M:_toExecuteActions(iCurrentFrame, deltaTime)
+    local specialLogic = self.isSpecialLogic or false
+    if specialLogic then
+        -- 特殊逻辑不走artTimeline/soundTimeline/castTimeline/eventTimeline/movParam
+        return
+    end
+    -- self.actions在构造的时候初始化过，且不会退出的时候清理，不需要判空
+    local currentFrame = iCurrentFrame or -1
+    if currentFrame < 0 then
+        return
+    end
+    ---@type BaseAction[]
+    local tmpActionArry = self.actions[currentFrame]
+
+    if tmpActionArry == nil or tmpActionArry[1] == nil then
+        -- 没有对应的action，直接返回
+        return
+    end
+
+    for i, action in ipairs(tmpActionArry) do
+        if action.SetInitTarget then
+            action:SetInitTarget(self.skillTargets)
+        end
+        action:Execute()
+    end
+end
+
+function M:_executeStages(iCurrentFrame, fDeltaTime)
+    local currentFrame = iCurrentFrame or -1
+    if currentFrame < 0 then
+        return
+    end
+
+    -- 各个阶段开始执行
+    if currentFrame < self.endOfPreCastFrame then
+        -- self.preCastStage:Update(fDeltaTime)
+    elseif currentFrame == self.endOfPreCastFrame then
+        -- self.preCastStage:Exit()
+        -- self.castStage:Enter()
+        self.skillStage = 2
+    elseif currentFrame < self.startOfPostFrame then
+        -- self.castStage:Update(fDeltaTime)
+    elseif currentFrame == self.startOfPostFrame then
+        -- self.castStage:Exit()
+        -- self.postCastStage:Enter()
+        self.skillStage = 3
+    elseif currentFrame < self.endFrame then
+        -- self.postCastStage:Update(fDeltaTime)
+    end
+end
+
+function M:_onSkillEnd()
+    -- self.postCastStage:Exit()
+    self.skillStage = 0
+
+    self.isPerforming = false
+
+
+    if self.endCallback ~= nil then
+        self.endCallback()
+    end
+end
+
+----------------------------------------------------------------------
+--- cd计算
+--- 前置cd
+function M:_resetCD()
+    if self:IsNormalAttack() then
+        self.cd2 = BattleFormulaHelper:NormalAttNewCD(self.hostCharacter, self.cdRest)
+    else
+        self.cd2 = BattleFormulaHelper:SkillNewCD(self.hostCharacter, self.cdRest)
+    end
+end
+
+function M:_checkCD(iCD)
+    return iCD > 0
+end
+
+----------------------------------------------------------------------
+--- helpers
+
+
+return M

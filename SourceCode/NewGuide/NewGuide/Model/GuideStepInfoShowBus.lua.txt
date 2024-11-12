@@ -1,0 +1,9 @@
+---@class GuideStepInfoShowBus : GuideStepBaseInfo @出现难民车
+local GuideStepInfoShowBus = class("GuideStepInfoShowBus", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoShowBus
+
+function M:onParse(params)
+
+end
+
+return M

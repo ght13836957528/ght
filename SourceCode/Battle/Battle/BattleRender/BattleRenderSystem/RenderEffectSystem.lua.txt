@@ -1,0 +1,99 @@
+local ISystem = require "GameLogic.Battle.BattleRender.BattleRenderSystem.ISystem"
+
+---@class RenderEffectSystem:ISystem
+local RenderEffectSystem = class("RenderEffectSystem", ISystem)
+local M = RenderEffectSystem
+function M:Ctor(systemManager)
+    ISystem.Ctor(self, systemManager)
+end
+
+function M:GetEventHandleMap()
+    return {
+        [BattleEventId.Event_Battle_Render_CreateEff_Pos] = "CreateEffectHandle_pos",
+        [BattleEventId.Event_Battle_Render_CreateEff_Bind] = "CreateEffectHandle_bind",
+        [BattleEventId.Event_Battle_Render_DestroyEff] = "DestroyEffectHandle",
+        [BattleEventId.Event_Battle_Render_CreateFlyEff_bind] = "CreateFlyEffHandle_bind",
+        [BattleEventId.Event_Battle_Render_CreateFlyForwardEff_bind] = "CreateFlyForwardEffHandle_bind",
+
+    }
+end
+
+function M:CreateEffectHandle_pos(data)
+    local entity = self:GetEntityByUid(data.entityId)
+    if entity == nil then
+        self:logNotFindEntity(data.entityId)
+        return
+    end
+    local nowPos = data.pos
+    local effectName = data.effName
+    if nowPos and entity.CreateEff_pos then
+        entity:CreateEff_pos(nowPos, effectName)
+    end
+end
+
+function M:CreateFlyEffHandle_bind(data)
+    local entity = self:GetEntityByUid(data.entityId)
+    if entity == nil then
+        self:logNotFindEntity(data.entityId)
+        return
+    end
+    local bindEntityId = data.bindEntityId
+    local targetEntityId = data.targetEntityId
+    local scale = data.scale
+    local rootOffset = data.rootOffset
+    local bindEntity = self:GetEntityByUid(bindEntityId)
+    local targetEntity = self:GetEntityByUid(targetEntityId)
+    if bindEntity and targetEntity and entity.CreateFlyEff_bind then
+        entity:CreateFlyEff_bind(bindEntity, targetEntity, scale, rootOffset)
+    end
+end
+
+function M:CreateFlyForwardEffHandle_bind(data)
+    local entity = self:GetEntityByUid(data.entityId)
+    if entity == nil then
+        self:logNotFindEntity(data.entityId)
+        return
+    end
+    -- { entityId = entityId, startPos = startPos, frameMoveDic = frameMoveDic, normalForward = normalForward }
+    local startPos = data.startPos
+    local frameMoveDic = data.frameMoveDic
+    local normalForward = data.normalForward
+    if entity.CreateFlyEff_bind then
+        entity:CreateFlyForwardEff_bind(startPos, frameMoveDic, normalForward)
+    end
+end
+
+function M:CreateEffectHandle_bind(data)
+    local entity = self:GetEntityByUid(data.entityId)
+    if entity == nil then
+        self:logNotFindEntity(data.entityId)
+        return
+    end
+    -- local targetEntity = self:GetEntityByUid(data.parentEntityId)
+    -- if targetEntity == nil then
+    --     self:logNotFindEntity(data.parentEntityId)
+    --     return
+    -- end
+    local bindPoint = data.bindPoint
+    local effName = data.effName
+    local isNeedSort = data.isNeedSort or false
+    if bindPoint and entity.CreateEff_bind then
+        entity:CreateEff_bind(effName, bindPoint, isNeedSort)
+    end
+end
+
+function M:DestroyEffectHandle(data)
+    local entity = self:GetEntityByUid(data.entityId)
+    if entity == nil then
+        self:logNotFindEntity(data.entityId)
+        return
+    end
+    local bindPoint = data.bindPoint
+    local effName = data.effName
+
+    if bindPoint and entity.DestroyEff_bind then
+        entity:DestroyEff_bind(effName, bindPoint)
+    end
+end
+
+return M

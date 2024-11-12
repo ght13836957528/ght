@@ -1,0 +1,202 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 15:26:33 星期一
+----------------------------------------------------------------------
+
+--[[
+    集中处理创建Buff
+]]
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+-- local BuffType = require "GameLogic.Battle.BuffSystem.BuffType"
+
+---@class BuffFactory
+local BuffFactory = {}
+local M = BuffFactory
+
+--- 创建Buff
+--- @param buffManager table buff管理系统
+--- @param iBuffTypeId number Buff类型，对应配置中的eff字段的Buff效果类型
+--- @param buffTypeParams table 配置eff的数据
+---@param return BaseBuff
+function M:CreateBuff(hostCharacter, buffManager, buffTypeParams)
+    buffTypeParams = buffTypeParams or {}
+    local buffTypeId = buffTypeParams[1] or 0
+    if buffTypeId <= 0 then
+        return nil
+    end
+
+    if buffTypeId == BattleEnum.BuffType.Buff_None then
+        return nil
+        --------------------------------------------------------------------------------------------
+        --- 瞬时Buff
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Harm then
+        local BuffHarm = require "GameLogic.Battle.BuffSystem.Buffs.BuffHarm"
+        local buffHarm = BuffHarm.new(hostCharacter, buffManager, buffTypeParams)
+        return buffHarm
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Cure then
+        local BuffCure = require "GameLogic.Battle.BuffSystem.Buffs.BuffCure"
+        local buffCure = BuffCure.new(hostCharacter, buffManager, buffTypeParams)
+        return buffCure
+    elseif buffTypeId == BattleEnum.BuffType.Buff_IncreaseAnger then
+        local BuffIncreaseAnger = require "GameLogic.Battle.BuffSystem.Buffs.BuffIncreaseAnger"
+        local buffIncreaseAnger = BuffIncreaseAnger.new(hostCharacter, buffManager, buffTypeParams)
+        return buffIncreaseAnger
+    elseif buffTypeId == BattleEnum.BuffType.Buff_DecreaseAnger then
+        local BuffDecreaseAnger = require "GameLogic.Battle.BuffSystem.Buffs.BuffDecreaseAnger"
+        local buffDecreaseAnger = BuffDecreaseAnger.new(hostCharacter, buffManager, buffTypeParams)
+        return buffDecreaseAnger
+    elseif buffTypeId == BattleEnum.BuffType.Buff_CurrentPercentageDamage then
+        local BuffCurrentPercentageDamage = require "GameLogic.Battle.BuffSystem.Buffs.BuffCurrentPercentageDamage"
+        local buffCurrentPercentageDamage = BuffCurrentPercentageDamage.new(hostCharacter, buffManager, buffTypeParams)
+        return buffCurrentPercentageDamage
+    elseif buffTypeId == BattleEnum.BuffType.Buff_MaxPercentageDamage then
+        local BuffMaxPercentageDamage = require "GameLogic.Battle.BuffSystem.Buffs.BuffMaxPercentageDamage"
+        local buffMaxPercentageDamage = BuffMaxPercentageDamage.new(hostCharacter, buffManager, buffTypeParams)
+        return buffMaxPercentageDamage
+    elseif buffTypeId == BattleEnum.BuffType.Buff_SacredDamage then -- 神圣伤害
+        local BuffSacredDamage = require "GameLogic.Battle.BuffSystem.Buffs.BuffSacredDamage"
+        local buffSacredDamage = BuffSacredDamage.new(hostCharacter, buffManager, buffTypeParams)
+        return buffSacredDamage
+    elseif buffTypeId == BattleEnum.BuffType.Buff_CurrentHPPercentageCure then
+        local BuffCurrentHPPercentageCure = require "GameLogic.Battle.BuffSystem.Buffs.BuffCurrentHPPercentageCure"
+        local buffSelfHpCure = BuffCurrentHPPercentageCure.new(hostCharacter, buffManager, buffTypeParams)
+        return buffSelfHpCure
+    elseif buffTypeId == BattleEnum.BuffType.Buff_TargetHPPercentageCure then
+        local BuffTargetHPPercentageCure = require "GameLogic.Battle.BuffSystem.Buffs.BuffTargetHPPercentageCure"
+        local buffTargetHpCure = BuffTargetHPPercentageCure.new(hostCharacter, buffManager, buffTypeParams)
+        return buffTargetHpCure
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Purify then
+        local BuffPurify = require "GameLogic.Battle.BuffSystem.Buffs.BuffPurify"
+        local buffPurify = BuffPurify.new(hostCharacter, buffManager, buffTypeParams)
+        return buffPurify
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Pollute then
+        local BuffPollute = require "GameLogic.Battle.BuffSystem.Buffs.BuffPollute"
+        local buffPollute = BuffPollute.new(hostCharacter, buffManager, buffTypeParams)
+        return buffPollute
+    elseif buffTypeId == BattleEnum.BuffType.Buff_BreakShield then
+        local BuffBreakShield = require "GameLogic.Battle.BuffSystem.Buffs.BuffBreakShield"
+        local buffBreakShield = BuffBreakShield.new(hostCharacter, buffManager, buffTypeParams)
+        return buffBreakShield
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Repel then -- 击退
+        local BuffRepel = require "GameLogic.Battle.BuffSystem.Buffs.BuffRepel"
+        local buffRepel = BuffRepel.new(hostCharacter, buffManager, buffTypeParams)
+        return buffRepel
+    elseif buffTypeId == BattleEnum.BuffType.Buff_KnockDown then -- 击倒
+        local BuffKnockDown = require "GameLogic.Battle.BuffSystem.Buffs.BuffKnockDown"
+        local buffKnockDown = BuffKnockDown.new(hostCharacter, buffManager, buffTypeParams)
+        return buffKnockDown
+    elseif buffTypeId == BattleEnum.BuffType.Buff_PressOnward then -- 突刺
+        local BuffPressOnward = require "GameLogic.Battle.BuffSystem.Buffs.BuffPressOnward"
+        local BuffPressOnward = BuffPressOnward.new(hostCharacter, buffManager, buffTypeParams)
+        return BuffPressOnward
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Teleport then -- 闪现
+        local BuffTeleport = require "GameLogic.Battle.BuffSystem.Buffs.BuffTeleport"
+        local BuffTeleport = BuffTeleport.new(hostCharacter, buffManager, buffTypeParams)
+        return BuffTeleport
+        --------------------------------------------------------------------------------------------
+        --- 持续Buff
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Shield then
+        local BuffShield = require "GameLogic.Battle.BuffSystem.Buffs.BuffShield"
+        local buffShield = BuffShield.new(hostCharacter, buffManager, buffTypeParams)
+        return buffShield
+    elseif buffTypeId == BattleEnum.BuffType.Buff_ShieldOfSelfPercentage then
+        local BuffShieldOfSelfPercentage = require "GameLogic.Battle.BuffSystem.Buffs.BuffShieldOfSelfPercentage"
+        local buffShieldOfSelfPercentage = BuffShieldOfSelfPercentage.new(hostCharacter, buffManager, buffTypeParams)
+        return buffShieldOfSelfPercentage
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Stun then
+        local BuffStun = require "GameLogic.Battle.BuffSystem.Buffs.BuffStun"
+        local buffStun = BuffStun.new(hostCharacter, buffManager, buffTypeParams)
+        return buffStun
+    elseif buffTypeId == BattleEnum.BuffType.Buff_HOT then
+        local BuffHOT = require "GameLogic.Battle.BuffSystem.Buffs.BuffHot"
+        local buffHOT = BuffHOT.new(hostCharacter, buffManager, buffTypeParams)
+        return buffHOT
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Hot_Hp then
+        local Buff_Hot_Hp = require "GameLogic.Battle.BuffSystem.Buffs.BuffHotHp"
+        local buffHOTHp = Buff_Hot_Hp.new(hostCharacter, buffManager, buffTypeParams)
+        return buffHOTHp
+    elseif buffTypeId == BattleEnum.BuffType.Buff_DOT then
+        local BuffDOT = require "GameLogic.Battle.BuffSystem.Buffs.BuffDot"
+        local buffDOT = BuffDOT.new(hostCharacter, buffManager, buffTypeParams)
+        return buffDOT   
+    elseif buffTypeId == BattleEnum.BuffType.Buff_AOT_Anger then
+        local Buff_AOT_Anger = require "GameLogic.Battle.BuffSystem.Buffs.BuffAotAnger"
+        local aotAnger = Buff_AOT_Anger.new(hostCharacter, buffManager, buffTypeParams)
+        return aotAnger
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Dot_Hp then
+        local BuffDotHp = require "GameLogic.Battle.BuffSystem.Buffs.BuffDotHp"
+        local buffDotHp = BuffDotHp.new(hostCharacter, buffManager, buffTypeParams)
+        return buffDotHp
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Dominant then -- 霸体
+        local BuffDominant = require "GameLogic.Battle.BuffSystem.Buffs.BuffDominant"
+        local buffDominant = BuffDominant.new(hostCharacter, buffManager, buffTypeParams)
+        return buffDominant
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Exile then
+        local BuffExile = require "GameLogic.Battle.BuffSystem.Buffs.BuffExile"
+        local buffExile = BuffExile.new(hostCharacter, buffManager, buffTypeParams)
+        return buffExile
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Silence then
+        local BuffSilence = require "GameLogic.Battle.BuffSystem.Buffs.BuffSilence"
+        local buffSilence = BuffSilence.new(hostCharacter, buffManager, buffTypeParams)
+        return buffSilence
+    elseif buffTypeId == BattleEnum.BuffType.Buff_AngerNoDecrease then
+        local BuffAngerNoDecrease = require "GameLogic.Battle.BuffSystem.Buffs.BuffAngerNoDecrease"
+        local buffAngerNoDecrease = BuffAngerNoDecrease.new(hostCharacter, buffManager, buffTypeParams)
+        return buffAngerNoDecrease
+    elseif buffTypeId == BattleEnum.BuffType.Buff_AngerNoIncrease then
+        local BuffAngerNoIncrease = require "GameLogic.Battle.BuffSystem.Buffs.BuffAngerNoIncrease"
+        local buffAngerNoIncrease = BuffAngerNoIncrease.new(hostCharacter, buffManager, buffTypeParams)
+        return buffAngerNoIncrease
+    elseif buffTypeId == BattleEnum.BuffType.Buff_KeepPurify then
+        local BuffKeepPurify = require "GameLogic.Battle.BuffSystem.Buffs.BuffKeepPurify"
+        local buffKeepPurify = BuffKeepPurify.new(hostCharacter, buffManager, buffTypeParams)
+        return buffKeepPurify
+    elseif buffTypeId == BattleEnum.BuffType.Buff_KeepPollute then
+        local BuffKeepPollute = require "GameLogic.Battle.BuffSystem.Buffs.BuffKeepPollute"
+        local buffKeepPollute = BuffKeepPollute.new(hostCharacter, buffManager, buffTypeParams)
+        return buffKeepPollute
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Invincible then
+        local BuffInvincible = require "GameLogic.Battle.BuffSystem.Buffs.BuffInvincible"
+        local buffInvincible = BuffInvincible.new(hostCharacter, buffManager, buffTypeParams)
+        return buffInvincible
+    elseif buffTypeId == BattleEnum.BuffType.Buff_NotDie then
+        local BuffNotDie = require "GameLogic.Battle.BuffSystem.Buffs.BuffNotDie"
+        local buffNotDie = BuffNotDie.new(hostCharacter, buffManager, buffTypeParams)
+        return buffNotDie
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Sneer then
+        local Buff_Sneer = require "GameLogic.Battle.BuffSystem.Buffs.Buff_Sneer"
+        local buffSneer = Buff_Sneer.new(hostCharacter, buffManager, buffTypeParams)
+        return buffSneer
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Frozen then
+        local BuffFrozen = require "GameLogic.Battle.BuffSystem.Buffs.BuffFrozen"
+        local buffFrozen = BuffFrozen.new(hostCharacter, buffManager, buffTypeParams)
+        return buffFrozen
+    elseif buffTypeId == BattleEnum.BuffType.Buff_CanNotBeFind then
+        local BuffCanNotBeFind = require "GameLogic.Battle.BuffSystem.Buffs.BuffCanNotBeFind"
+        local buffCanNotBeFind = BuffCanNotBeFind.new(hostCharacter, buffManager, buffTypeParams)
+        return buffCanNotBeFind
+    elseif buffTypeId == BattleEnum.BuffType.Buff_NoEffect then
+        local BuffNoEffect = require "GameLogic.Battle.BuffSystem.Buffs.BuffNoEffect"
+        local buffNoEffect = BuffNoEffect.new(hostCharacter, buffManager, buffTypeParams)
+        return buffNoEffect
+    elseif buffTypeId == BattleEnum.BuffType.Buff_TotalInjured then
+        local BuffTotalInjured = require "GameLogic.Battle.BuffSystem.Buffs.BuffTotalInjured"
+        local buffTotalInjured = BuffTotalInjured.new(hostCharacter, buffManager, buffTypeParams)
+        return buffTotalInjured
+    elseif buffTypeId == BattleEnum.BuffType.Buff_Summons then
+        local Buff_Summons = require "GameLogic.Battle.BuffSystem.Buffs.Buff_Summons"
+        local buff_summons = Buff_Summons.new(hostCharacter, buffManager, buffTypeParams)
+        return buff_summons
+    elseif buffTypeId == BattleEnum.BuffType.Buff_ChangeAttribute then
+        local BuffChangeAttribute = require "GameLogic.Battle.BuffSystem.Buffs.BuffChangeAttribute"
+        local buffChangeAttribute = BuffChangeAttribute.new(hostCharacter, buffManager, buffTypeParams)
+        return buffChangeAttribute
+    elseif buffTypeId == BattleEnum.BuffType.Buff_NoReturn then
+        local Buff_NoReturn = require "GameLogic.Battle.BuffSystem.Buffs.Buff_NoReturn"
+        local buff_NoReturn = Buff_NoReturn.new(hostCharacter, buffManager, buffTypeParams)
+        return buff_NoReturn
+    end
+
+    return nil
+end
+
+return M

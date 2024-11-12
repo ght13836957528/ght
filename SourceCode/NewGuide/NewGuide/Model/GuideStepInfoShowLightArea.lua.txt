@@ -1,0 +1,15 @@
+---@class GuideStepInfoShowLightArea : GuideStepBaseInfo @显示高光
+---@field public lightAreaObjName string 高光显示物体名称
+local GuideStepInfoShowLightArea = class("GuideStepInfoShowLightArea", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoShowLightArea
+
+function M:onParse(params)
+    if not params.lightAreaObjName then
+        print_error("lightAreaObjName cannot be null")
+        return 
+    end
+    self.lightAreaObjName = params.lightAreaObjName
+    self.isUIInScene = params.isUIInScene
+end
+
+return M

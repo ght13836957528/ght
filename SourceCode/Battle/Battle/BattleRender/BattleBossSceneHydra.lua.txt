@@ -1,0 +1,71 @@
+---@class BattleBossSceneHydra
+local BattleBossSceneHydra = class("BattleBossSceneHydra")
+local M = BattleBossSceneHydra
+local hydraResPath = "Assets/GameAsset/Scene/Story/9001_Hydra_Story/prefab/9001_Hydra_Story.prefab"
+local hydraEnter = "Assets/GameAsset/Scene/Story/9001_Hydra_Story/timeline/9001_Hydra_BornTimeline.playable"
+local hydraOut = "Assets/GameAsset/Scene/Story/9001_Hydra_Story/timeline/9001_Hydra_DieTimeline.playable"
+---@param baseRes BattleResourceContainer
+function M:Ctor(brc)
+    ---@type BattleResourceContainer
+    self._brc = brc
+end
+
+function M:EnterBoss(cb)
+    self._guid_enter = Game.SystemManager.UWAssetManager:loadResourceAsync(hydraResPath, function(go, guid)
+        if go then
+            self._go_hydra = go
+            self._playableD_hydra = GameObjectUtil.getComponentByPath(self._go_hydra, "",
+                typeof(CS.UnityEngine.Playables.PlayableDirector))
+        end
+        self:PlayEnterTimeline(cb)
+    end)
+end
+
+function M:PlayEnterTimeline(cb)
+    self._guid_time_enter = Game.SystemManager.UWAssetManager:loadResourceAsync(hydraEnter, function(go, guid)
+        if go then
+            if cb then
+                cb()
+            end
+            self._playableD_hydra:Play(go)
+        end
+    end)
+end
+
+function M:ShowTimeGo()
+    if self._go_hydra then
+        self._go_hydra.gameObject:SetActive(true)
+    end
+end
+
+function M:HideTimeGo()
+    if self._go_hydra then
+        self._go_hydra.gameObject:SetActive(false)
+    end
+end
+
+function M:PlayExitTimeline(cb)
+    self._guid_time_exit = Game.SystemManager.UWAssetManager:loadResourceAsync(hydraOut, function(go, guid)
+        if go then
+            self._timelineAsset = go
+            if cb then
+                cb()
+            end
+            self._playableD_hydra:Play(self._timelineAsset)
+        end
+    end)
+end
+
+function M:Dispose()
+    if self._guid_enter then
+        Game.SystemManager.UWAssetManager:unloadGUid(self._guid_enter)
+    end
+    if self._guid_time_enter then
+        Game.SystemManager.UWAssetManager:unloadGUid(self._guid_time_enter)
+    end
+    if self._guid_time_exit then
+        Game.SystemManager.UWAssetManager:unloadGUid(self._guid_time_exit)
+    end
+end
+
+return M

@@ -1,0 +1,23 @@
+---@class UIArenaIntegralItem:UIWidget
+local UIArenaIntegralItem = class("UIArenaIntegralItem", UIWidget)
+local M = UIArenaIntegralItem
+
+function M:OnParse(params)
+    self._arena_data = params.arenaData
+    self._isWin = params.isWin
+end
+function M:GetConfigAssetPath()
+    return "Assets/GameAsset/Sprites/Prefabs/UIArena/UIArenaIntegralItem.prefab"
+end
+
+function M:OnRefresh()
+    GameObjectUtil.SafeSetActiveSelf(self._goUp, self._isWin)
+    GameObjectUtil.SafeSetActiveSelf(self._goDown, not self._isWin)
+    self._txtNum.text = self._arena_data.score
+    self._txtNumUp.text = self._arena_data.scoreChange
+    self._txtNumDown.text = self._arena_data.scoreChange
+
+    -- self._imgIcon
+end
+
+return M

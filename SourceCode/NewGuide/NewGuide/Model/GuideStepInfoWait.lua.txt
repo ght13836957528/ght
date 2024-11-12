@@ -1,0 +1,10 @@
+---@class GuideStepInfoWait : GuideStepBaseInfo @引导步骤等待类型数据结构
+---@field public time number 等待时间
+local GuideStepInfoWait = class("GuideStepInfoWait", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoWait
+
+function M:onParse(params)
+    self.time = params.time
+end
+
+return M

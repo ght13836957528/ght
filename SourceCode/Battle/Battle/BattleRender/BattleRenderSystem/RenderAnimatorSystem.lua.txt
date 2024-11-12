@@ -1,0 +1,287 @@
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local ISystem = require "GameLogic.Battle.BattleRender.BattleRenderSystem.ISystem"
+
+---@class RenderAnimatorSystem:ISystem
+local RenderAnimatorSystem = class("RenderAnimatorSystem", ISystem)
+local M = RenderAnimatorSystem
+function M:Ctor(systemManager)
+    ISystem.Ctor(self, systemManager)
+end
+
+function M:GetEventHandleMap()
+    return {
+        [BattleEventId.Event_Battle_Render_SwitchAni]    = "SwitchAniHandle",
+        [BattleEventId.Event_Battle_BlackOut]            = "BlackoutHandle",
+        [BattleEventId.Event_Battle_Render_SetAniSpeed]  = "SetAniSpeed",
+        [BattleEventId.Event_Battle_Pause]               = "PauseAniSpeed",
+        [BattleEventId.Event_Battle_Go_On]               = "GoOnAniSpeed",
+        [BattleEventId.Event_Battle_Render_SwitchEffAni] = "SwitchEffAniHandle",
+        [BattleEventId.Event_Battle_Render_ShowHide]     = "ShowHideHandle",
+        [BattleEventId.Event_Battle_Render_HeroEffectSwitch]     = "HeroEffectSwitch",
+        [BattleEventId.Event_Battle_Mowing_Render_ShowHide]     = "MowingShowHideHandle",
+    }
+end
+
+function M:HeroEffectSwitch(data)
+    local uid = data.entityId
+    local isOpen = data.isOpen
+    local entity = self:GetEntityByUid(uid)
+    if entity and entity["SetEffSwitchComponent"] ~= nil then
+        entity:SetEffSwitchComponent(isOpen)
+    end
+end
+
+function M:_crossFade(animatorComponent, state, isReset, normalizedTransitionDuration)
+    if animatorComponent and animatorComponent.animator then
+        isReset = isReset or false
+        normalizedTransitionDuration = normalizedTransitionDuration or 0
+        if isReset then
+            if state == animatorComponent.aniState then
+                animatorComponent.animator:Play(state, 0, 0)
+            else
+                animatorComponent.animator:CrossFade(state, normalizedTransitionDuration)
+            end
+        else
+            if state == animatorComponent.aniState then
+                return
+            else
+                animatorComponent.animator:CrossFade(state, normalizedTransitionDuration)
+            end
+        end
+    end
+end
+
+function M:_crossFade_2(animatorComponent, state, isReset, normalizedTransitionDuration)
+    if animatorComponent and animatorComponent.animator then
+        isReset = isReset or false
+        normalizedTransitionDuration = normalizedTransitionDuration or 0
+        if isReset then
+            if state == animatorComponent.aniState then
+                -- for i = 0, animatorComponent.animator.Length - 1 do
+                --     animatorComponent.animator[i]:Play(state, 0, 0)
+                -- end
+                for _, ani in pairs(animatorComponent.animator) do
+                    ani:Play(state, 0, 0)
+                end
+            else
+                -- animatorComponent.animator:CrossFade(state, normalizedTransitionDuration)
+                -- for i = 0, animatorComponent.animator.Length - 1 do
+                --     animatorComponent.animator[i]:CrossFade(state, normalizedTransitionDuration)
+                -- end
+                for _, ani in pairs(animatorComponent.animator) do
+                    ani:CrossFade(state, normalizedTransitionDuration)
+                end
+            end
+        else
+            --if state == animatorComponent.aniState then
+            --    return
+            --end
+            
+            -- for i = 0, animatorComponent.animator.Length - 1 do
+                --     animatorComponent.animator[i]:CrossFade(state, normalizedTransitionDuration)
+                -- end
+            for _, ani in pairs(animatorComponent.animator) do
+                local clipInfo = ani:GetCurrentAnimatorClipInfo(0);
+                if clipInfo and clipInfo.Length > 0 then
+                    local currentAnimationName = string.lower(clipInfo[0].clip.name)
+                    --local currentAnimationName = clipInfo[0].clip.name;
+                    if currentAnimationName ~= string.lower(state) then
+                        ani:CrossFade(state, normalizedTransitionDuration)
+                    end
+                end
+            end
+        end
+    end
+end
+
+function M:_crossFade_eff(animatorComponent, state, isReset, normalizedTransitionDuration)
+    if animatorComponent and animatorComponent.animator then
+        isReset = isReset or false
+        normalizedTransitionDuration = normalizedTransitionDuration or 0
+        for _, ani in pairs(animatorComponent.animator) do
+            ani:Play(state, 1, 0)
+        end
+    end
+end
+
+function M:_setSpeed_2(animatorComponent, speed)
+    if animatorComponent and animatorComponent.animator and speed then
+        -- animatorComponent.animator.speed = speed
+        -- for i = 0, animatorComponent.animator.Length - 1 do
+        --     animatorComponent.animator[i].speed = speed
+        -- end
+        for _, ani in pairs(animatorComponent.animator) do
+            ani.speed = speed
+        end
+    end
+end
+
+function M:_setAniSpeed(entity, speed)
+    if entity == nil then
+        return
+    end
+
+    if entity.GetAniSpeed == nil then
+        return
+    end
+    
+    local curSpeed = entity:GetAniSpeed()
+    if curSpeed == speed then
+        return
+    end
+
+    local aniInstance = entity:GetAniInstanceCom()
+    if aniInstance then
+        aniInstance.AnimSpeed = speed
+    else
+        local animationComponent = entity:GetAnimationComponent()
+        if animationComponent then
+            self:_setSpeed_2(animationComponent, speed)
+        end
+    end
+
+    entity:SetAnimationSpeed(speed)
+end
+
+function M:_playAni(entity, aniState, isReset)
+    if entity == nil then
+        return
+    end
+    
+    --local curState = entity:GetAniState()
+    --if curState == aniState then
+    --    return
+    --end
+    
+    local aniInstance = entity:GetAniInstanceCom()
+    if aniInstance then
+        if not isReset and aniInstance.CurAnimName ~= string.lower(aniState) then
+            aniInstance:Play(aniState)
+        else
+            aniInstance:Play(aniState)
+        end
+    else
+        local animationComponent = entity:GetAnimationComponent()
+        if animationComponent then
+            self:_crossFade_2(animationComponent, aniState, isReset)
+        end
+    end
+    entity:SetAnimationComponent(aniState)
+end
+
+function M:SwitchEffAniHandle(data)
+    local uid = data.entityId
+    local aniState = data.aniName
+    local isReset = data.isReset
+    local entity = self:GetEntityByUid(uid)
+    if entity then
+        local isOpen = true
+        if entity["GetEffSwitchComponent"] and aniState == BattleEnum.BattleCommonEffAniClip.CommonHurt then
+            isOpen = entity:GetEffSwitchComponent()
+        end
+        if not isOpen then
+            return
+        end
+
+        self:_playAni(entity, aniState, isReset)
+    end
+end
+
+function M:SwitchAniHandle(data)
+    local uid = data.entityId
+    local aniState = data.aniName
+    local isReset = data.isReset
+    local speed = data.speed
+    local entity = self:GetEntityByUid(uid)
+    self:_setAniSpeed(entity, speed)
+    self:_playAni(entity, aniState, isReset)
+end
+
+function M:SetAniSpeed(data)
+    local entityId = data.entityId
+    local speed = data.speed or 1
+    local entity = self:GetEntityByUid(entityId)
+    self:_setAniSpeed(entity, speed)
+end
+
+function M:PauseAniSpeed()
+    self:RefreshAllAniSpeed(true)
+    -- self:RefreshAllEffSpeed(0)
+end
+
+function M:GoOnAniSpeed(speed)
+    self:RefreshAllAniSpeed(false)
+    -- self:RefreshAllEffSpeed(self._systemManager._renderWord.battleContext:GetBattleSpeed())
+end
+
+function M:RefreshAllEffSpeed(speed)
+    local allEntity = self:GetEntityMap()
+    for _, entity in pairs(allEntity) do
+        if entity and entity.HandleBattleSpeedChange then
+            entity:HandleBattleSpeedChange(speed)
+        end
+    end
+end
+
+function M:RefreshAllAniSpeed(isPause)
+    local entityMap = self:GetEntityMap()
+    for i, v in pairs(entityMap) do
+        self:_setAniSpeed(v, isPause and 0 or v:GetAniSpeed())
+    end
+end
+
+function M:BlackoutHandle(data)
+    local uid = data.entityId
+    local sceneBlack = data.sceneBlack or false
+    ---@type BattleRenderCharacterEntity[]
+    local entityMap = self:GetEntityMap()
+    for i, v in pairs(entityMap) do
+        if i ~= uid and v.GetAnimationComponent and v.GetIsPlaySkill then
+            local animationComponent = v:GetAnimationComponent()
+            local isPlaySkill = v:GetIsPlaySkill()
+            --BattleLog.errorTable(animationComponent)
+            if isPlaySkill then
+                break
+            end
+            self:_setAniSpeed(v, data.openType == BattleEnum.SkillBlackOut.Open and 0 or v:GetAniSpeed())
+        else
+            if v and v.SetIsPlaySkill then
+                v:SetIsPlaySkill(data.openType == BattleEnum.SkillBlackOut.Open)
+                if data.openType == BattleEnum.SkillBlackOut.Open then
+                    self:_setAniSpeed(v, v:GetAniSpeed())
+                else
+                    if sceneBlack then
+                        self:_setAniSpeed(v, 0)
+                    end
+                end
+            end
+        end
+    end
+end
+
+function M:ShowHideHandle(data)
+    local entityId = data.entityId
+    local isShow = data.isShow or false
+    local entity = self:GetEntityByUid(entityId)
+    if entity and entity.GetCSRenderComponent then
+        local csRender = entity:GetCSRenderComponent()
+        if isShow then
+            csRender:GraduallyShow()
+        else
+            csRender:GraduallyHide()
+        end
+
+    end
+end
+
+function M:MowingShowHideHandle(data)
+    local entityId = data.entityId
+    local isShow = data.isShow or false
+    local entity = self:GetEntityByUid(entityId)
+
+    if entity then
+        entity:SetGameObjectActive(isShow)
+    end
+end
+
+return M

@@ -1,0 +1,27 @@
+---@class GuideStepInfoLightRing : GuideStepBaseInfo @引导步骤光圈引导类型数据结构
+---@field public lightRingType string 等待时间  光圈出现类型，ui/cityBuild/tile/cityBuildBubble/buildingBubble
+---@field public clickObj string 点击的物体 ui名称/建筑类型/地块坐标0，1
+---@field public btnName string ui上点击对象的名字 
+---@field public arrow number 需要箭头闪烁 1 = 需要 0 = 不需要
+---@field public arrowAngle number 箭头指向目标的角度  箭头正向下为0，顺时针方向，指向角度与竖直方向夹角为箭头角度
+---@field public isLoadAsync number 界面是否为异步加载（可询问程序） 1 = 是 0 = 不是 
+---@field public hasAnimation number 显示光圈之前，目标按钮是否有动画改变其位置  1 = 是 0 = 不是 
+---@field public toggleName string toggle名字
+---@field public onlyLook number 1=引导期间只显示光圈，没有交互
+local GuideStepInfoLightRing = class("GuideStepInfoLightRing", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoLightRing
+
+function M:onParse(params)
+    self.lightRingType = params.lightRingType
+    self.clickObj = params.clickObj
+    self.btnName = params.btnName
+    self.arrow = params.arrow
+    self.arrowAngle = params.arrowAngle
+    self.isLoadAsync = params.isLoadAsync
+    self.hasAnimation = params.hasAnimation
+    self.subType = params.subType
+    self.toggleName = params.toggleName
+    self.onlyLook = params.onlyLook
+end
+
+return M

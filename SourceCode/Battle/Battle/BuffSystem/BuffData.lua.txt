@@ -1,0 +1,41 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 10:38:16 星期一
+----------------------------------------------------------------------
+
+--[[
+    Buff数据：一个Buff需要的数据的集合
+    Buff包含数据
+    BuffTypeId
+    Caster（Buff施加者）
+    Ability（Buff由哪个技能产生）
+    Layer
+    Level
+    Duration
+    Tag
+    ImmuneTag
+]]
+
+---@class BuffData
+local BuffData = class("BuffData")
+local M = BuffData
+
+function M:Ctor()
+    
+end
+
+--- 初始化配置数据记录
+function M:Initialize(buffConfig)
+    
+end
+
+--- 重置数据
+function M:Reset()
+    
+end
+
+--- 清理
+function M:Clear()
+    
+end
+
+return M

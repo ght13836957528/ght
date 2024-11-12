@@ -1,0 +1,37 @@
+-- @Author: liuyubao@kingsoft 
+-- @DateTime: 2022-06-29 21:53:08 
+-- Des: 
+---@class BattleRenderEntityBase
+local BattleRenderEntityBase = class("BattleRenderEntityBase")
+local M = BattleRenderEntityBase
+---@param entityManager BattleRenderEntityManager
+function M:Ctor(entityId,entityManager)
+    self._entityId = entityId
+    self._entityManager = entityManager
+end
+---@return BattleRenderEntityManager
+function M:GetEntityManager()
+    return self._entityManager
+end
+
+function M:GetEntityType()
+    BattleLogger.log_error(" Overwrite me : BattleRenderEntityBase.GetEntityType ")
+end
+
+function M:Initialize()
+    
+end
+
+function M:OnUpdate(dt)
+   
+end
+
+function M:GetEntityId()
+    return self._entityId
+end
+
+function M:Clear()
+    BattleLogger.log_error(" Overwrite me : BattleRenderEntityBase.Clear ")
+end
+
+return M

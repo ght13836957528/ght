@@ -1,0 +1,361 @@
+----------------------------------------------------------------------
+--------- 2022年12月02日 17:25:40 星期五
+----------------------------------------------------------------------
+
+--[[
+    战斗中的角色，在这里不区分是host和enemy，由controller来控制行为
+]]
+local BattleHelper                 = require "GameLogic.Battle.BattleHelper"
+local BattleEnum                   = require "GameLogic.Battle.BattleEnum"
+local CharacterController          = require "GameLogic.Battle.Characters.CharacterController"
+local BattleCharacterAttribute     = require "GameLogic.Battle.Characters.BattleCharacterAttribute"
+local CharacterSearcher            = require "GameLogic.Battle.Characters.CharacterSearcher"
+local CharacterTransform           = require "GameLogic.Battle.Characters.CharacterTransform"
+local HatredManager                = require "GameLogic.Battle.Characters.HatredManager"
+local CharacterRageManager         = require "GameLogic.Battle.Characters.CharacterRageManager"
+local CharacterSkillSystem         = require "GameLogic.Battle.SkillSystem.CharacterSkillSystem"
+local CharacterBuffManager         = require "GameLogic.Battle.BuffSystem.CharacterBuffManager"
+local CharacterFindPathManager     = require "GameLogic.Battle.Characters.CharacterFindPathManager"
+local BattleCharacterContext       = require "GameLogic.Battle.Characters.BattleCharacterContext"
+local BattleCharacterStepManager   = require "GameLogic.Battle.Characters.BattleCharacterStepManager"
+local BattleCharacterLogicHandler  = require "GameLogic.Battle.Characters.BattleCharacterLogicHandler"
+local BattleCharacterBaseAttribute = require "GameLogic.Battle.Characters.BattleCharacterBaseAttribute"
+local BattleNumericalBox           = require "GameLogic.Battle.BattleStatistics.BattleNumericalBox"
+local BattleDataCounter            = require "GameLogic.Battle.BattleStatistics.BattleDataCounter"
+---@class BattleCharacter
+local BattleCharacter              = class("BattleCharacter")
+local M                            = BattleCharacter
+
+------------------------------------------------------------------------------------------------------
+
+--- @param iCharacterBattleId number 战斗中的角色ID
+--- @param tbConfigData table 角色的配置数据（数据来自Hero_Detail）
+--- @param tbRepresentCharacter RepresentBattleCharacter
+---@param tbBattleContext BattleContext
+function M:Ctor(iCharacterBattleId, tBattleData, tbBattleContext, battleCamp)
+    self.characterBattleId            = iCharacterBattleId
+    self.battleData                   = tBattleData
+    self.battleContext                = tbBattleContext
+    self.characterContext             = BattleCharacterContext.new(battleCamp)
+    self.controller                   = CharacterController.new()
+    self.characterAttribute           = BattleCharacterAttribute.new(self)
+    self.hatredManager                = HatredManager.new(self)
+    self.rageManager                  = CharacterRageManager.new(self) -- 怒气值管理
+    self.skillManager                 = CharacterSkillSystem.new(self.battleContext)
+    self.buffManager                  = CharacterBuffManager.new(self, self.battleContext)
+    self.searcher                     = CharacterSearcher.new(self, self.battleContext)
+    self.findPathManager              = CharacterFindPathManager.new(self, self.battleContext)
+    self.characterTransform           = CharacterTransform.new(self, self.battleContext)
+    self.stepManager                  = BattleCharacterStepManager.new(self, self.battleContext)
+    self.battleCharacterLogicHandler  = BattleCharacterLogicHandler.new(self, self.battleContext)
+    self.battleCharacterBaseAttribute = BattleCharacterBaseAttribute.new(self, self.battleContext)
+    self.battleNumericalBox           = BattleNumericalBox.new(iCharacterBattleId, tbBattleContext)
+    self.battleDataCounter            = BattleDataCounter.new(iCharacterBattleId, tbBattleContext)
+end
+
+function M:Initialize(parentEntityId)
+    self:registerEvent()
+    self.characterTransform:Initialize(self.battleData._initRotate, self.battleData._posIndex, self.battleData
+        ._baseScale, self.battleData._heroId, self.battleData._volumeRadius)
+    self.characterContext:Initialize(self.battleData)
+    self.controller:Initialize(self)
+    self.characterAttribute:Initialize(self.battleData._attMap)
+    self.battleCharacterBaseAttribute:Initialize(self.battleData)
+    self.hatredManager:Initialize()
+    self.rageManager:Initialize(self.battleData)
+    self.skillManager:Initialize(self)
+    self.buffManager:Initialize(self.battleData._buff)
+    self.searcher:Initialize()
+    self.findPathManager:Initialize(self.battleData._initRotate, self.battleData._posIndex,
+        BattleHelper:getBattleSceneId(self.battleContext._battlePlayType, self.battleContext._battleStageId))
+    self.stepManager:Initialize()
+    self.battleNumericalBox:setParentBox(parentEntityId)
+    self.battleDataCounter:setParentBox(parentEntityId)
+    -- self.isPauseLogic = false
+    self.isBrevity = false
+    self.isDied = self.battleCharacterBaseAttribute:GetCurrentHpValue() <= 0
+    self.isSummoner = parentEntityId ~= nil
+end
+
+function M:GetCharacterType()
+    return BattleEnum.BattleCharacterType.Character
+end
+
+function M:CheckInitDied()
+    self.battleCharacterLogicHandler:CheckInitHp()
+end
+
+function M:GetIsSummoner()
+    return self.isSummoner
+end
+
+function M:registerEvent()
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_BlackOut, self._onHandleSkillBlackOut, self)
+
+    BroadcastEvent.subscribe(BattleEventId.MSG_BATTLE_CHARACTER_DIE, self._onCharacterDieHandle, self)
+end
+
+function M:unRegisterEvent()
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_BlackOut, self._onHandleSkillBlackOut, self)
+
+    BroadcastEvent.unsubscribe(BattleEventId.MSG_BATTLE_CHARACTER_DIE, self._onCharacterDieHandle, self)
+end
+
+function M:OnStartFight(...)
+    --- 开始战斗时的处理
+    self.hatredManager:OnStartFight(...)
+    self.rageManager:OnStartFight(...)
+    self.skillManager:OnStartFight(...)
+    self.findPathManager:OnStartFight(...)
+    self.stepManager:OnStartFight(...)
+    self.buffManager:OnStartFight(...)
+    self.controller:OnStartFight(...)
+end
+
+function M:OnEndFight(...)
+    self.buffManager:OnEndFight(...)
+end
+
+function M:GetBattleId()
+    return self.characterBattleId
+end
+
+---@return BattleContext
+function M:GetBattleContext()
+    return self.battleContext
+end
+
+---@return BattleNumericalBox
+function M:GetBattleNumericalBox()
+    return self.battleNumericalBox
+end
+
+---@return BattleCharacterModelBase
+function M:GetBattleData()
+    return self.battleData
+end
+
+---@return BattleCharacterModelBase
+function M:GetBattleDataClone()
+    return clone(self.battleData)
+end
+
+---@return BattleDataCounter
+function M:GetBattleDataCounter()
+    return self.battleDataCounter
+end
+
+---@return BattleCharacterBaseAttribute
+function M:GetBaseAtt()
+    return self.battleCharacterBaseAttribute
+end
+
+---@return BattleCharacterLogicHandler
+function M:GetLogicHandle()
+    return self.battleCharacterLogicHandler
+end
+
+---@return CharacterController
+function M:GetController()
+    return self.controller
+end
+
+---@return BattleCharacterStepManager
+function M:GetStepManager()
+    return self.stepManager
+end
+
+---@return BattleCharacterContext
+function M:GetCharacterContext()
+    return self.characterContext
+end
+
+---@return HatredManager
+function M:GetHatredManager()
+    return self.hatredManager
+end
+
+-- ---@return RepresentBattleCharacter
+-- function M:GetRender()
+--     return self.representCharacter
+-- end
+
+---@return BattleCharacterAttribute
+function M:GetAttribute()
+    return self.characterAttribute
+end
+
+---@return CharacterRageManager
+function M:GetRageManager()
+    return self.rageManager
+end
+
+function M:GetSearcher()
+    return self.searcher
+end
+
+---@return CharacterBuffManager
+function M:GetBuffManager()
+    return self.buffManager
+end
+
+function M:GetSkillManager()
+    return self.skillManager
+end
+
+---@return CharacterFindPathManager
+function M:GetFindPathManager()
+    return self.findPathManager
+end
+
+---@return CharacterTransform
+function M:GetTransform()
+    return self.characterTransform
+end
+
+function M:OnUpdate(fDeltaTime)
+    if self.isDied then
+        return
+    end
+    if self.battleContext:GetBlackScreenStatus() and not self.isBrevity then
+        self:OnUpdateSpecial(fDeltaTime)
+        return
+    end
+    self.characterContext:OnUpdate(fDeltaTime)
+    self.hatredManager:OnUpdate(fDeltaTime)
+    self.buffManager:OnUpdate(fDeltaTime)
+    self.findPathManager:OnUpdate(fDeltaTime)
+    self.skillManager:OnUpdate(fDeltaTime)
+    self.stepManager:OnUpdate(fDeltaTime)
+    self.controller:OnUpdate(fDeltaTime)
+    self.battleCharacterLogicHandler:OnUpdate(fDeltaTime)
+end
+
+function M:OnUpdateSpecial(fDeltaTime)
+    self.characterContext:OnUpdateSpecial(fDeltaTime)
+    -- self.findPathManager:OnUpdateSpecial(fDeltaTime)
+end
+
+function M:Clear()
+    self:unRegisterEvent()
+    if self.controller ~= nil then
+        self.controller:Clear()
+    end
+    self.characterAttribute:Clear()
+    self.hatredManager:Clear()
+    self.rageManager:Clear()
+    self.battleCharacterBaseAttribute:Clear()
+    self.skillManager:Clear()
+    self.buffManager:Clear()
+    self.searcher:Clear()
+    self.findPathManager:Clear()
+    self.characterTransform:Clear()
+    self.stepManager:Clear()
+
+    self.battleCharacterLogicHandler:Clear()
+    self.characterContext:Clear()
+    self.battleNumericalBox:Clear()
+    self.battleDataCounter:Clear()
+    self.isDied = false
+end
+
+------------------------------------------------------------------------------------------------------
+function M:CheckIsDied()
+    return self.isDied
+end
+
+------------------------------------------------------------------------------------------------------
+function M:GetConfigData()
+    local con = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, self:GetHeroConfigId())
+    if con == nil then
+        BattleLogger.log_error("Hero_Detail 表查找不到数据 ！！ ", self:GetHeroConfigId())
+        return {}
+    end
+    return con
+end
+
+function M:GetHeroConfigId()
+    return self.battleData._heroId
+end
+
+function M:GetHeroUId()
+    return self.battleData._heroUuid
+end
+
+function M:IsMagic()
+    local type = self:GetConfigData().type or 0
+    return type == 3
+end
+
+function M:IsRobot()
+    return self.battleData._isRobot
+end
+
+function M:IsBoss()
+    return self.battleData._isBoss or false
+end
+
+function M:SetBrevityLogic(isBrevity)
+    self.isBrevity = isBrevity
+end
+
+------------------------------------------------------------------------------------------------------
+function M:OnDied()
+    self.isDied = true
+    if self.controller and self.controller.OnDied then
+        self.controller:OnDied()
+    end
+    if self.characterAttribute and self.characterAttribute.OnDied then
+        self.characterAttribute:OnDied()
+    end
+    if self.hatredManager and self.hatredManager.OnDied then
+        self.hatredManager:OnDied()
+    end
+    if self.rageManager and self.rageManager.OnDied then
+        self.rageManager:OnDied()
+    end
+    if self.skillManager and self.skillManager.OnDied then
+        self.skillManager:OnDied()
+    end
+    if self.buffManager and self.buffManager.OnDied then
+        self.buffManager:OnDied()
+    end
+    if self.searcher and self.searcher.OnDied then
+        self.searcher:OnDied()
+    end
+    if self.findPathManager and self.findPathManager.OnDied then
+        self.findPathManager:OnDied()
+    end
+    if self.stepManager and self.stepManager.OnDied then
+        self.stepManager:OnDied()
+    end
+
+    if self.characterTransform and self.characterTransform.OnDied then
+        self.characterTransform:OnDied()
+    end
+end
+
+------------------------------------------------------------------------------------------------------
+--- EventHandler
+---
+---------------------------------------------------------------------------------------------------------
+function M:_onCharacterDieHandle(characterBattleId)
+    if characterBattleId == self:GetBattleId() then
+
+    else
+        self:GetHatredManager():RefreshHatred()
+    end
+end
+
+function M:_onHandleSkillBlackOut(param)
+    param = param or {}
+    local entityId = param.entityId
+    local openType = param.openType
+    if entityId and entityId == self:GetBattleId() then
+        self:SetBrevityLogic(openType == BattleEnum.SkillBlackOut.Open)
+    else
+        -- self:SetBrevityLogic(openType == BattleEnum.SkillBlackOut.Open)
+    end
+end
+
+return M

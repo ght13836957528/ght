@@ -1,0 +1,70 @@
+-- local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleEnum = require"GameLogic.Battle.BattleEnum"
+---@class BattleWorldDataBox
+local BattleWorldDataBox = class("BattleWorldDataBox")
+---@param characterManager BattleCharacterManager
+function BattleWorldDataBox:Ctor(characterManager)
+    self._characterManager = characterManager
+    self._map_numerical = {}
+    self._clientFameCount = 0
+    self._dataFameIntervalNum = 0
+    self._dataFameInterval = 10
+end
+
+function BattleWorldDataBox:OnUpdate(fDeltaTime)
+    if self._characterManager.battleContext:GetPlayType() == BattleEnum.BattlePlayType.Mowing then
+        return
+    end
+    
+    self._clientFameCount = self._clientFameCount + 1
+    self._dataFameIntervalNum = self._dataFameIntervalNum + 1
+    if self._dataFameIntervalNum >= self._dataFameInterval then
+        self._dataFameIntervalNum = 0
+        self:_snapShootData()
+    end
+end
+
+function BattleWorldDataBox:_snapShootData()
+    
+    local frameCount = self._clientFameCount
+    local charactersLive = self._characterManager:GetAllLiveCharacters()
+    local result = {}
+    local left = {}
+    local right = {}
+    for _, character in pairs(charactersLive) do
+        local pos = character:GetTransform():GetInitPos()
+        local camp = character:GetCharacterContext():GetBattleCamp()
+        if camp == BattleEnum.BattleCamp.Attack then
+            left[tostring(pos)] = {
+                hp = math.floor(character:GetBaseAtt():GetCurrentHpValue())
+            }
+        else
+            right[tostring(pos)] = {
+                hp = math.floor(character:GetBaseAtt():GetCurrentHpValue())
+            }
+        end
+    end
+    result.left = left
+    result.right = right
+    self._map_numerical[tostring(frameCount)] = result
+end
+
+function BattleWorldDataBox:cloneData()
+    local result = {}
+    result.battleTotalTime = self._clientFameCount * BattleConstant.LogicDeltaTime
+    local data = {}
+    for key, value in pairs(self._map_numerical) do
+        data[key] = value
+    end
+    result.frameSnapshotArray = data
+    return result
+end
+
+function BattleWorldDataBox:Clear()
+    self._map_numerical = {}
+    self._clientFameCount = 0
+    self._dataFameIntervalNum = 0
+end
+
+return BattleWorldDataBox

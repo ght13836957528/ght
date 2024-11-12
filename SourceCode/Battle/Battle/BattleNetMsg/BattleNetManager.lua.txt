@@ -1,0 +1,55 @@
+----------------------------------------------------------------------
+--------
+----------------------------------------------------------------------
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local FrameData = require "GameLogic.Battle.BattleFrame.FrameData"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local BattleNetController = require "GameLogic.Battle.BattleNetMsg.BattleNetController"
+
+---@class BattleNetManager
+local BattleNetManager = class("BattleNetManager", GameBaseModule)
+local M = BattleNetManager
+
+--------------Start 生命周期--------------
+
+function M:OnInit()
+    self.controller = BattleNetController.new()
+    self.controller:Init(self)
+end
+
+function M:AddEventListener()
+    self.controller:AddEventListeners()
+end
+
+function M:RemoveEventListener()
+    self.controller:RemoveEventListeners()
+end
+
+--------------End  生命周期--------------
+
+function M:GetController()
+    return self.controller
+end
+
+function M:InitData(data)
+
+end
+
+---------------------------------------------------------
+function M:handleBattleDataPush(data)
+    ---@type BattleInfo
+    local battleInfo = data.battleInfo
+    -- battleInfo.battleType = BattleEnum.BattlePlayType.World_Pve
+    battleInfo.clientFrame = BattleHelper:getBattleStartClientFrame(battleInfo.battleType)
+    local resourceCache = Game.BusinessManager.BattleTeamManager:GetBattleResourceCache()
+    BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_START_FIGHT,
+        { battleInfo = battleInfo, resourceCache = resourceCache })
+end
+
+--------------------------------------------------------------------------------------------------
+---@param data FinishBattlePush
+function M:handleBattleFinishPush(data, battleEndData)
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Result, { resultData = data, battleEndData = battleEndData })
+end
+
+return M

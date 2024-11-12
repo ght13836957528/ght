@@ -1,0 +1,31 @@
+
+---@class GuideStepInfoSoftHandAndArrow:GuideStepBaseInfo @ 引导步骤手引导数据类型
+---@field public softPanelName string @UI的名字
+---@field public handAndArrowAngle number @手的角度
+---@field public handMoveTime number @如果需要滑动，滑动的时间
+---@field public softType number @1：手;2:箭头
+---@field public handMoveType number @1：移动；2：点击
+---@field public handAndArrowStartPosType number @1="UI"2="City"3="地块"
+---@field public handAndArrowEndPosType number @1="UI"2="City"3="地块"
+---@field public handAndArrowStartNode string @1：配置对应UI节点下的名字，类型为2：配置city的Id,类型为3：配置地块的坐标
+---@field public handAndArrowEndNode string @1：配置对应UI节点下的名字，类型为2：配置city的Id,类型为3：配置地块的坐标
+---@field public arrowAndHandScale number @标准是1
+local GuideStepInfoSoftHandAndArrow = class("GuideStepInfoSoftHandAndArrow",require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoSoftHandAndArrow
+
+function M:onParse(params)
+    self.softPanelName = params.softPanelName
+    self.handAndArrowAngle = params.handAndArrowAngle
+    self.handMoveTime = params.handMoveTime
+    self.softType = params.softType
+    self.handMoveType = params.handMoveType
+    self.handAndArrowStartPosType = params.handAndArrowStartPosType
+    self.handAndArrowStartNode = params.handAndArrowStartNode
+    self.handAndArrowEndPosType = params.handAndArrowEndPosType
+    self.handAndArrowEndNode = params.handAndArrowEndNode
+    
+    self.arrowAndDuration=params.arrowAndDuration
+    self.arrowAndHandScale=params.arrowAndHandScale or 1
+end
+
+return M

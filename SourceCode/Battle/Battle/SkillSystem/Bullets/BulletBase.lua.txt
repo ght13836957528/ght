@@ -1,0 +1,397 @@
+----------------------------------------------------------------------
+--------- 2023年01月17日 16:10:29 星期二
+----------------------------------------------------------------------
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattleEnum       = require "GameLogic.Battle.BattleEnum"
+local BattleHelper     = require "GameLogic.Battle.BattleHelper"
+local ConfigHandler    = ConfigHandler
+---@class BulletBase
+local BulletBase       = class("BulletBase")
+
+local M                = BulletBase
+---@param bulletOwner BattleCharacter
+---@param stepHandler SkillStepHandler
+---@param stepContext StepContext
+function M:Ctor(entityId, bulletOwner, stepContext, findRoot)
+    self.entityId = entityId
+    -- 触发该子弹的角色
+    self.hostCharacter = bulletOwner
+
+    self.stepContext = stepContext
+    self.frameCount = 0
+    -- 局部坐标和方向
+    self.position = Vector3.New(0, 0, 0)
+    self.direction = Vector3.New(0, 0, 0)
+    self.canUpdate = true
+    self.soundId = nil
+
+    self.index = 0
+
+    self.findRoot = findRoot
+end
+
+function M:GetIndex()
+    return self.index
+end
+
+function M:DownIndex()
+    self.index = self.index - 1
+end
+
+function M:SetIndex(index)
+    self.index = index
+end
+
+--- 初始化子弹，在逻辑上会先创建子弹实例，初始化的时候，正是在表现层中创建子弹显示
+--- 然后处理子弹的逻辑
+--- @param targetId string 目标Id
+function M:Initialize(config, targetId, baseRootId, targetList)
+    self.config = config
+    self.targetId = targetId
+    self.baseRootId = baseRootId
+    self.missleEndFrame = BattleHelper:transitionFrame(self.config.missleEndFrame or 0)
+    self.triggerRange = 0
+    if config and config.eventTimeline and config.eventTimeline[1] then
+        local tmp = config.eventTimeline[1][1]
+        self.triggerRange = (tmp * 2 + 1) * self.hostCharacter:GetBattleContext():GetMapController().cellSizeMin
+    end
+    self.targetList = targetList
+    self.isEliminate = (config.isKickList and config.isKickList == 1) and true or false
+    BattleEventUtils:DisPath_CreateEntity(self:GetEntityId(), BattleEnum.EntityRenderType.RenderBullet,
+        { stepTag = self.config.skillId })
+    self:_initializeActions()
+    self:_createBulletOn()
+    self:_onInitialize()
+end
+
+function M:GetEntityId()
+    return self.entityId
+end
+
+function M:GetType()
+    return self.config.moveLogic
+end
+
+function M:OnUpdate(fDeltaTime)
+    if self.config == nil then
+        return
+    end
+    if self.frameCount > self.missleEndFrame then
+        -- do Clear
+        self.hostCharacter:GetStepManager():RemoveBullet(self)
+        return
+    end
+    self:_onUpdate(fDeltaTime)
+    self.frameCount = self.frameCount + 1
+end
+
+function M:Distance(entityId)
+    local entity = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(entityId)
+    if entity then
+        local pos_target = entity:GetTransform():GetRenderPos()
+        return Vector3.Distance(pos_target, self.position)
+    end
+end
+
+function M:DestroyBullet()
+
+end
+
+function M:Clear()
+    BattleEventUtils:DisPath_RemoveEntity(self:GetEntityId())
+    if self.soundId then
+        BattleEventUtils:DisPath_Render_BreakSound(self.soundId)
+    end
+    self:_onClear()
+end
+
+----------------------------------------------------------------------
+
+--- 在给定的参数位置创建子弹
+--- 无论是哪种参数的子弹，创建的逻辑是一致的，所以可以在Base里面先生成Bullet
+--- 后续的处理方式不同，要在子类中实现
+function M:_createBulletOn()
+    self:_initPos()
+    -- self:_createRenderBullet()
+end
+
+function M:_createRenderBullet()
+    -- if self.config.moveLogic == BattleEnum.BulletMoveType.FindCharater then
+    --     BattleEventUtils:DisPath_CreateFlyEff_bind(self:GetEntityId(), self.hostCharacter:GetBattleId(),
+    --         self.targetId)
+    -- elseif self.config.moveLogic == BattleEnum.BulletMoveType.MoveForward then
+    --     BattleEventUtils:DisPath_CreateFlyEff_bind(self:GetEntityId(), self.hostCharacter:GetBattleId(), self.targetId)
+    -- else
+
+    -- end
+    BattleLogger.log_error("overwrite me")
+end
+
+function M:_initPos()
+    local createPos = self.config.createPos
+    if createPos == nil then
+        return
+    end
+
+    local coor = self.config.createCoor
+    local scale = self.hostCharacter:GetTransform():GetScale()
+    if createPos == BattleEnum.BulletCreatePosType.SelfBindPoint then
+        if self.findRoot and self.findRoot ~= self.hostCharacter:GetBattleId() then
+            local tragetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self
+                .findRoot)
+            self.position = tragetCharacter:GetTransform():GetRenderPos()
+        else
+            self.position = self.hostCharacter:GetTransform():GetRenderPos()
+        end
+        -- self.position = self.hostCharacter:GetTransform():GetRenderPos()
+        if coor and coor[1] and coor[2] and coor[3] then
+            if self.hostCharacter:GetBattleContext():GetPlayType() == BattleEnum.BattlePlayType.Mowing then
+                local starForward = self.hostCharacter:GetTransform():Forward()
+
+                local createCoor = Vector3(coor[1], coor[2], coor[3]) * scale
+                local quat = Quaternion.LookRotation(starForward, Vector3.up)
+                local createCoor1 = Quaternion.MulVec3(quat, createCoor)
+                self.position = self.position + createCoor1
+            else
+                local rotate = self.hostCharacter:GetTransform().initRotate
+                if rotate == BattleEnum.InitRotate.Left then
+                    self.position = self.position + Vector3(coor[1], coor[2], coor[3]) * scale
+                else
+                    self.position = self.position + Vector3(-coor[1], coor[2], -coor[3]) * scale
+                end
+            end
+        end
+    elseif createPos == BattleEnum.BulletCreatePosType.Target then
+        local tragetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.targetId)
+        if tragetCharacter then
+            self.position = tragetCharacter:GetTransform():GetRenderPos()
+            if coor and coor[1] and coor[2] and coor[3] then
+                if self.hostCharacter:GetBattleContext():GetPlayType() == BattleEnum.BattlePlayType.Mowing then
+                    local starForward = self.hostCharacter:GetTransform():Forward()
+
+                    local createCoor = Vector3(coor[1], coor[2], coor[3]) * scale
+                    local quat = Quaternion.LookRotation(starForward, Vector3.up)
+                    local createCoor1 = Quaternion.MulVec3(quat, createCoor)
+                    self.position = self.position + createCoor1
+                else
+                    local rotate = tragetCharacter:GetTransform().initRotate
+                    if rotate == BattleEnum.InitRotate.Left then
+                        self.position = self.position + Vector3(coor[1], coor[2], coor[3]) * scale
+                    else
+                        self.position = self.position + Vector3(-coor[1], coor[2], -coor[3]) * scale
+                    end
+                end
+            end
+        end
+    elseif createPos == BattleEnum.BulletCreatePosType.ScenePoint then
+        local mapController = self.hostCharacter:GetBattleContext():GetMapController()
+        if mapController then
+            local point_enum = self.config.createParam
+            if point_enum == nil then
+                point_enum = BattleEnum.ScenePointPosEnum.Center
+            end
+            local rotate = self.hostCharacter:GetTransform().initRotate
+            if point_enum ~= BattleEnum.ScenePointPosEnum.Center and rotate ~= BattleEnum.InitRotate.Left then
+                if point_enum == BattleEnum.ScenePointPosEnum.Left_In then
+                    point_enum = BattleEnum.ScenePointPosEnum.Right_In
+                elseif point_enum == BattleEnum.ScenePointPosEnum.Left_Out then
+                    point_enum = BattleEnum.ScenePointPosEnum.Right_Out
+                elseif point_enum == BattleEnum.ScenePointPosEnum.Right_In then
+                    point_enum = BattleEnum.ScenePointPosEnum.Left_In
+                elseif point_enum == BattleEnum.ScenePointPosEnum.Right_Out then
+                    point_enum = BattleEnum.ScenePointPosEnum.Left_Out
+                end
+            end
+            self.position = mapController:GetScenePointPos(point_enum)
+            if coor and coor[1] and coor[2] and coor[3] then
+                local rotate = self.hostCharacter:GetTransform().initRotate
+                if rotate == BattleEnum.InitRotate.Left then
+                    self.position = self.position + Vector3(coor[1], coor[2], coor[3]) * scale
+                else
+                    self.position = self.position + Vector3(-coor[1], coor[2], -coor[3]) * scale
+                end
+            end
+        else
+            self.position = self.hostCharacter:GetTransform():GetRenderPos()
+        end
+    else
+        BattleLogger.log_error(" ??? todo  新的子弹创建位置 逻辑 ", createPos)
+    end
+
+    -- if createPos == BattleEnum.StepCreatePosType.Fly then
+    --     self.position = self.hostCharacter:GetTransform():GetRenderPos()
+    --     if coor and coor[1] and coor[2] and coor[3] then
+    --         local rotate = self.hostCharacter:GetTransform().initRotate
+    --         if rotate == BattleEnum.InitRotate.Left then
+    --             self.position = self.position + Vector3(coor[1], coor[2], coor[3])
+    --         else
+    --             self.position = self.position - Vector3(coor[1], coor[2], coor[3])
+    --         end
+    --     end
+    --     if self.config.moveLogic == BattleEnum.BulletMoveType.FindCharater then
+    --         BattleEventUtils:DisPath_CreateFlyEff_bind(self:GetEntityId(), self.hostCharacter:GetBattleId(),
+    --             self.targetId)
+    --     else
+    --         BattleLogger.log_error("to do 前移子弹 ")
+    --     end
+    -- elseif createPos == BattleEnum.StepCreatePosType.TheCharacter then
+    --     local tragetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self
+    --         .targetId)
+    --     if tragetCharacter then
+    --         self.position = tragetCharacter:GetTransform():GetRenderPos()
+    --         if coor and coor[1] and coor[2] and coor[3] then
+    --             self.position = self.position + Vector3(coor[1], coor[2], coor[3])
+    --         end
+    --     end
+    -- elseif createPos == BattleEnum.StepCreatePosType.ThePos then
+    --     BattleLogger.log_error(" todo ThePosition 子弹位置绑点 逻辑 ")
+    -- else
+    --     BattleLogger.log_error(" todo  子弹创建位置 逻辑 ")
+    -- end
+end
+
+function M:_handleEvent()
+    local triggerType = self.config.triggerType
+    if triggerType == nil then
+        return
+    end
+    if triggerType == BattleEnum.BulletTriggerType.FrameTrigger then
+        -- self:_executeActionsOnFrame(self.frameCount)
+    elseif triggerType == BattleEnum.BulletTriggerType.OnTriggerEnter then
+        -- self:_executeActionsOnTrigger(self.frameCount)
+    else
+
+    end
+end
+
+function M:_initializeActions()
+    self.actions = {}
+    local triggerType = self.config.triggerType
+    if triggerType == nil then
+        return
+    end
+    if triggerType == BattleEnum.BulletTriggerType.FrameTrigger then
+        self:_createSoundActions()
+        self:_createEventActions()
+    else
+        self:_createTriggerAtions()
+    end
+end
+
+function M:_createTriggerAtions()
+    local soundConfig = self.config.missleSoundTimeline
+
+    if soundConfig then
+        -- soundConfig = {{7, src1}, {8, src2}}
+        for i, v in ipairs(soundConfig) do
+            table.insert(self.actions, { type = 1, param = v[2] })
+        end
+    end
+    local eventConfig = self.config.eventTimeline
+    if eventConfig then
+        -- soundConfig = {{7, src1}, {8, src2}}
+        for i, v in ipairs(eventConfig) do
+            table.insert(self.actions, { type = 2, param = v[2] })
+        end
+    end
+end
+
+function M:_createSoundActions()
+    local soundConfig = self.config.missleSoundTimeline
+    if soundConfig == nil then
+        return
+    end
+
+    -- soundConfig = {{7, src1}, {8, src2}}
+    for i, v in ipairs(soundConfig) do
+        local frame = BattleHelper:transitionFrame(v[1])
+        if self.actions[frame] == nil then
+            self.actions[frame] = {}
+        end
+        table.insert(self.actions[frame], { type = 1, param = v[2] })
+    end
+end
+
+function M:_createEventActions()
+    local triggerType = self.config.triggerType or 0
+    if triggerType ~= 1 then
+        -- triggerType = 1是按帧触发
+        return
+    end
+
+    local eventConfig = self.config.eventTimeline
+    if eventConfig == nil then
+        return
+    end
+    -- eventConfig = {{5, stepId}, {7, stepId}}
+    for i, v in ipairs(eventConfig) do
+        local frame = BattleHelper:transitionFrame(v[1])
+        if self.actions[frame] == nil then
+            self.actions[frame] = {}
+        end
+        table.insert(self.actions[frame], { type = 2, param = v[2] })
+    end
+end
+
+function M:_executeActionsOnTrigger()
+    for _, value in ipairs(self.actions) do
+        self:_handleAction(value)
+    end
+end
+
+function M:_executeActionsOnFrame(iFrameNumber)
+    local currentFrame = iFrameNumber or -1
+    if currentFrame < 0 then
+        return
+    end
+
+    if self.actions[iFrameNumber] then
+        local tmpActions = self.actions[iFrameNumber] or {}
+        for _, action in ipairs(tmpActions) do
+            self:_handleAction(action)
+        end
+    end
+end
+
+function M:_handleAction(action, targetId)
+    if action == nil then
+        return
+    end
+    if action.type == 1 then
+        self:_handleAction_sound(action.param, targetId)
+    elseif action.type == 2 then
+        self:_handleAction_step(action.param, targetId)
+    else
+
+    end
+end
+
+function M:_handleAction_sound(scrName, targetId)
+    if scrName then
+        self.soundId = BattleEventUtils:DisPath_Render_PlaySound(scrName)
+    end
+end
+
+function M:_handleAction_step(stepId, targetId)
+    targetId = targetId or self.targetId
+    BattleLogger.log("stepId  ==   ", stepId, "   self.targetId  ==   ", tostring(self.targetId))
+    local stepCon = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Step, stepId)
+    self.hostCharacter:GetBattleContext():GetSkillStepHandler():DoHandleStep(stepCon, { targetId }, self.baseRootId,
+        self.stepContext)
+end
+
+----------------------------------------------------------------------
+
+function M:_onInitialize()
+
+end
+
+function M:_onUpdate(deltaTime)
+
+end
+
+function M:_onClear()
+
+end
+
+return M

@@ -1,0 +1,56 @@
+---@class ISystem
+local ISystem = class("ISystem")
+---@param systemManager BattleRenderSystemManager
+function ISystem:Ctor(systemManager)
+    self._systemManager = systemManager
+
+    self._eventListenerList = {}
+
+    self:_registerMsg()
+end
+
+function ISystem:GetEventHandleMap()
+    --return {
+    --    [EventType.Event_Battle_Render_SwitchAni] = "switchAniHandle",
+    --}
+    BattleLogger.log_error("overwrite me ！！！")
+    return {}
+end
+
+---@return BattleRenderEntityBase
+function ISystem:GetEntityByUid(entityId)
+    return self._systemManager._entityMap[entityId]
+end
+
+---@return BattleRenderCharacter[]
+function ISystem:GetEntityMap()
+    return self._systemManager._entityMap
+end
+
+function ISystem:_registerMsg()
+    local eventHandleMap = self:GetEventHandleMap()
+    for i, v in pairs(eventHandleMap) do
+        if i and v and self[v] then
+            BroadcastEvent.subscribe(i, self[v], self)
+        end
+    end
+end
+
+function ISystem:_unRegisterMsg()
+    local eventHandleMap = self:GetEventHandleMap()
+    for i, v in pairs(eventHandleMap) do
+        if i and v and self[v] then
+            BroadcastEvent.unsubscribe(i, self[v], self)
+        end
+    end
+end
+
+function ISystem:Clear()
+    self:_unRegisterMsg()
+end
+
+function ISystem:logNotFindEntity(entityId)
+    BattleLogger.log_error("没找到 entity ：", entityId)
+end
+
+return ISystem

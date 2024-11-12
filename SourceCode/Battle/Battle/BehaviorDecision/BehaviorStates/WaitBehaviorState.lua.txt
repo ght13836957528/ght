@@ -1,0 +1,72 @@
+----------------------------------------------------------------------
+--------- 2022年12月29日 09:44:09 星期四
+----------------------------------------------------------------------
+
+--[[
+    随机等待时间，作为缓冲
+]]
+
+local BaseBehaviorState     = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+local BehaviorStateType     = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+
+---@class WaitBehaviorState:BaseBehaviorState
+local WaitBehaviorState = class("WaitBehaviorState", BaseBehaviorState)
+local M = WaitBehaviorState
+
+-- @param ... 切换场景时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    self.super.OnInit(self,...)
+
+    -- 随机等待一定时长之后进入下一个状态
+    self.waitTime = self:_getRandomWaitTime()
+    -- BattleLogger.log("In Wait: OnInit => 等待时长: "..tostring(self.waitTime).." - "..tostring(self:_getCharacterBattleId()))
+end
+
+--- 进入场景
+--- @param ... {fromState = a, toState = c}  fromState是从哪个状态转换过来，toState是等待结束后会转移到哪个状态
+function M:OnEnter(...)
+    -- BattleLogger.log("in wait: "..tostring(self:_getCharacterBattleId()))
+    self.isInWait = true
+    local param = ...
+    self.timeCounter = 0
+    self.fromState = param.fromState
+    self.toState = param.toState
+end
+
+function M:OnUpdate(fDeltaTime)
+    local inWait = self.isInWait or false
+    if not inWait then
+        return
+    end
+
+    local deltaTime = fDeltaTime or 0
+    local counter = self.timeCounter or 0
+    self.timeCounter = counter + deltaTime
+
+    if self.timeCounter >= self.waitTime then
+        -- 重新开始
+        local targetState = self.toState or BehaviorStateType.SkillSystem
+        -- BattleLogger.log("In Wait: OnUpdate => 等待结束，从 "..self.fromState.."转移到"..targetState.." - "..tostring(self:_getCharacterBattleId()))
+        self._stateManager:Switch(targetState, nil)
+    end
+end
+
+-- 退出场景
+function M:OnExit(callback)
+    self.isInWait = false
+
+    if callback ~= nil then
+        callback()
+    end
+end
+
+----------------------------------------------------------------------
+function M:_getRandomWaitTime()
+    --return math.random(0.3, 2)
+    local randomValue = math.random()
+    local value = randomValue * 1.5 + 0.5
+    return value
+end
+
+
+return M

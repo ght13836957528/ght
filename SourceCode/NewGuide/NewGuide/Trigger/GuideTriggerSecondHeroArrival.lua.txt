@@ -1,0 +1,14 @@
+---@class GuideTriggerSecondHeroArrival : GuideTriggerCondition
+local base = require("GameLogic.NewGuide.Trigger.GuideTriggerCondition")
+local GuideTriggerSecondHeroArrival = class("GuideTriggerSecondHeroArrival", base)
+local M = GuideTriggerSecondHeroArrival
+
+function M:equals(param)
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return false
+    end
+    
+    return true
+end
+
+return M

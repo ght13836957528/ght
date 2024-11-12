@@ -1,0 +1,338 @@
+
+---handAndArrowAngle
+---sortType  2=arrow
+---handAndArrowStartPosType,handAndArrowStartNode
+---handAndArrowStartPosType,handAndArrowEndPosType:1="UI"2="City"3="地块"
+---handAndArrowStartNode：类型为1：配置对应UI节点下的名字，类型为2：配置city的Id,类型为3：配置地块的名字
+
+---@class UIArrowGuideView:UIPanel
+local UIArrowGuideView = class("UIArrowGuideView",UIPanel)
+local M = UIArrowGuideView
+
+local TileType = require("GameLogic.Scene.Map.TileType")
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UIGuideArrowView.prefab"
+end
+
+function M:getConfigLayerType()
+    return UILayerType.Guide
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    if params == nil then
+        print_error("guide Arrow panel is error of params ")
+        return
+    end
+
+    --是一个节点的对象
+    self.curArrowStartNode = params.arrowStartNode
+    ---@type GuideStepBaseInfo self.curOneStepInfo
+    self.curOneStepInfo = params.arrowStepInfo
+end
+
+function M:onRefresh()
+    self._ViewTargetBtn._gameObject:SetActive(false)
+    --_hand,_arrow
+    if self.curOneStepInfo == nil then
+        print_error("arrow stepInfo is nil")
+        return
+    end
+    
+    if self.curOneStepInfo.type ~=GuideStepType.soft then
+        print_error("arrow guide type is error ,not hand please check id:" .. self.curOneStepInfo.id)
+        return
+    end
+
+    --判断是否是箭头
+    if self.curOneStepInfo.softType ~= NewGuideConst.SoftGuideType.Arrow then
+        print_error("DataTable min type is error ,not hand please check id:" .. self.curOneStepInfo.id)
+        return
+    end
+
+    if self.curOneStepInfo.handAndArrowAngle then
+        self._hand.transform.eulerAngles = Vector3.New(0,0,self.curOneStepInfo.handAndArrowAngle)
+    end
+
+    self:setArrowPositionData()
+    self.timerTask = Timer.new(0,0.1,true,false,function()
+        self:setArrowPositionData()
+    end,self)
+    self.timerTask:start()
+    
+    self:AddListenerByType()
+end
+
+function M:onAddListener()
+    self._MaskBtn:addEventListener(ButtonEvent.CLICK, self.onClickMask, self)
+    self._ViewTargetBtn:addEventListener(ButtonEvent.CLICK, self.onClickArrowTarget, self)
+    -- BroadcastEvent.subscribe(NewGuideConst.eventType.HideArrowEvent,self.hideCurrentPage,self)
+end
+
+function M:onRemoveListener()
+    self._MaskBtn:removeEventListener(ButtonEvent.CLICK, self.onClickMask, self)
+    self._ViewTargetBtn:removeEventListener(ButtonEvent.CLICK, self.onClickArrowTarget, self)
+    --BroadcastEvent.subscribe(NewGuideConst.eventType.HideArrowEvent,self.hideCurrentPage,self)
+end
+
+function M:onClose()
+end
+
+function M:AddListenerByType()
+    local curType = self.curOneStepInfo.handAndArrowStartPosType
+    if curType == NewGuideConst.HandNodeType.UI then
+        self:setUIClickEvent()
+        self:setBtnCanvas()
+        self:setArrowCanvas()
+    elseif curType == NewGuideConst.HandNodeType.City then
+        self:setCityClickEvent()
+    elseif curType == NewGuideConst.HandNodeType.Tile then
+        self:setTileClickEvent()
+    end
+end
+
+--UI 点击事件
+function M:setUIClickEvent()
+    if self.curArrowStartNode then
+        self.btn = self.curArrowStartNode:GetComponent(UnityType.UIButton)
+        if self.btn then
+            self.clickUICallback = function()
+                self:onClickUIBtnCallback()
+            end
+            self.btn.onClick:AddListener(self.clickUICallback)
+        end
+    end
+end
+
+--UI 点击的回调
+function M:onClickUIBtnCallback()
+    if self.clickUICallback then
+        self.btn.onClick:RemoveListener(self.clickUICallback)
+    end
+    self:hideCurrentPage()
+end
+
+-- city 点击city
+function M:setCityClickEvent()
+    if not self._ViewTargetBtn._gameObject.activeSelf then
+        self._ViewTargetBtn._gameObject:SetActive(true)
+    end
+
+
+    
+end
+
+--点击建筑触发的面板事件
+function M:clickCity(buildingId)
+    if GameEntry.UI.CityScene and not string.isNilOrEmpty(buildingId) then
+        local city = GameEntry.UI.CityScene.BuildingManager:FindCityBuilding(buildingId)
+        if city then
+            CS.BuildInformation.ShowBuildingMenu(city)
+        end
+    end
+end
+
+--点击地块触发的面板事件
+function M:clickTile()
+    local citySceneView = GameSceneManager.getView(SceneType.City)
+    local targetPosList = string.split(self.curOneStepInfo.handAndArrowStartNode,';')
+    if #targetPosList == 2 then
+        local tileInfo = citySceneView.actor.tileManager:getTile(tonumber(targetPosList[1]) , tonumber(targetPosList[2]))
+        if tileInfo then
+            if tileInfo:checkFlag(TileType.FunBuild)  then
+                FunBuildMenuHelper.showBuildMenu(tileInfo.x, tileInfo.y)
+            else
+                citySceneView.touchManager:dispatchTouch(TouchEvent.Click, tileInfo)
+            end
+        end
+    end 
+end
+
+function M:onClickArrowTarget()
+    if self.curOneStepInfo.handAndArrowStartPosType == NewGuideConst.HandNodeType.City then
+        self:onClickCityBtnCallback()
+    elseif self.curOneStepInfo.handAndArrowStartPosType == NewGuideConst.HandNodeType.Tile then
+        self:onClickTileBtnCallback()
+    end
+end
+
+--city 点击城市回调
+function M:onClickCityBtnCallback()
+    self:clickCity(self.curOneStepInfo.handAndArrowStartNode)
+    self:hideCurrentPage()
+end
+
+-- tile 点击地块
+function M:setTileClickEvent()
+    if not self._ViewTargetBtn._gameObject.activeSelf then
+        self._ViewTargetBtn._gameObject:SetActive(true)
+    end
+    
+end
+
+--tile 点击地块的回调
+function M:onClickTileBtnCallback()
+    self:clickTile()
+    self:hideCurrentPage()
+end
+
+
+function M:onClickMask()
+    if self.timerTask then
+        self.timerTask:stop()
+    end
+    self:hide()
+    self:revertBtnCanvas()
+    GuideManager.play(0)
+end
+
+
+function M:hideCurrentPage()
+    if self.timerTask then
+        self.timerTask:stop()
+    end
+    self:hide()
+    self:revertBtnCanvas()
+    HandAndArrowGuideManager.currentStepFinish()
+end
+
+function M:setArrowPositionData()
+    if self.curArrowStartNode ==nil then
+        print_error("get object is nil of arrow panel")
+        return
+    end
+    
+    local pos = self:setNodePosition()
+    if pos == nil then
+        print_error("get arrow position is nil")
+        return
+    end
+
+    self._hand.transform.position = Vector3.New(pos.x,pos.y,0)
+end
+
+function M:setNodePosition()
+    local nodeType = self.curOneStepInfo.handAndArrowStartPosType
+    local curPos = nil
+    if nodeType then
+        if nodeType == NewGuideConst.HandNodeType.UI then
+            curPos = self:getUINodeScreenPosition(self.curArrowStartNode)
+        elseif nodeType == NewGuideConst.HandNodeType.City then
+            curPos = self:getCityNodeScreenPosition(self.curArrowStartNode)
+        elseif nodeType == NewGuideConst.HandNodeType.Tile then
+            curPos = self:getTileNodeScreenPosition(self.curArrowStartNode)
+        end
+
+        return curPos
+    end
+end
+
+--获取UI节点的屏幕坐标
+---@param nodeObj GameObject UI上的挂点
+function M:getUINodeScreenPosition(nodeObj)
+    local worldPosition = nodeObj.transform.position
+    return worldPosition
+end
+
+--获取建筑物的屏幕坐标
+---@param nodeObj GameObject 建筑为的对象
+function M:getCityNodeScreenPosition(nodeObj)
+    local buildTileX = nodeObj.x
+    local buildTileY = nodeObj.y
+    local buildPosition = Vector2Int(buildTileX,buildTileY)
+    local worldPos =self:tileToWorld(buildPosition)
+    local cityScreeenView = GameSceneManager.getView(SceneType.City)
+    if cityScreeenView == nil then
+        print_error("get GameSceneManager object fail")
+        return nil
+    end
+    local mainCamera = cityScreeenView.camera
+    local screenPoint = nil
+    if mainCamera then
+        screenPoint = mainCamera.camera:WorldToScreenPoint(worldPos)
+    end
+
+    return screenPoint
+end
+
+--获取地块节点的屏幕坐标
+function M:getTileNodeScreenPosition(nodeObj)
+    local worldPosition = self:tileToWorld(nodeObj)
+    local cityScreeenView = GameSceneManager.getView(SceneType.City)
+    if cityScreeenView == nil then
+        print_error("get GameSceneManager object fail")
+        return nil
+    end
+    local mainCamera = cityScreeenView.camera
+    local screenPoint = nil
+    if mainCamera then
+        screenPoint = mainCamera.camera:WorldToScreenPoint(worldPosition)
+    end
+    return screenPoint
+end
+
+---@param tilePos Vector2Int
+function M:tileToWorld(tilePos)
+    local citySceneView = GameSceneManager.getView(SceneType.City)
+    return citySceneView.actor.tilemap:tileToWorld({x = tilePos.x, y = tilePos.y})
+end
+
+function M:setBtnCanvas()
+    if self.btn == nil or self.btn:IsNull() then
+        return
+    end 
+    local canvas = self.btn.gameObject:GetComponent("Canvas")
+    if canvas == nil or canvas:IsNull() then
+        canvas = self.btn.gameObject:AddComponent(UnityType.Canvas)
+    end
+    canvas.pixelPerfect    = false
+    canvas.overrideSorting = true
+    canvas.sortingOrder    = self:getSortingOrder() + 1
+
+    local graphicRaycaster = self.btn.gameObject:GetComponent("GraphicRaycaster")
+    if graphicRaycaster == nil or graphicRaycaster:IsNull() then
+        graphicRaycaster = self.btn.gameObject:AddComponent(UnityType.UIGraphicRaycaster)
+    end
+end
+
+
+function M:setArrowCanvas()
+    if self._arrow == nil or self._arrow:IsNull() or self.btn == nil or self.btn:IsNull()then
+        return
+    end
+    local canvas = self._arrow.gameObject:GetComponent("Canvas")
+    if canvas == nil or canvas:IsNull() then
+        canvas = self._arrow.gameObject:AddComponent(UnityType.Canvas)
+    end
+    canvas.pixelPerfect    = false
+    canvas.overrideSorting = true
+    canvas.sortingOrder    = self:getSortingOrder() + 2
+
+    local graphicRaycaster = self.btn.gameObject:GetComponent("GraphicRaycaster")
+    if graphicRaycaster == nil or graphicRaycaster:IsNull() then
+        graphicRaycaster = self.btn.gameObject:AddComponent(UnityType.UIGraphicRaycaster)
+    end
+end
+
+function M:revertBtnCanvas()
+    if self.btn ~= nil and not self.btn:IsNull() then
+        local canvas = self.btn.gameObject:GetComponent("Canvas")
+        if canvas ~= nil and not canvas:IsNull() then
+            canvas.overrideSorting = false
+        end
+    end
+    if self._arrow ~= nil and not self._arrow:IsNull() then
+        local canvas = self._arrow.gameObject:GetComponent("Canvas")
+        if canvas ~= nil and not canvas:IsNull() then
+            canvas.overrideSorting = false
+        end
+    end
+end
+
+
+return M

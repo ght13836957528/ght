@@ -1,0 +1,63 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 11:33:10 星期一
+--- 突刺
+----------------------------------------------------------------------
+
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BehaviorStateType = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class BuffTeleport:BasePersistentBuff
+local BuffTeleport = class("BuffTeleport", BasePersistentBuff)
+local M = BuffTeleport
+
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+    local params = self.buffParams or {}
+    local targetId = self.fromId
+    self:_turnTarget()
+    self.hostCharacter:GetFindPathManager():Teleport_targetEntity(targetId, params[2], params[3])
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+    if self.hostCharacter:GetBuffManager():CheckHasBuffType(BattleEnum.BuffType.Buff_NoReturn) then
+        return
+    end
+    local params = self.buffParams or {}
+    --- 1 身前 2 身后
+    local dropPointType = params[3] or 1
+    --- 1 面向 2 背向
+    local endDropType = params[4] or 1
+    local targetId = self.fromId
+    local targetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(targetId)
+    local targetPos = targetCharacter:GetTransform():GetRenderPos()
+    local selfPos = self.hostCharacter:GetTransform():GetRenderPos()
+    local forward = targetCharacter:GetTransform():Forward()
+    local resultForward 
+    -- if dropPointType == 1 then
+    --     resultForward = endDropType == 1 and -forward or forward
+    -- else
+    --     resultForward = endDropType == 1 and forward or -forward
+    -- end
+    if endDropType == 1 then
+        resultForward = targetPos - selfPos
+    else
+        resultForward = selfPos - targetPos
+    end
+    --- 10 这个数很玄学 为了尽量拉开 entity 自身所在位置 其实已经错了 那就错下去吧 嘻嘻~~
+    resultForward = resultForward * 10 + selfPos
+    -- local newPos = targetCharacter:GetTransform():GetRenderPos()
+    self.hostCharacter:GetTransform():LookRotation(resultForward)
+    -- self.hostCharacter:GetRender():LookRotation(newPos)
+    BattleEventUtils:DisPath_SynsRotate(self.hostCharacter:GetBattleId(), resultForward)
+end
+
+return M

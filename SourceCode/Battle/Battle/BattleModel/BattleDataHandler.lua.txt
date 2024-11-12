@@ -1,0 +1,506 @@
+local BattleCharacterPlayerModel = require "GameLogic.Battle.BattleModel.BattleCharacterPlayerModel"
+local BattleCharacterRobotModel = require "GameLogic.Battle.BattleModel.BattleCharacterRobotModel"
+local BattleCharacterGunModel = require "GameLogic.Battle.BattleModel.BattleCharacterGunModel"
+local BattleEffectNumBox = require "GameLogic.Battle.BattleModel.BattleEffectNumBox"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local ConfigHandler = ConfigHandler
+---@class BattleDataHandler
+local BattleDataHandler = {}
+local M = BattleDataHandler
+
+local robotConfigNameMap = {
+    [1] = {
+        heroId = "enemy1",
+        level = "level1",
+        quality = "quality1",
+        soldiers = "navy1",
+        equip = "equip1",
+        buff = "buff1",
+        scale = "scale1",
+    },
+    [2] = {
+        heroId = "enemy2",
+        level = "level2",
+        quality = "quality2",
+        soldiers = "navy2",
+        equip = "equip2",
+        buff = "buff2",
+        scale = "scale2",
+    },
+    [3] = {
+        heroId = "enemy3",
+        level = "level3",
+        quality = "quality3",
+        soldiers = "navy3",
+        equip = "equip3",
+        buff = "buff3",
+        scale = "scale3",
+    },
+    [4] = {
+        heroId = "enemy4",
+        level = "level4",
+        quality = "quality4",
+        soldiers = "navy4",
+        equip = "equip4",
+        buff = "buff4",
+        scale = "scale4",
+    },
+    [5] = {
+        heroId = "enemy5",
+        level = "level5",
+        quality = "quality5",
+        soldiers = "navy5",
+        equip = "equip5",
+        buff = "buff5",
+        scale = "scale5",
+    }
+}
+
+local GunWarehouse = {
+    [1] = 181000,
+    [2] = 182000,
+    [3] = 183000,
+    [4] = 184000,
+}
+---ppppppppppppppppppppppppppppppppppppppppppppppp
+---@param battleData BattleInfo
+function M:packBattlePlayerData(battleData)
+    local battleType = battleData.battleType
+    local isShowGun = self:isShowGun(battleType)
+    if battleType == BattleEnum.BattlePlayType.Normal
+        or battleType == BattleEnum.BattlePlayType.Explore
+        or battleType == BattleEnum.BattlePlayType.PVE_Common
+        or battleType == BattleEnum.BattlePlayType.World_Pve
+        or battleType == BattleEnum.BattlePlayType.Guide_Pve
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Boss
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Mass
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Port
+        or battleType == BattleEnum.BattlePlayType.World_Pve_BigWorld
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Boss_Win
+    then
+        local leftEffBox = BattleEffectNumBox.new(battleData.left)
+        local leftTeamList = self:packPvePlayDataList(battleData.left, battleData.targetId, battleType, leftEffBox)
+
+        local rightTeamList = self:packEnemyRobotDataList(battleType, battleData.targetId,
+            battleData.allianceBossHpPercent)
+        BattleLogger.logEffectNumber(battleData.left.effectMap, leftTeamList)
+        if isShowGun or BattleStatic.isOpenGuns then
+            local leftGunList = self:packGunPlayerList(battleData.left.cabinGun, BattleEnum.InitRotate.Left)
+            leftTeamList.gunList = leftGunList
+
+            local rightGunList = self:packGunPlayerList(self:getPveGun(battleData.targetId), BattleEnum.InitRotate.Right,
+                true)
+            rightTeamList.gunList = rightGunList
+        end
+        return leftTeamList, rightTeamList
+    elseif battleType == BattleEnum.BattlePlayType.World_Pvp
+        or battleType == BattleEnum.BattlePlayType.Arena
+        or battleType == BattleEnum.BattlePlayType.SecretArea then
+        local leftEffBox = BattleEffectNumBox.new(battleData.left)
+        local leftTeamList = self:packPvPPlayDataList(battleData.left, true, leftEffBox)
+
+
+        local rightEffBox = BattleEffectNumBox.new(battleData.right)
+        local rightTeamList = self:packPvPPlayDataList(battleData.right, false, rightEffBox)
+
+        if isShowGun or BattleStatic.isOpenGuns then
+            local leftGunList = self:packGunPlayerList(battleData.left.cabinGun, BattleEnum.InitRotate.Left)
+            leftTeamList.gunList = leftGunList
+
+            local rightGunList = self:packGunPlayerList(battleData.right.cabinGun, BattleEnum.InitRotate.Right)
+            rightTeamList.gunList = rightGunList
+        end
+
+        BattleLogger.logEffectNumber(battleData.left.effectMap, leftTeamList, battleData.right.effectMap, rightTeamList)
+        return leftTeamList, rightTeamList
+    else
+
+    end
+end
+
+function M:getPveGun(customId)
+    local stageCon = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, customId)
+    local tmp = {}
+    if stageCon then
+        if stageCon.Gun1 and stageCon.Gun1[1] and stageCon.Gun1[2] then
+            tmp[GunWarehouse[1]] = { id = stageCon.Gun1[1], level = stageCon.Gun1[2] }
+        end
+        if stageCon.Gun2 and stageCon.Gun2[1] and stageCon.Gun2[2] then
+            tmp[GunWarehouse[2]] = { id = stageCon.Gun2[1], level = stageCon.Gun2[2] }
+        end
+        if stageCon.Gun3 and stageCon.Gun3[1] and stageCon.Gun3[2] then
+            tmp[GunWarehouse[3]] = { id = stageCon.Gun3[1], level = stageCon.Gun3[2] }
+        end
+        if stageCon.Gun4 and stageCon.Gun4[1] and stageCon.Gun4[2] then
+            tmp[GunWarehouse[4]] = { id = stageCon.Gun4[1], level = stageCon.Gun4[2] }
+        end
+    end
+    return tmp
+end
+
+function M:isShowGun(battleType)
+    if battleType == nil then
+        return false
+    end
+    return battleType == BattleEnum.BattlePlayType.World_Pvp
+        or battleType == BattleEnum.BattlePlayType.World_Pve
+        or battleType == BattleEnum.BattlePlayType.Guide_Pve
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Boss
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Mass
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Port
+        or battleType == BattleEnum.BattlePlayType.World_Pve_BigWorld
+        or battleType == BattleEnum.BattlePlayType.World_Pve_Boss_Win
+end
+
+---@param battleTeamInfo BattleLineUpData
+---@param effNumBox BattleEffectNumBox
+function M:packPvePlayDataList(battleTeamInfo, targetId, teamGamePlayType, effNumBox)
+    battleTeamInfo = battleTeamInfo or {}
+    local result = {}
+    local posInfos = battleTeamInfo.posInfo or {}
+
+    -- self:logBaseProperty(heroMap)
+    local systemData = battleTeamInfo.systemData or {}
+    local teamSetAtt = self:getTeamAtt_play(posInfos)
+    local systemMap = self:handleSystemDataIntoAttMap(systemData, teamSetAtt)
+
+    for pos, posInfo in pairs(posInfos) do
+        if self:checkTroops(posInfo.troops) then
+            local effNumMap = effNumBox._eff_hero_map[pos] or {}
+            local basePropertyMap = self:getBasePropertyMap_player(battleTeamInfo, targetId, teamGamePlayType, pos)
+            local heroData = posInfo.heroInfo
+            local tmp = BattleCharacterPlayerModel.new(pos, posInfo, heroData, systemMap, systemData, basePropertyMap,
+                true,
+                effNumMap.effMap)
+            local customId = targetId
+            local stageCon = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, customId)
+            if stageCon then
+                local key = "zscale" .. pos
+                if stageCon[key] then
+                    tmp:setBaseScale(stageCon[key])
+                end
+            end
+
+            result[pos] = tmp
+        end
+    end
+    return result
+end
+
+---@param battleTeamInfo BattleLineUpData
+---@param effNumBox BattleEffectNumBox
+function M:packPvPPlayDataList(battleTeamInfo, isLeft, effNumBox)
+    battleTeamInfo = battleTeamInfo or {}
+    local result = {}
+    local posInfos = battleTeamInfo.posInfo or {}
+
+    -- self:logBaseProperty(heroMap)
+    local systemData = battleTeamInfo.systemData or {}
+    local teamSetAtt = self:getTeamAtt_play(posInfos)
+    local systemMap = self:handleSystemDataIntoAttMap(systemData, teamSetAtt)
+
+    for pos, posInfo in pairs(posInfos) do
+        if self:checkTroops(posInfo.troops) then
+            local effNumMap = effNumBox._eff_hero_map[pos] or {}
+            local heroData = posInfo.heroInfo
+            local tmp = BattleCharacterPlayerModel.new(pos, posInfo, heroData, systemMap, systemData, {}, isLeft,
+                effNumMap.effMap)
+            result[pos] = tmp
+        end
+    end
+    return result
+end
+
+function M:checkTroops(troops)
+    troops = troops or {}
+    local max = 0
+    for _, value in pairs(troops) do
+        max = max + value
+    end
+    return max > 0
+end
+
+function M:packEnemyRobotDataList(battleType, customId, allianceBossHpPercent)
+    return self:packEnemyRobotDataList_normal(customId, allianceBossHpPercent)
+end
+
+---@return BattleCharacterRobotModel[]
+function M:packEnemyRobotDataList_normal(strikeId, allianceBossHpPercent)
+    local result = {}
+    -- local con_strike_Pirate_Enemy = ConfigHandler:GetEntry(GameDefine.TableName.Strike_Pirate_Enemy, strikeId)
+    -- if con_strike_Pirate_Enemy == nil then
+    --     BattleLogger.log_error("Strike_Pirate_Enemy 表找不到数据  ", strikeId)
+    --     return {}
+    -- end
+    local customId = strikeId
+    local stageCon = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, customId)
+    local teamSetAtt = self:getTeamAtt_robot(customId)
+    local systemAttMap = self:handleSystemDataIntoAttMap_robot(teamSetAtt)
+    allianceBossHpPercent = allianceBossHpPercent or {}
+    if stageCon then
+        for i = 1, 5 do
+            local nameNode = robotConfigNameMap[i]
+            local surplusAttMap = self:packRobotSurplusAtt(allianceBossHpPercent[i] or 10000)
+
+            if stageCon[nameNode.heroId] then
+                local basePropertyMap = self:getBasePropertyMap_robot(customId, i)
+                local tmp = BattleCharacterRobotModel.new(i)
+                tmp:initBaseData(stageCon, nameNode, systemAttMap, basePropertyMap, surplusAttMap)
+                result[i] = tmp
+            end
+        end
+    end
+    return result
+end
+
+function M:packRobotSurplusAtt(hp)
+    return {
+        [5] = 10000 - hp
+    }
+end
+
+--- 阵容加成
+function M:getTeamAtt_play(posInfos)
+    local comCampMap = {}
+    local _race1_4Len = 0
+    local _race5Len = 0
+    local _race6Len = 0
+    for pos, posInfo in pairs(posInfos) do
+        local heroId = posInfo.heroInfo.heroId
+        if heroId then
+            local heroCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, heroId)
+            if heroCon and heroCon.race then
+                local race = heroCon.race
+                if race == BattleEnum.HeroRace.Race1 or race == BattleEnum.HeroRace.Race2
+                    or race == BattleEnum.HeroRace.Race3 or race == BattleEnum.HeroRace.Race4 then
+                    comCampMap[race] = comCampMap[race] or 0
+                    comCampMap[race] = comCampMap[race] + 1
+                elseif race == BattleEnum.HeroRace.Race5 then
+                    _race5Len = _race5Len + 1
+                elseif race == BattleEnum.HeroRace.Race6 then
+                    _race6Len = _race6Len + 1
+                else
+                    BattleLogger.log_error("??? 出现没有羁绊得阵容  heroId ：", heroId, "   race :", race)
+                end
+            end
+        end
+    end
+    for _, value in pairs(comCampMap) do
+        if value >= 3 then
+            _race1_4Len = value
+            break
+        end
+    end
+
+    local effMap = {}
+    for i = 1, 9 do
+        local con = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Camp_Eff, i)
+        local numTimes = 1
+        if con and con.display2 then
+            local isActive = false
+            if i == 1 then
+                isActive = _race1_4Len >= 3
+            elseif i == 2 and _race5Len == 1 then
+                isActive = true
+            elseif i == 3 and _race5Len == 2 then
+                isActive = true
+            elseif i == 4 and _race5Len == 3 then
+                isActive = true
+            elseif i == 5 and _race5Len == 4 then
+                isActive = true
+            elseif i == 6 and _race5Len == 5 then
+                isActive = true
+            elseif i == 7 then
+                isActive = _race6Len > 0
+            elseif i == 8 then
+                isActive = _race6Len > 1
+            elseif i == 9 then
+                isActive = _race6Len > 2
+            end
+            if isActive and con.display2 then
+                for _, effInfo in pairs(con.display2) do
+                    if effInfo[1] and effInfo[2] then
+                        effMap[effInfo[1]] = effMap[effInfo[1]] or 0
+                        effMap[effInfo[1]] = effMap[effInfo[1]] + effInfo[2] * numTimes
+                    end
+                end
+            end
+        end
+    end
+    return effMap
+end
+
+function M:getTeamAtt_robot(customId)
+    local stageCon = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, customId)
+    local comCampMap = {}
+    local _race1_4Len = 0
+    local _race5Len = 0
+    local _race6Len = 0
+    if stageCon then
+        for i = 1, 5 do
+            local nameNode = robotConfigNameMap[i]
+            local heroId = stageCon[nameNode.heroId]
+            if heroId then
+                local heroCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, heroId)
+                if heroCon and heroCon.race then
+                    local race = heroCon.race
+                    if race == BattleEnum.HeroRace.Race1 or race == BattleEnum.HeroRace.Race2
+                        or race == BattleEnum.HeroRace.Race3 or race == BattleEnum.HeroRace.Race4 then
+                        comCampMap[race] = comCampMap[race] or 0
+                        comCampMap[race] = comCampMap[race] + 1
+                    elseif race == BattleEnum.HeroRace.Race5 then
+                        _race5Len = _race5Len + 1
+                    elseif race == BattleEnum.HeroRace.Race6 then
+                        _race6Len = _race6Len + 1
+                    else
+                        BattleLogger.log_error("??? 出现没有羁绊得阵容  heroId ：", heroId, "   race :", race)
+                    end
+                end
+            end
+        end
+    end
+
+    for _, value in pairs(comCampMap) do
+        if value >= 3 then
+            _race1_4Len = value
+            break
+        end
+    end
+
+    local effMap = {}
+    for i = 1, 9 do
+        local con = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Camp_Eff, i)
+        local numTimes = 1
+        if con and con.display2 then
+            local isActive = false
+            if i == 1 then
+                isActive = _race1_4Len >= 3
+            elseif i == 2 and _race5Len == 1 then
+                isActive = true
+            elseif i == 3 and _race5Len == 2 then
+                isActive = true
+            elseif i == 4 and _race5Len == 3 then
+                isActive = true
+            elseif i == 5 and _race5Len == 4 then
+                isActive = true
+            elseif i == 6 and _race5Len == 5 then
+                isActive = true
+            elseif i == 7 then
+                isActive = _race6Len > 0
+            elseif i == 8 then
+                isActive = _race6Len > 1
+            elseif i == 9 then
+                isActive = _race6Len > 2
+            end
+            if isActive and con.display2 then
+                for _, effInfo in pairs(con.display2) do
+                    if effInfo[1] and effInfo[2] then
+                        effMap[effInfo[1]] = effMap[effInfo[1]] or 0
+                        effMap[effInfo[1]] = effMap[effInfo[1]] + effInfo[2] * numTimes
+                    end
+                end
+            end
+        end
+    end
+    return effMap
+end
+
+--- 这里是 机器人 玩法得属性加成（可以理解为 公共养成模块） 机器人应该只有 布阵得
+function M:handleSystemDataIntoAttMap_robot(teamSetAtt)
+    --  公共养成属性换算
+    -- 应该只有这个阵容属性加成
+    local result = {}
+    for att, value in pairs(teamSetAtt) do
+        result[att] = result[att] or {}
+        result[att].teamSet = result[att].teamSet or 0
+        result[att].teamSet = result[att].teamSet + value
+    end
+    return result
+end
+
+--- 这里是 玩法得属性加成 合并（可以理解为 公共养成模块）
+function M:handleSystemDataIntoAttMap(systemData, teamSetAtt)
+    -- todo 玩法得属性加成 合并
+    --
+    local result = {}
+    for att, value in pairs(teamSetAtt) do
+        result[att] = result[att] or {}
+        result[att].teamSet = result[att].teamSet or 0
+        result[att].teamSet = result[att].teamSet + value
+    end
+    return result
+end
+
+----ppppppppppppppppppppppppppppppppppppppppppppppp
+--- 普通推图 针对关卡得 额外属性
+function M:getBasePropertyMap_player(battleTeamInfo, targetId, teamGamePlayType, index)
+    if teamGamePlayType then
+        if teamGamePlayType == BattleEnum.BattlePlayType.Normal
+            or teamGamePlayType == BattleEnum.BattlePlayType.PVE_Common
+            or teamGamePlayType == BattleEnum.BattlePlayType.Guide_Pve
+            or teamGamePlayType == BattleEnum.BattlePlayType.World_Pve
+            or teamGamePlayType == BattleEnum.BattlePlayType.Explore
+            or teamGamePlayType == BattleEnum.BattlePlayType.World_Pve_Mass
+            or teamGamePlayType == BattleEnum.BattlePlayType.World_Pve_Port
+            or teamGamePlayType == BattleEnum.BattlePlayType.World_Pve_BigWorld then
+            if targetId then
+                local con = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, targetId)
+                if con and con.powerPlayer then
+                    local initPow = con.powerPlayer[index] or 0
+                    return {
+                        rage = initPow
+                    }
+                end
+            end
+        end
+    end
+end
+
+function M:getBasePropertyMap_robot(targetId, index)
+    if targetId then
+        local con = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, targetId)
+        if con and con.powerEnemy then
+            local initPow = con.powerEnemy[index] or 0
+            return {
+                rage = initPow
+            }
+        end
+    end
+end
+
+---@return BattleCharacterGunModel[]
+function M:packGunPlayerList(cabinGun, initRotate, isRobot)
+    cabinGun = cabinGun or {}
+    if BattleStatic.isOpenGuns then
+        if initRotate == BattleEnum.InitRotate.Left then
+            if BattleStatic.Guns.left then
+                cabinGun = BattleStatic.Guns.left
+            end
+        else
+            if BattleStatic.Guns.right then
+                cabinGun = BattleStatic.Guns.right
+            end
+        end
+    end
+    ---@type BattleCharacterGunModel[]
+    local gunsPlayerList = {}
+    local index = 0
+    for _, GunGroupId in ipairs(GunWarehouse) do
+        local cabinGunInfo = cabinGun[GunGroupId]
+        if cabinGunInfo then
+            local playerInfo = self:packGunPlayerInfo(cabinGunInfo, index, initRotate, isRobot)
+            table.insert(gunsPlayerList, playerInfo)
+        end
+    end
+    return gunsPlayerList
+end
+
+---@return BattleCharacterGunModel
+---@param cabinGunInfo CabinGunInfo
+function M:packGunPlayerInfo(cabinGunInfo, index, initRotate, isRobot)
+    local playerInfo = BattleCharacterGunModel.new(index, initRotate, isRobot)
+    playerInfo:initBaseData(cabinGunInfo.id, cabinGunInfo.level)
+    return playerInfo
+end
+
+return M

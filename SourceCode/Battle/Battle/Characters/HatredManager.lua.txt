@@ -1,0 +1,322 @@
+----------------------------------------------------------------------
+--------- 2022年12月25日 12:02:42 星期日
+----------------------------------------------------------------------
+
+--[[
+    管理仇恨内容
+    1. 每个人都有一张仇恨列表，里面包含了所有敌人
+    2. 仇恨值越高，排位越靠前
+    3. 如果仇恨值相同，则初始站位序号越小，排位越高
+    ----------------------------------------------------------------------
+    ●仇恨值计算方法：
+    1. 所有敌人默认仇恨值=5
+    2. 在自己普攻范围内的敌人，仇恨值+5
+    3. 攻击玩家的敌人仇恨值+5
+    4. 距离玩家最近的敌人仇恨值+6
+]]
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleLogger = BattleLogger
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+---@class HatredManager
+local HatredManager = class("HatredManager")
+local M = HatredManager
+---@param character BattleCharacter
+function M:Ctor(character)
+    -- 角色，HatredManager属于character
+    self.hostCharacter = character
+    -- 刷新间隔
+    self.refreshInterval = 5000
+end
+
+function M:Initialize()
+    -- 仇恨列表
+    self.hatredList = {}
+    -- 攻击自己的列表
+    self.hitList = {}
+    -- 具有时效性得仇恨值
+    self.tmpHatredMap = {}
+
+    self.refreshTimeCounter = 0
+    --self.testTable = { [20001] = 15, [20002] = 10, [20003] = 10, [20004] = 5, [20005] = 21 }
+    --
+    --for i, v in table_sortByValue(self.testTable) do
+    --    local t = v
+    --    local idx = i
+    --    print("key = "..tostring(idx).." value = "..tostring(v))
+    --end
+end
+
+--- 战斗开始的时候,刷新仇恨值
+function M:OnStartFight(...)
+    self:_calculateHatred()
+    self:_hatredSort()
+
+    self.canRefresh = true
+    self:_resetCounter()
+end
+
+--- 获取仇恨列表第一个目标
+---@return number
+function M:GetHatredTarget()
+    if self.hostCharacter:GetIsSummoner() then
+        local parentEntityId = self.hostCharacter:GetCharacterContext():GetParentEntityId()
+        if parentEntityId then
+            local parentEntityCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(parentEntityId)
+            if parentEntityCharacter then
+                return parentEntityCharacter:GetHatredManager():GetHatredTarget()
+            end
+        end
+    end
+    return self.currentTarget
+end
+
+function M:GetHatredValueById(battleId)
+    local v = self.hatredList[battleId] or 0
+    return v
+end
+
+function M:GetMaxHatredOnIds(tmpResult)
+    for _, value in ipairs(tmpResult) do
+        if value == self.currentTarget then
+            return self.currentTarget
+        end
+    end
+
+    tmpResult = tmpResult or {}
+    local hatred = -10000
+    local id = 0
+    for _, battleId in ipairs(tmpResult) do
+        if battleId then
+            local tmoH = self:GetHatredValueById(battleId)
+            if tmoH > hatred then
+                hatred = tmoH
+                id = battleId
+            end
+        end
+    end
+    return id
+end
+
+function M:ChangeTmpHatredMap(entityId, changeValue)
+    if self.tmpHatredMap[entityId] == nil then
+        self.tmpHatredMap[entityId] = 0
+    end
+    self.tmpHatredMap[entityId] = self.tmpHatredMap[entityId] + changeValue
+    self.tmpHatredMap[entityId] = self.tmpHatredMap[entityId] < 0 and 0 or self.tmpHatredMap[entityId]
+end
+
+function M:OnUpdate(fDeltaTime)
+    local canRefresh = self.canRefresh or false
+    if not canRefresh then
+        return
+    end
+
+    local deltaTime = fDeltaTime or 0
+    local counter = self.refreshTimeCounter or 0
+    self.refreshTimeCounter = counter + deltaTime
+    if self.refreshTimeCounter >= self.refreshInterval then
+        -- 达到计时点，重新计算仇恨列表
+        self:RefreshHatred()
+    end
+end
+
+function M:RefreshHatred()
+    self:_calculateHatred()
+    self:_hatredSort()
+    self:_resetCounter()
+end
+
+function M:OnHit(iAttackerId)
+    local attackerId = iAttackerId or 0
+    if attackerId <= 0 then
+        return
+    end
+
+    -- 每当自己被一个原来不攻击自己的单位攻击时刷新
+    if not table_HasMapValue(self.hitList, attackerId) then
+        table.insert(self.hitList, attackerId)
+        self:_calculateHatred()
+        self:_hatredSort()
+        self:_resetCounter()
+    end
+end
+
+function M:IsBeHit()
+    return table_GetArrayLength(self.hitList) > 0
+end
+
+function M:Clear()
+    if self.hatredList ~= nil then
+        for k, _ in pairs(self.hatredList) do
+            if self.hatredList[k] ~= nil then
+                self.hatredList[k] = nil
+            end
+        end
+    end
+    self.tmpHatredMap = {}
+    self.hitList = {}
+    self.currentTarget = nil
+    self.canRefresh = false
+end
+
+function M:OnDied()
+    self.tmpHatredMap = {}
+    self.hatredList = {}
+    self.hitList = {}
+    self.canRefresh = false
+end
+
+----------------------------------------------------------------------
+function M:_defaultHatred()
+    self.hatredList = {}
+    local hostBattleId = self.hostCharacter:GetBattleId()
+    local enemies = self.hostCharacter:GetSearcher():GetAllEnemies()
+    local attackRange = self.hostCharacter:GetSkillManager():GetNormalAtkRange()
+    local nearestList = {}
+    local nearesMin = 100000
+
+    if enemies ~= nil and #enemies > 0 then
+        for i, v in ipairs(enemies) do
+            self.hatredList[v] = BattleConstant.HatredValue_Nomal
+            local dis = self.hostCharacter:GetSearcher():Distance(hostBattleId, v)
+            if dis <= attackRange then
+                self.hatredList[v] = self.hatredList[v] + BattleConstant.HatredValue_Attack
+            end
+            if dis < nearesMin then
+                nearestList = {}
+                table.insert(nearestList, v)
+                nearesMin = dis
+            elseif dis == nearesMin then
+                table.insert(nearestList, v)
+            else
+                -- nothing to do
+            end
+        end
+    end
+    for _, v in ipairs(nearestList) do
+        self.hatredList[v] = self.hatredList[v] or 0
+        self.hatredList[v] = self.hatredList[v] + BattleConstant.HatredValue_DisMin
+    end
+end
+
+function M:_attackerHatred()
+    -- 攻击玩家的敌人仇恨值+5
+    if self.hitList ~= nil then
+        for i, v in ipairs(self.hitList) do
+            self:_attackerHatredId(v)
+        end
+    end
+end
+
+function M:_attackerHatredId(iAttackerId)
+    local attackerId = iAttackerId or 0
+    if attackerId <= 0 then
+        return
+    end
+
+    if self.hatredList[iAttackerId] == nil then
+        self.hatredList[iAttackerId] = 0
+    end
+    self.hatredList[iAttackerId] = self.hatredList[iAttackerId] + BattleConstant.HatredValue_HitMine
+end
+
+function M:_tmpHatredHandle()
+    if self.tmpHatredMap then
+        for id, value in pairs(self.tmpHatredMap) do
+            if self.hatredList[id] == nil then
+                self.hatredList[id] = 0
+            end
+            self.hatredList[id] = self.hatredList[id] + value
+        end
+    end
+end
+
+function M:_calculateHatred()
+    -- 所有敌人默认仇恨值=5
+    self:_defaultHatred()
+    -- 攻击玩家的敌人仇恨值+5
+    self:_attackerHatred()
+
+    self:_tmpHatredHandle()
+end
+
+function M:_hatredSort()
+    local lastTarget = self.currentTarget
+
+    self.currentTarget = nil
+    local currentValue = -10000
+    if self.hatredList ~= nil and table_GetMapLength(self.hatredList) > 0 then
+        for id, value in pairs(self.hatredList) do
+            if value > currentValue then
+                currentValue = value
+                self.currentTarget = id
+            elseif value == currentValue then
+                if self.currentTarget == nil then
+                    -- if id < self.currentTarget and
+                    self.currentTarget = id
+                else
+                    if lastTarget == id then
+                        self.currentTarget = id
+                    else
+                        if lastTarget ~= self.currentTarget and id < self.currentTarget then
+                            self.currentTarget = id
+                        end
+                    end
+                end
+            else
+                -- noting to do
+            end
+        end
+    end
+    if BattleLogger.isOpenLogHateLog() then
+        local camp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+        local m_str = camp == BattleEnum.BattleCamp.Attack and "左" or "右"
+        local hateStr = ":      "
+        for id, value in pairs(self.hatredList) do
+            local pos = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(id):GetTransform()
+                :GetInitPos()
+            hateStr = hateStr .. pos .. ":" .. value .. "   "
+        end
+
+        BattleLogger.logHateLog(m_str, self.hostCharacter:GetTransform():GetInitPos(), hateStr)
+    end
+end
+
+function M:_resetCounter()
+    self.refreshTimeCounter = 0
+end
+
+----------------------------------------------------------------------
+--- helpers
+-- 对仇恨值排序
+function table_sortByValue(tbl)
+    local list = {}
+    for n in pairs(tbl) do
+        list[#list + 1] = n
+    end
+
+    table.sort(list, function(a, b)
+        if a == nil or b == nil then
+            return false
+        end
+        if tbl[a] == nil or tbl[b] == nil then
+            return false
+        end
+
+        if tbl[a] > tbl[b] then
+            return true
+        elseif tbl[a] < tbl[b] then
+            return false
+        elseif tbl[a] == tbl[b] then
+            return a < b
+        end
+    end)
+
+    local i = 0
+    return function()
+        i = i + 1
+        return list[i], tbl[list[i]]
+    end
+end
+
+return M

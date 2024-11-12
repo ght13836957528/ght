@@ -1,0 +1,210 @@
+local BattleRenderEntityBase = require "GameLogic.Battle.BattleRender.BattleRenderEntity.BattleRenderEntityBase"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local AssetPathMapEff = require "Framework.AssetConfigFiles.AssetPathMapEff"
+local ConfigHandler = ConfigHandler
+local BattleEffEntity = CS.BattleEffEntity
+
+---@class BattleRenderBullteEntity:BattleRenderEntityBase
+local BattleRenderMissileEntity = class("BattleRenderMissileEntity", BattleRenderEntityBase)
+local M = BattleRenderMissileEntity
+
+function M:Initialize(strpTag)
+    self._con = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Step, strpTag)
+    if self._con == nil then
+        BattleLogger.log_error("Skill_Step 表  未找到 数据：", strpTag)
+    end
+    self._pos = nil
+    self:_initComponent()
+end
+
+function M:GetEntityType()
+    return BattleEnum.EntityRenderType.RenderBullet
+end
+
+function M:_initComponent()
+
+end
+
+---@param bindEntity BattleRenderCharacterEntity
+---@param targetEntity BattleRenderCharacterEntity
+function M:CreateFlyEff_bind(bindEntity, targetEntity, scale, rootOffset)
+    scale = scale or 1
+    if self._con and self._con.missleSrc and self._con.missleSrc[1] then
+        local name = self._con.missleSrc[1]
+        local path = AssetPathMapEff[name]
+        if path then
+            self._gUid = self:GetEntityManager():PopAsset(path, function(effectObj, gUid)
+                self._go = effectObj
+                self._go.gameObject:SetActive(true)
+                self._go.gameObject.transform.localScale = Vector3(scale, 1, 1)
+                self._cs_effEntity = self._go.gameObject:GetOrAddComponent(typeof(BattleEffEntity))
+                if self._cs_effEntity then
+                    local starBindTrans = bindEntity:GetBindTransform(self._con.createParam)
+                    local starForward = bindEntity:GetForward()
+                    local rootVec = bindEntity:GetPosition()
+                    if starBindTrans then
+                        local createCoor = Vector3.zero
+                        local bindPos = starBindTrans.position
+                        local startVec = bindPos
+                        
+                        if self._con.createCoor then
+                            --if bindEntity:GetBattleContext():GetPlayType() == BattleEnum.BattlePlayType.Mowing then
+                            
+                            --if starForward.z > 0 then
+                            --    createCoor = Vector3(self._con.createCoor[1], self._con.createCoor[2], self._con.createCoor[3]) * scale
+                            --else
+                            --    createCoor = Vector3(-self._con.createCoor[1], self._con.createCoor[2], -self._con.createCoor[3]) * scale
+                            --end
+                            
+                            createCoor = Vector3(self._con.createCoor[1], self._con.createCoor[2], self._con.createCoor[3]) * scale
+                            --local quat = Quaternion.LookRotation(starForward, Vector3.up)
+                            --createCoor = Quaternion.MulVec3(quat, createCoor)
+                        end
+                        
+                        if rootOffset then
+                            createCoor = createCoor + rootOffset
+                        end
+                        
+                        local targetBindTrans = targetEntity:GetBindTransform("P_Hit_Body")
+                        if targetBindTrans then
+                            local sizeMin = self:GetEntityManager()._worldRender._resourceCache:GetMapPathFinder()
+                                .cellSizeMin
+                            local speed = self:GetEntityManager()._worldRender.battleContext:GetBattleSpeed()
+                            local missileSpd = self._con.missleSpd
+                            if missileSpd > 0 then
+                                self._cs_effEntity:MoveToTarget(startVec, createCoor, starForward,
+                                    targetBindTrans.gameObject,
+                                    self._con.missleSpd * sizeMin * 2, speed)
+                            else
+                                local missileTimeFrame = math.ceil(self._con.missleTime * BattleConstant.FPS / BattleConstant.LogicBaseFPS)
+                                if missileTimeFrame > 0 then
+                                    self._cs_effEntity:MoveToTargetOnFrame(startVec, createCoor, starForward,
+                                        targetBindTrans.gameObject,
+                                        missileTimeFrame, speed, BattleConstant.LogicDeltaTime * 0.001)
+                                else
+                                    BattleLogger.log_error("子弹速度数据不合法！！！！")
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            BattleLogger.log_error(" 没找到 特效对应路径 ", name)
+        end
+    end
+end
+
+---@param bindEntity BattleRenderCharacterEntity
+---@param targetEntity BattleRenderCharacterEntity
+function M:CreateFlyForwardEff_bind(startPos, frameMoveDic, normalForward)
+    if self._con and self._con.missleSrc and self._con.missleSrc[1] then
+        local name = self._con.missleSrc[1]
+        local path = AssetPathMapEff[name]
+        if path then
+            self._gUid = self:GetEntityManager():PopAsset(path, function(effectObj, gUid)
+                self._go = effectObj
+                self._cs_effEntity = self._go.gameObject:GetOrAddComponent(typeof(BattleEffEntity))
+                self._go.gameObject:SetActive(true)
+                self._go.transform.position = startPos
+                self._go.transform.rotation = Quaternion.LookRotation(normalForward)
+            end)
+        else
+            BattleLogger.log_error(" 没找到 特效对应路径 ", name)
+        end
+    end
+end
+
+function M:CreateEff_bind(parentObj)
+    if self._con and self._con.missleSrc and self._con.missleSrc[1] then
+        local name = self._con.missleSrc[1]
+        local path = AssetPathMapEff[name]
+        if path then
+            self._gUid = self:GetEntityManager():PopAsset(path, function(effectObj, gUid)
+                self._go = effectObj
+                self._go.gameObject:SetActive(true)
+                self._cs_effEntity = self._go.gameObject:GetOrAddComponent(typeof(BattleEffEntity))
+                if parentObj and parentObj.transform then
+                    self._go.transform:SetParent(parentObj.transform)
+                    self._go.transform:SetLocalPosition(Vector3.zero)
+                end
+            end)
+        else
+            BattleLogger.log_error(" 没找到 特效对应路径 ", name)
+        end
+    end
+end
+
+function M:CreateEff_pos(pos)
+    if self._con and self._con.missleSrc and self._con.missleSrc[1] then
+        local name = self._con.missleSrc[1]
+        local path = AssetPathMapEff[name]
+        if path then
+            self._gUid = self:GetEntityManager():PopAsset(path, function(effectObj, gUid)
+                self._go = effectObj
+                self._go.gameObject:SetActive(true)
+                self._cs_effEntity = self._go.gameObject:GetOrAddComponent(typeof(BattleEffEntity))
+                if pos then
+                    self._go.transform.position = pos
+                end
+            end)
+        else
+            BattleLogger.log_error(" 没找到 特效对应路径 ", name)
+        end
+    end
+end
+
+function M:RemoveEffect()
+    if self._go ~= nil and self._go:IsNotNull() and self._go.transform or (self._gUid ~= nil) then
+        if self._cs_effEntity then
+            -- log_Warning("  战斗特效得释放 --- to do 改成由lua管理 不然会有资源泄露 ")
+            -- self._cs_effEntity:Disappear(false)
+            if self._gUid then
+                self:GetEntityManager():PushAsset(self._gUid)
+            end
+            self._gUid = nil
+        else
+            if self._gUid then
+                self:GetEntityManager():PushAsset(self._gUid)
+            end
+            self._gUid = nil
+        end
+        self._go = nil
+    else
+        log_Warning(" ////////// self._gUid ", self._gUid)
+    end
+end
+
+function M:HideEffect()
+
+end
+
+function M:SetPosition(newPos)
+    self._pos = newPos
+    if newPos and self._go then
+        self._go:SetPositionEx(newPos.x, newPos.y, newPos.z)
+    end
+end
+
+function M:SetRotate(newPos)
+    if newPos and self._go and self._pos then
+        local target = newPos - self._pos
+        local tmp = Quaternion.LookRotation(Vector3(target.x, target.y, target.z))
+        self._go.transform.localRotation = tmp
+    end
+end
+
+function M:HandleBattleSpeedChange(speed)
+    if self._cs_effEntity then
+        self._cs_effEntity:UpdateBattleSpeed(speed)
+    end
+end
+
+function M:Clear()
+    self:RemoveEffect()
+    self._pos = nil
+    self._go = nil
+end
+
+return M

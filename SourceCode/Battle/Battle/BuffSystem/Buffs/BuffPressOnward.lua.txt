@@ -1,0 +1,36 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 11:33:10 星期一
+--- 突刺
+----------------------------------------------------------------------
+
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BehaviorStateType = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class BuffPressOnward:BasePersistentBuff
+local BuffPressOnward = class("BuffPressOnward", BasePersistentBuff)
+local M = BuffPressOnward
+
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+    local params = self.buffParams or {}
+    local targetId = self.fromId
+    self:_turnTarget()
+    self.hostCharacter:GetFindPathManager():PressOnward_targetEntity(targetId, params[2], params[3])
+    
+end
+
+function M:_onRefresh()
+
+end
+
+
+function M:_onExit()
+    self:_turnTarget()
+end
+
+return M

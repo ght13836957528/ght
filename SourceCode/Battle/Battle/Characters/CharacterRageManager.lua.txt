@@ -1,0 +1,135 @@
+----------------------------------------------------------------------
+--------- 2022年12月25日 15:45:51 星期日
+----------------------------------------------------------------------
+
+--[[
+    角色的怒气值管理
+]]
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleLogger = BattleLogger
+---@class CharacterRageManager
+local CharacterRageManager = class("CharacterRageManager")
+local M = CharacterRageManager
+---@param battleCharacter BattleCharacter
+function M:Ctor(battleCharacter)
+    self.hostCharacter = battleCharacter
+    self.refreshInterval = 1
+    self.reachMaxRage = false
+end
+
+---@param battleData BattleCharacterModelBase
+function M:Initialize(battleData)
+    self.maxRage = BattleConstant.NomalMaxRage -- 最大怒气值
+    local r      = battleData._attMap[6] or 0
+    self.currentRage = battleData._baseRage + r
+    self.refreshTimeCounter = 0                 -- 时间计数器
+    self.canRefresh         = false
+end
+
+function M:OnStartFight(...)
+    --- 开始战斗后才能计时
+    self.canRefresh = true
+end
+
+function M:IncreaseRage(iIncreaseValue)
+    local increaseValue = iIncreaseValue or 0
+    if increaseValue <= 0 then
+        return
+    end
+
+    local currentRage = self.currentRage or 0
+    currentRage = math.min(currentRage + increaseValue, self.maxRage)
+    local changeValue = currentRage - self.currentRage
+    self.currentRage = currentRage
+    self:_checkReachMaxRage(true, changeValue)
+end
+
+--- 怒气值满时可以使用怒气值
+--- @param iUseValue number 怒气使用量（integer）
+function M:UseRage(iUseValue)
+    local useValue = iUseValue or 0
+    if useValue <= 0 then
+        return
+    end
+
+    local currentRage = self.currentRage or 0
+
+    -- 消耗掉怒气值后清零，重新计数
+    local currentRage = currentRage - useValue
+    local change = currentRage - self.currentRage
+    self.currentRage = currentRage
+    self:_checkReachMaxRage(false, change)
+end
+
+function M:GetCurrentRage()
+    return self.currentRage or 0
+end
+
+function M:GetMaxRage()
+    return self.maxRage or 0
+end
+
+function M:Clear()
+    self.canRefresh = false
+end
+
+function M:OnDied()
+    self.canRefresh = false
+end
+
+function M:GetIsMaxRage()
+    return self.reachMaxRage
+end
+
+----------------------------------------------------------------------
+
+--- 检查是否达到怒气最大值
+function M:_checkReachMaxRage(isAdd, changRage)
+    local rage = self.currentRage or 0
+    if rage >= self.maxRage then
+        self.reachMaxRage = true
+        -- BattleLogger.log("怒气最大值的 - " .. tostring(self.hostCharacter:GetBattleId()))
+        BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_RAGE_REACH_MAX, self.hostCharacter:GetBattleId())
+    else
+        self.reachMaxRage = false
+        if not isAdd then
+            BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_USE_CHARACTER_RAGE,
+                { characterBattleId = self.hostCharacter:GetBattleId(), stillMax = self.reachMaxRage })
+        end
+    end
+    self:_onUpdateRageDisplay(self:GetMaxRage(), self:GetCurrentRage(), changRage)
+    self:debugLog(changRage)
+end
+
+--- 刷新怒气值显示
+function M:_onUpdateRageDisplay(fMaxRage, fCurrentRage, changRage)
+    -- todo 改为 事件
+    -- self.hostCharacter:GetRender():UpdateRageDisplay(fMaxRage, fCurrentRage)
+    -- BattleLogger.log_error("更新 UI 怒气 ！！！")
+    BattleEventUtils:DisPath_Diff_Rage(self.hostCharacter:GetBattleId(), fMaxRage, fCurrentRage, changRage,
+        self.hostCharacter:GetCharacterContext():isBoss())
+    BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_ATTRIBUTE_CHANGED,
+        {
+            characterBattleId = self.hostCharacter:GetBattleId(),
+            type = BattleEnum.BaseProperty.Rage,
+            maxValue = fMaxRage,
+            currentValue = fCurrentRage
+        })
+end
+
+function M:debugLog(change)
+    if BattleLogger.IsOpenRealTimeProperty_Rage() then
+        local hp = self.hostCharacter:GetBaseAtt():GetCurrentHpValue()
+        local anger = self.currentRage
+        local shield = self.hostCharacter:GetBaseAtt():GetShield()
+        local m_camp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+        local m_pos = self.hostCharacter:GetTransform():GetInitPos()
+        local m_str = m_camp == BattleEnum.BattleCamp.Attack and "左" or "右"
+        BattleLogger.logBattleRealTimeBaseProperty(m_str, m_pos, "   血:", hp,
+            "   护盾:", shield, "   怒气:", anger, "    怒气变化：", change)
+    end
+end
+
+return M

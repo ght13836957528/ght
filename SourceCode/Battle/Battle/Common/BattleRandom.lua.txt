@@ -1,0 +1,91 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 19:21:21 星期一
+----------------------------------------------------------------------
+
+--[[
+    战斗中随机数的管理
+    1. 战斗开始设置从服务端取到的随机数种子
+    2. 取随机数
+]]
+---@class BattleRandom
+local BattleRandom = class("BattleRandom")
+local BattleLogger = BattleLogger
+local BattleEnum   = require "GameLogic.Battle.BattleEnum"
+local M            = BattleRandom
+local rateMax      = 10000
+function M:Ctor()
+    math.randomseed(os.time())
+end
+
+function M:Initialize(seedGroupIndex)
+    self.seedGroupIndex = seedGroupIndex
+
+    self.seedIndex = 1
+    local groupCon = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Random_Seed, seedGroupIndex) or {}
+    if groupCon and groupCon.value and next(groupCon.value) ~= nil then
+        self.seedGroup = groupCon.value
+    else
+        BattleLogger.log_error("????  随机 找不到 对应得种子库 ", seedGroupIndex)
+        local groupCon = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Random_Seed, 1)
+        self.seedGroup = groupCon.value
+    end
+    self.seedCount = #self.seedGroup
+end
+
+function M:UpdateSeed()
+    if self.seedIndex > self.seedCount then
+        self.seedIndex = 1
+    end
+    local iSeed = self.seedGroup[self.seedIndex]
+    if iSeed then
+        self.seedIndex = self.seedIndex + 1
+    else
+        BattleLogger.log_error("???? 随机种子库 错误  index： ", self.seedIndex)
+        iSeed = self.seedGroup[1]
+        self.seedIndex = 1
+    end
+
+
+    return iSeed
+end
+
+function M:RandomRange(iLeft, iRight, typeStr, rate, pos, camp)
+    local result = self:UpdateSeed(typeStr)
+    if iRight == rateMax then
+        local m_str = camp == BattleEnum.BattleCamp.Attack and "左" or "右"
+        BattleLogger.logRandomLog(typeStr, m_str, pos, "范围：", iLeft, "~", iRight,
+            "  概率：", rate, "  结果：", result)
+        return result
+    else
+        -- math.randomseed(result)
+        local m_str = camp == BattleEnum.BattleCamp.Attack and "左" or "右"
+        local randomValue = math.ceil(result / rateMax * (iRight - iLeft + 1))
+        randomValue = randomValue < iLeft and iLeft or randomValue
+        randomValue = randomValue > iRight and iRight or randomValue
+        BattleLogger.logRandomLog(typeStr, m_str, pos, "范围：", iLeft, "~", iRight,
+            "  结果：", result)
+        return randomValue
+    end
+    -- local left = iLeft or 0
+    -- local right = iRight or 0
+    -- if left > right then
+    --     left = left + right
+    --     right = left - right
+    --     left = left - right
+    -- end
+
+    -- local randomValue = math.random(left, right)
+    -- return randomValue
+end
+
+function M:IsWithinTheScopeOfInt(rate, typeStr, pos, camp)
+    local random = self:RandomRange(0, rateMax, typeStr, rate, pos, camp)
+    return random <= rate * 0.01 * rateMax
+end
+
+function M:IsWithinTheScopeOfFloat(rate, typeStr, pos, camp)
+    local random = self:RandomRange(0, rateMax, typeStr, rate, pos, camp)
+    return random <= rate * rateMax, random
+end
+
+return M

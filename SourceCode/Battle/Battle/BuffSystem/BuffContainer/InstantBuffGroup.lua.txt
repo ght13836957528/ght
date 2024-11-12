@@ -1,0 +1,116 @@
+----------------------------------------------------------------------
+--------- 2023年02月03日 11:43:38 星期五
+----------------------------------------------------------------------
+
+local BuffFactory = require "GameLogic.Battle.BuffSystem.BuffFactory"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local ConfigHandler = ConfigHandler
+---@class InstantBuffGroup
+local InstantBuffGroup = class("InstantBuffGroup")
+local M = InstantBuffGroup
+---@param hostCharacter BattleCharacter
+function M:Ctor(hostCharacter, buffManager, battleContext)
+    self.hostCharacter = hostCharacter
+    self.buffManager = buffManager
+    self.battleContext = battleContext
+    self.buffList = {}
+end
+
+function M:Initialize(buffId, fromId)
+    self.buffId = buffId
+    self.fromId = fromId
+    local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, buffId)
+    self:_clearList()
+    self:_addArtEff(buffId, buffConfig)
+    self:_addRage(buffConfig)
+end
+
+function M:AddEffects(effects)
+    -- effects float[][]
+
+    for i, v in ipairs(effects) do
+        if v ~= nil then
+            local buffTypeId = v[1] or 0
+            if buffTypeId > 0 then
+                if buffTypeId > BattleConstant.BuffEffLimitLine then
+                    BattleLogger.log_error("配置问题：瞬时buff 出现 持续性 效果枚举！！！",
+                        self.buffId)
+                    break
+                end
+                self:_addBuffType(buffTypeId, v)
+            end
+        end
+    end
+end
+
+-- function M:RemoveAll()
+--     self:_clearList()
+-- end
+
+function M:Clear()
+    self:_clearList()
+end
+
+----------------------------------------------------------------------
+function M:_addArtEff(buffId, buffConfig)
+    if buffConfig and buffConfig.art1 and buffConfig.tiePoint1 then
+        BattleEventUtils:DisPath_CreateEff_bind(self.hostCharacter:GetBattleId(), buffConfig.art1, buffConfig.tiePoint1)
+    end
+end
+
+function M:_addRage(buffConfig)
+    if buffConfig and buffConfig.addPower then
+        self.hostCharacter:GetLogicHandle():DoChangeValue(2, 2, buffConfig.addPower)
+    end
+end
+
+--- 按类型添加Buff
+--- @param buffParams table 配置中eff字段携带的Buff参数
+function M:_addBuffType(iBuffTypeId, buffParams)
+    local buffTypeId = iBuffTypeId or 0
+    local bBuffTypeValid = self:_checkBuffTypeValid(buffTypeId)
+    if bBuffTypeValid then
+        -- 具体的检查，添加等在具体的Buff中处理
+        self:_doAddBuffType(buffTypeId, buffParams, self.fromId)
+    end
+end
+
+function M:_doAddBuffType(buffTypeId, buffParams, fromId)
+    local buff = BuffFactory:CreateBuff(self.hostCharacter, self.buffManager, buffParams)
+    if buff == nil then
+        return
+    end
+    buff:Initialize(fromId, self.buffId)
+    buff:Enter()
+    table.insert(self.buffList, buff)
+    BattleLogger.log(" 瞬时Buff 添加 成功   id : " , buffTypeId)
+end
+
+--- 检查buffTypeId是不是瞬时性buff
+--- 根据约定，持续性buff的typeId范围在0~100之间
+function M:_checkBuffTypeValid(buffTypeId)
+    if buffTypeId <= 0 then
+        BattleLogger.log_error("buff 参数 错误 id 为 持续性buff 00 ：  effId ==", tostring(buffTypeId))
+        return false
+    end
+
+    if buffTypeId >= 100 then
+        BattleLogger.log_error("buff 参数 错误 id 为 持续性buff 11 ：  effId ==", tostring(buffTypeId))
+        return false
+    end
+
+    return true
+end
+
+function M:_clearList()
+    for k in pairs(self.buffList) do
+        if self.buffList[k] ~= nil then
+            self.buffList[k]:Clear()
+        end
+        self.buffList[k] = nil
+    end
+end
+
+return M

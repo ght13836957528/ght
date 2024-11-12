@@ -1,0 +1,9 @@
+---@class GuideStepInfoShowZombieToMusicTile : GuideStepBaseInfo @音乐丧尸出现
+local GuideStepInfoShowZombieToMusicTile = class("GuideStepInfoShowZombieToMusicTile", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoShowZombieToMusicTile
+
+function M:onParse(params)
+    
+end
+
+return M

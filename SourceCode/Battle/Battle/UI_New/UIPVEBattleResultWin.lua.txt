@@ -1,0 +1,282 @@
+----------------------------------------------------------------------
+--------- 2023年01月04日 11:07:12 星期三
+----------------------------------------------------------------------
+local UIBattleDetailsPanel = require "GameLogic.Battle.UI_New.UIBattleDetailsPanel"
+local UICommonPropsItem = require "GameLogic.CommonUI.Item.UICommonPropsItem"
+local ItemData = require "GameLogic.Item.Module.ItemData"
+local UIBattleResultHeadItem = require "GameLogic.Battle.UI_New.UIBattleResultHeadItem"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local _lang = _lang
+---@class UIPVEBattleResultWin
+local UIPVEBattleResultWin = class("UIPVEBattleResultWin", UIPanel)
+local M = UIPVEBattleResultWin
+local GameObject = CS.UnityEngine.GameObject
+function M:GetConfigAssetPath()
+    return UIPanelAsset.UIPVEBattleResultWin
+end
+
+function M:GetPanelConfig()
+    return UIPanelConfig.Default_Default
+end
+
+------UIPanel生命周期 start------
+
+function M:OnParse(params)
+    --LuaBehavior属性
+    -- self._Win            = nil       -- GameObject   胜利界面
+    -- self._Defeat         = nil       -- GameObject   失败界面
+    -- self._Btn_Close      = nil       -- Button       关闭界面按钮
+
+    -- self._battleData = params.battleData
+    ---@type FinishBattlePush
+    self._battleResult = params.battleResult
+    self._cacheTask = params.cacheTask
+    self._isReplay = params.isReplay or false
+    self._isOpenD = false
+    if params.battleType then
+        self._battleType = params.battleType
+    else
+        self._battleType = (params.battleResult and params.battleResult.battleInfo) and
+            params.battleResult.battleInfo.battleType or 0
+    end
+end
+
+function M:OnCreate()
+    self:init()
+end
+
+function M:OnAddListener()
+    self._Btn_Close.onClick:AddListener(function() self:_onClickClose() end)
+    self._Btn_Details.onClick:AddListener(function() self:_onClickSwitch() end)
+end
+
+function M:OnRemoveListener()
+    self._Btn_Close.onClick:RemoveAllListeners()
+    self._Btn_Details.onClick:RemoveAllListeners()
+end
+
+------UIPanel生命周期 end------
+
+function M:init()
+    self.soundId = CS.GameLauncher.AudioModule:PlayAudio("sound_system_victory")
+    self._Main:Play("UIPVEBattleResultWinIn")
+    -- GameObjectUtil.SetActiveByScale(self._DetailsContent, false)
+    GameObjectUtil.SetActiveByScale(self._ResultContent, true and not self._isReplay)
+    if self._isReplay then
+        return
+    end
+    local isNewbiesStrikePirateNotBack = BattleHelper:IsNewbiesStrikePirateNotBack(self._battleResult.battleInfo
+        .targetId)
+    GameObjectUtil.SafeSetActiveSelf(self._Btn_Details.gameObject, not isNewbiesStrikePirateNotBack)
+    self:refreshReward(self._battleResult.rewardList)
+    self:refreshHeroList()
+    self:refreshTask(self._cacheTask)
+    self:refreshSoldiersTxt()
+
+    self:StartGuide()
+end
+
+function M:closeAni(cb)
+    if self.soundId then
+        CS.GameLauncher.AudioModule:StopAudio(self.soundId)
+    end
+    if self._Main then
+        self._Main:Play("UIPvpResultDetailsClose")
+    end
+    -- if self._panel_des and self._panel_des.closeAni then
+    --     self._panel_des:closeAni()
+    -- end
+    if self.delayTimer ~= nil then
+        self.delayTimer:reset(0.1, 0, false, false, cb, self)
+    else
+        self.delayTimer = Timer.new(0.1, 0, false, false, cb, self)
+    end
+    self.delayTimer:start()
+end
+
+function M:_onClickClose()
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEBattleResultWin)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+        if self._battleType == BattleEnum.BattlePlayType.Normal then
+            SceneHelper.ChangeScene(SceneType.PushGraph)
+        else
+            SceneHelper.ChangeSceneToPreScene()
+        end
+    end
+    self:closeAni(cb)
+end
+
+function M:_onClickSwitch()
+    -- self._isOpenD = not self._isOpenD
+    -- GameObjectUtil.SetActiveByScale(self._DetailsContent, self._isOpenD)
+    -- GameObjectUtil.SetActiveByScale(self._ResultContent, not self._isOpenD)
+    -- if self._isOpenD then
+    --     self._Main:Play("UIPvpResultDetailsOpen")
+    -- else
+    --     -- self._Main:RewindPlay("UIPvpResultDetailsOpen")
+    -- end
+    if self._battleResult and self._battleResult.battleInfo and self._battleResult.battleInfo.targetId then
+        local targetId = self._battleResult.battleInfo.targetId
+        local isNewbiesStrikePirateNotBack = BattleHelper:IsNewbiesStrikePirateNotBack(targetId)
+        if not isNewbiesStrikePirateNotBack then
+            self:switchStatistics(self._isOpenD)
+        end
+    end
+end
+
+function M:switchStatistics(isOpen)
+    Game.BusinessManager.BattleTeamManager:OpenBattleStatisticsView(self._battleResult.battleInfo,
+        self._battleResult.battleResult)
+end
+
+function M:refreshSoldiersTxt()
+    local isShow = Game.BusinessManager.BattleTeamManager:IsShowSoldiers(self._battleType)
+    GameObjectUtil.SafeSetActiveSelf(self._SailorGroup, isShow)
+    if isShow then
+        local total = 0
+        local totalSevere = 0
+        local statistics = self._battleResult.battleResult.battlefieldReport.left.posStatisticData
+        for pos, info in pairs(statistics) do
+            totalSevere = totalSevere + info.severeWound
+        end
+        local soldierMap = self._battleResult.battleInfo.left.posInfo or {}
+        for _, posInfo in pairs(soldierMap) do
+            local troops = posInfo.troops or {}
+            for _, value in pairs(troops) do
+                total = total + value
+            end
+        end
+        self._TextCount.text = string.format("  %s/%s", totalSevere, total)
+    end
+end
+
+function M:refreshHeroList(teamSet)
+    self.hero_list = {}
+    local posMap = self._battleResult.battleInfo.left.posInfo or {}
+    local index = 1
+    local statistics = self._battleResult.battleResult.battlefieldReport.left.posStatisticData
+    local max = -1
+    local maxIndex = -1
+    for pos, posInfo in pairs(posMap) do
+        local go = GameObjectUtil.createItem(self._UITeamHeroHeadCell, self._go_hero_root)
+        local cell = UIBattleResultHeadItem.new(go.transform, self)
+        cell:setIsBelongScroll(false)
+        local tmpData = statistics[tostring(pos)]
+        if tmpData.allHarm > max then
+            max = tmpData.allHarm
+            maxIndex = index
+        end
+        cell:Refresh(index, posInfo.heroInfo, statistics[tostring(pos)], self)
+        self.hero_list[index] = cell
+        index = index + 1
+    end
+    if maxIndex > 0 and self.hero_list[maxIndex] then
+        self.hero_list[maxIndex]:showMvp()
+    end
+    -- for index, value in ipairs(teamSet) do
+    --     local go = GameObjectUtil.createItem(self._UITeamHeroHeadCell, self._go_hero_root)
+    --     local cell = UIBattleResultHeadItem.new(go.transform, self)
+    --     cell:setIsBelongScroll(false)
+    --     cell:Refresh(index, value)
+    --     self.hero_list[index] = cell
+    -- end
+end
+
+function M:getTaskItemClazz(transform)
+    local tmp = {}
+    tmp.transform = transform
+    tmp.go_active = transform:Find("IcoActivation").gameObject
+    tmp.go_un_active = transform:Find("IconDefault").gameObject
+    tmp.txt_des = transform:Find("TexDesc"):GetComponent(UnityType.UITextMeshProUGUI)
+    tmp.txt_num = transform:Find("TexCount"):GetComponent(UnityType.UITextMeshProUGUI)
+    tmp.setData = function(info)
+        local configId = info.configId
+        local taskInfo = Game.BusinessManager.TaskManager:GetTaskInfo(configId)
+        local status = info.status
+        if taskInfo then
+            tmp.txt_des.text = taskInfo:GetTaskDesc(false)
+            tmp.txt_num.text = taskInfo:GetTaskProgressDesc()
+            GameObjectUtil.SafeSetActiveSelf(tmp.txt_num, true)
+        else
+            GameObjectUtil.SafeSetActiveSelf(tmp.txt_num, false)
+        end
+        -- tmp.txt_num.text = string.format("(%s/%s)", nums[1], 0)
+        GameObjectUtil.SafeSetActiveSelf(tmp.go_active, status == 1 or status == 2)
+        GameObjectUtil.SafeSetActiveSelf(tmp.go_un_active, status == 0)
+        GameObjectUtil.SafeSetActiveSelf(tmp.transform.gameObject, true)
+    end
+    return tmp
+end
+
+function M:refreshTask(task)
+    task = task or {}
+    if self._battleType ~= BattleEnum.BattlePlayType.Normal then
+        task = {}
+    end
+    GameObjectUtil.SafeSetActiveSelf(self._MissionGroup.gameObject, next(task) ~= nil)
+    if next(task) ~= nil then
+        self.taskList = {}
+        for _, info in pairs(task) do
+            local newGo = GameObjectUtil.createItem(self._TaskCell, self._go_task_root)
+            local cell = self:getTaskItemClazz(newGo.transform)
+            cell.setData(info)
+            table.insert(self.taskList, cell)
+        end
+    end
+end
+
+function M:refreshReward(rewards)
+    self.AllItem = {}
+    self._UICommoniconItem:SetActive(true)
+    rewards = rewards or {}
+    local result = RewardUtils.GenerateRewardItemList(RewardDataType.SingleRewardInfo, rewards)
+    for i, v in ipairs(result) do
+        local newGo    = GameObjectUtil.createItem(self._UICommoniconItem, self._go_reward_root)
+        local params   = {rewardItem = v}
+        ---@type UICommonPropsItem
+        local itemCell = UICommonPropsItem.new(params)
+        itemCell:Bind(newGo)
+        table.insert(self.AllItem, newGo)
+    end
+    self._UICommoniconItem:SetActive(false)
+end
+
+
+function M:_onClickRewardItem(newGo, reward)
+    local sourceRect = newGo.transform:Find("Main"):GetComponent("RectTransform")
+    local configName = Game.BusinessManager.RewardManager:GetRewardName(reward.itemType, reward.configId)
+    local configDesc = Game.BusinessManager.RewardManager:GetRewardDesc(reward.itemType, reward.configId)
+    UITipsUtils:ShowItemTips(sourceRect, 0, configName, configDesc, nil, { x = 0, y = sourceRect.rect.height / 2 })
+end
+
+function M:OnClose()
+    if self.AllItem then
+        for i, v in pairs(self.AllItem) do
+            v:Destroy()
+        end
+    end
+    if self.hero_list then
+        for i, v in pairs(self.hero_list) do
+            GameObject.Destroy(v._transform.gameObject)
+        end
+    end
+    if self.taskList then
+        for i, v in pairs(self.taskList) do
+            GameObject.Destroy(v.transform.gameObject)
+        end
+    end
+end
+
+function M:StartGuide()
+    local newbiesPointsEnemyId = self._battleResult.battleInfo.targetId
+    if newbiesPointsEnemyId == nil then
+        return
+    end
+    if newbiesPointsEnemyId == 111006 or newbiesPointsEnemyId == 111007 or newbiesPointsEnemyId == 111008 or newbiesPointsEnemyId == 111009 then
+        Game.BusinessManager.GuideManager:StartGuide(TutorialTriggerType_Enum.Guide_TriggerDirectly, 201003)
+    end
+end
+
+return M

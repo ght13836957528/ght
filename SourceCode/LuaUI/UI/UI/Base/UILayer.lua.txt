@@ -1,0 +1,91 @@
+---@class UILayer : UINode
+local UILayer = class("UILayer", UINode)
+local M      = UILayer
+
+local GameObject = CS.UnityEngine.GameObject
+local Screen = CS.UnityEngine.Screen
+
+function M:GetType()
+    return UINodeType.Layer
+end
+
+function M:getOrder()
+    return self._order
+end
+
+function M:Ctor(name, index, distance, order)
+    UINode.Ctor(self)
+
+    self._gameObject = GameObject(string.format("UI Layer - %s", name))
+    self._gameObject.layer = LayerMask.NameToLayer("UI")
+
+    ---@type UnityEngine.Canvas
+    local canvas = self._gameObject:GetComponent("Canvas")
+    if canvas == nil or canvas:IsNull() then
+        canvas = self._gameObject:AddComponent(UnityType.Canvas)
+    end
+    
+    self._canvas = canvas
+
+    local graphicRaycaster = self._gameObject:GetComponent("GraphicRaycaster")
+    if graphicRaycaster == nil or graphicRaycaster:IsNull() then
+        graphicRaycaster = self._gameObject:AddComponent(UnityType.UIGraphicRaycaster)
+    end
+    self._graphicRaycaster = graphicRaycaster
+
+    self._index = index
+    self._distance = distance
+    self._order = order
+    self._transform = self._gameObject.transform
+    self._rectTransform = self._gameObject:GetComponent("RectTransform")
+
+    UINode.nodes[self._gameObject:GetInstanceID()] = self
+end
+
+function M:Dispose()
+    self._parent    = nil
+    self._childList = nil
+    self._childDict = nil
+
+    if self._gameObject ~= nil and self._gameObject:IsNotNull() then
+        GameObject.Destroy(self._gameObject)
+        self._gameObject = nil
+    end
+
+    if self._rectTransform ~= nil and self._rectTransform:IsNotNull() then
+        UINode.nodes[self._gameObject:GetInstanceID()] = nil
+        self._rectTransform                            = nil
+    end
+end
+
+-----------------------------------------------------------------------------------------------------------------------
+function M:_bindWithParentTransform()
+    UINode._bindWithParentTransform(self)
+    
+    self._rectTransform.localScale    = Vector3.one
+    self._rectTransform.localPosition = Vector3.New(0, 0, 0)
+
+    self._rectTransform.anchorMax     = Vector2.New(1, 1)
+    self._rectTransform.anchorMin     = Vector2.New(0, 0)
+    self._rectTransform.offsetMax     = Vector2.New(0, 0)
+    self._rectTransform.offsetMin     = Vector2.New(0, 0)
+    self._rectTransform:SetSiblingIndex(0)
+
+    --刘海屏适配 针对宽高比大于18.5:9 (2.055)的屏幕  (xiaolijin)
+    local width = Screen.width
+    local height = Screen.height
+    local currentRatio = width / height
+    local screenRatio = 2.055 --宽高比 18.5:9
+    local pixel =  Screen.safeArea.x*0.5  --宽度减去的固定像素
+    self._rectTransform.offsetMin     = Vector2.New(pixel, 0)
+    self._rectTransform.offsetMax     = Vector2.New(-pixel, 0)
+  
+    
+    -- 延迟设置，如果Canvas是动态加上去的，刚添加完Canvas脚本设置参数会失效
+    self._canvas.overrideSorting = true
+    self._canvas.sortingOrder    = self._order * self._distance
+end
+
+
+
+return M

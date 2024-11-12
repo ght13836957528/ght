@@ -1,0 +1,10 @@
+---@class GuideStepInfoAddRoad : GuideStepBaseInfo @引导步骤修路操作引导类型数据结构
+---@field public roadPosition string 修路位置
+local GuideStepInfoAddRoad = class("GuideStepInfoAddRoad", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoAddRoad
+
+function M:onParse(params)
+    self.roadPosition = params.roadPosition
+end
+
+return M

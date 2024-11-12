@@ -1,0 +1,344 @@
+----------------------------------------------------------------------
+--------- 2022年11月30日 18:44:23 星期三
+----------------------------------------------------------------------
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+---@class BaseBuff
+local BaseBuff = class("BaseBuff")
+local M = BaseBuff
+
+--- Buff的构造
+--- @param hostCharacter BattleCharacter
+--- @param buffManager table 该角色的buff管理系统
+--- @param buffContext BattleContext buff全局上下文
+--- @param params table 可能的参数
+function M:Ctor(hostCharacter, buffManager, params)
+    self.hostCharacter = hostCharacter
+    self.buffManager   = buffManager
+    self.buffParams    = params
+    self.buffEffId     = params[1]
+    self._showDelegate = nil
+    self._hideDelegate = nil
+end
+
+function M:setArtDelegate(showDelegate, hidDelegate)
+    self._showDelegate = showDelegate
+    self._hideDelegate = hidDelegate
+end
+
+function M:Initialize(fromId, buffId)
+    self.fromId = fromId
+    self.skillbuffId = buffId
+    self:_onInitialize()
+end
+
+function M:GetSkillBuffConfig()
+    local con = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.skillbuffId)
+    if con == nil then
+        BattleLogger.log_error("Skill_Buff 表找不到 数据 :", self.skillbuffId)
+        return {}
+    end
+    return con
+end
+
+function M:GetBuffTypeId()
+    return self.buffEffId
+end
+
+function M:Enter()
+    self:_onEnter()
+end
+
+function M:Refresh()
+    self:_onRefresh()
+end
+
+function M:Exit()
+    self:_onExit()
+end
+
+function M:Clear()
+    self._showDelegate = nil
+    self._hideDelegate = nil
+end
+
+----------------------------------------------------------------------
+
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+
+end
+
+-------------------------------------------------------------------------
+---------------------- 统计buff -----------------------------------------
+--- 是否由瞬时buff触发
+function M:isFrameInstant()
+    return self:GetSkillBuffConfig().timeType
+end
+
+---@param battleCharacter BattleCharacter
+function M:counterAttackData(battleCharacter)
+    if self:isFrameInstant() then
+        battleCharacter:GetBattleDataCounter():counter(BattleEnum.BattleDataCounterType.Attack_Numerical, 1)
+    end
+end
+
+---@param battleCharacter BattleCharacter
+function M:counterBeAttackData(battleCharacter)
+    if self:isFrameInstant() then
+        battleCharacter:GetBattleDataCounter():counter(BattleEnum.BattleDataCounterType.BeAttack_Numerical, 1)
+    end
+end
+
+----------------------------------------------------------------------
+--- 等级相克系数
+---@param s BattleCharacter
+---@param m BattleCharacter
+function M:levelCon(s, m)
+    local isPve = s:GetBattleContext():GetBattleLogicType() == BattleEnum.BattleLogicType.PVE
+    if not isPve then
+        return 1
+    end
+    local stageCon = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, s:GetBattleContext():GetBattleStageId())
+    if s:IsRobot() then
+        local level = m:GetBaseAtt():GetCharacterLevel() or 0
+        if stageCon and stageCon.levelSuppress ~= nil and level > stageCon.levelSuppress then
+            local Battle_Level_Suppress_Param_2 = ConfigHandler:GetEntry(GameDefine.TableName.Global,
+                "Battle_Level_Suppress_Param_2")
+            local k = 1 - Battle_Level_Suppress_Param_2 * (level - stageCon.levelSuppress)
+            k = k < 0.1 and 0.1 or k
+            return k
+        end
+        if stageCon and stageCon.levelSuppress2 ~= nil and level < stageCon.levelSuppress2 then
+            local Battle_Level_Suppress_Param_4 = ConfigHandler:GetEntry(GameDefine.TableName.Global,
+                "Battle_Level_Suppress_Param_4")
+            local k = 1 + Battle_Level_Suppress_Param_4 * (stageCon.levelSuppress - level)
+            k = k > 3 and 3 or k
+            return k
+        end
+        return 1
+    else
+        local level = s:GetBaseAtt():GetCharacterLevel()
+        if stageCon and stageCon.levelSuppress ~= nil and level > stageCon.levelSuppress then
+            local Battle_Level_Suppress_Param_1 = ConfigHandler:GetEntry(GameDefine.TableName.Global,
+                "Battle_Level_Suppress_Param_1")
+            local k = 1 + Battle_Level_Suppress_Param_1 * (level - stageCon.levelSuppress)
+            k = k > 3 and 3 or k
+            return k
+        end
+        if stageCon and stageCon.levelSuppress2 ~= nil and level < stageCon.levelSuppress2 then
+            local Battle_Level_Suppress_Param_3 = ConfigHandler:GetEntry(GameDefine.TableName.Global,
+                "Battle_Level_Suppress_Param_3")
+            local k = 1 + Battle_Level_Suppress_Param_3 * (stageCon.levelSuppress - level)
+            k = k < 0.1 and 0.1 or k
+            return k
+        end
+        return 1
+    end
+end
+
+---- 相克系数计算
+---@param s BattleCharacter
+---@param m BattleCharacter
+function M:controlK(s, m)
+    local isbeC = BattleHelper:isBeControl(s:GetHeroConfigId(), m:GetHeroConfigId())
+    BattleLogger.logNumerical("是否相克 : ", isbeC)
+    local resul = 0
+    if isbeC then
+        local a = s:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+            .AttributeType_PhaseickCoefficientA_32)
+        local c = m:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+            .AttributeType_PhaseickCoefficientC_34)
+        resul = 1 + a * 0.01 - c * 0.01
+    else
+        local b = s:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+            .AttributeType_PhaseickCoefficientB_33)
+        resul = 1 - b * 0.01
+    end
+    local dmg_Threshold = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Race_Dmg_Threshold") or {}
+    resul = resul < dmg_Threshold[1] and dmg_Threshold[1] or resul
+    resul = resul > dmg_Threshold[2] and dmg_Threshold[2] or resul
+    return resul
+end
+
+---- 暴击率
+---@param s BattleCharacter
+---@param m BattleCharacter
+function M:criticalStrike(s, m)
+    local s_v = s:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_Crit_11) or 0
+    local m_v = m:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_AgainstCrit_22) or
+        0
+    -- 小数点后两位
+    return FixedCalculateHandler:keepPoint((s_v - m_v) * 0.01, 2)
+end
+
+--- 杀伤力
+---@param s BattleCharacter
+function M:GetAttValue(s)
+    --- todo 此处可能有 威力增加 目前不需要处理
+    return s:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_ATK_2)
+end
+
+--- 魔法/物理攻击力
+---@param s BattleCharacter
+---@param m BattleCharacter
+function M:GetHitValue(s, m, attValue, buffParams)
+    local ns = self:GetNumericalStrength(s)
+    BattleLogger.logNumerical("兵力 * k: ", ns)
+    local skillC = self:skillCoefficient(s, buffParams)
+    BattleLogger.logNumerical("技能系数 : ", skillC)
+    local HitC_1 = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Dmg_Formula_Param_1")
+    local HitC_2 = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Dmg_Formula_Param_2")
+    local HitC_3 = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Dmg_Formula_Param_3")
+    local HitC_4 = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Dmg_Formula_Param_4")
+    local hitValue = 0
+    if s:IsMagic() then
+        -- 魔法
+        local def = m:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_MDEF_4)
+        local playType = self.hostCharacter:GetBattleContext():GetPlayType() or 0
+        if playType == BattleEnum.BattlePlayType.Mowing then
+            def = def * self:GetNumericalStrength(m)
+        end
+        
+        ---- 魔法减伤率
+        local t1 = m:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+            .AttributeType_APSubDamage_15)
+        ---- 魔法增伤率
+        local t2 = s:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+            .AttributeType_APAddDamage_24)
+        hitValue = ns * skillC * (HitC_1 * attValue) * (HitC_2 * attValue) / (HitC_3 * attValue + HitC_4 * def) *
+            (t1 * 0.01) * (t2 * 0.01)
+        BattleLogger.logNumerical("魔法伤害 : ", hitValue)
+    else
+        -- 物理
+        local def = m:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_DEF_3)
+        local playType = self.hostCharacter:GetBattleContext():GetPlayType() or 0
+        if playType == BattleEnum.BattlePlayType.Mowing then
+            def = def * self:GetNumericalStrength(m)
+        end
+        
+        ---- 物理减伤率
+        local t1 = m:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+            .AttributeType_ADSubDamage_14)
+        ---- 物理增伤率
+        local t2 = s:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+            .AttributeType_ADAddDamage_23)
+        hitValue = ns * skillC * (HitC_1 * attValue) * (HitC_2 * attValue) / (HitC_3 * attValue + HitC_4 * def) *
+            (t1 * 0.01) * (t2 * 0.01)
+        BattleLogger.logNumerical("物理伤害 : ", hitValue)
+    end
+    return hitValue
+end
+
+--- 技能系数计算
+---@param s BattleCharacter
+function M:skillCoefficient(s, buffParams)
+    buffParams = buffParams or {}
+    local result = buffParams[2] or 0
+    local cited = self:GetSkillBuffConfig().cited or {}
+    if cited[1] then
+        local citedCon = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Cited, cited[1])
+        local level = s:GetBaseAtt():GetCharacterLevel() or 0
+        if citedCon and citedCon.param and citedCon.param[1] and level > 0 then
+            for i = #citedCon.param, 1, -1 do
+                local pG = citedCon.param[i] or {}
+                if pG[1] and pG[2] and level >= pG[1] then
+                    return (result + pG[2]) * 0.01
+                end
+            end
+        end
+    end
+    return result * 0.01
+end
+
+function M:CureCoefficient(s, result)
+    result = result or 0
+    local cited = self:GetSkillBuffConfig().cited or {}
+    if cited[2] then
+        local citedCon = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Cited, cited[2])
+        local level = s:GetBaseAtt():GetCharacterLevel() or 0
+        if citedCon and citedCon.param and citedCon.param[1] and level > 0 then
+            for i = #citedCon.param, 1, -1 do
+                local pG = citedCon.param[i] or {}
+                if pG[1] and pG[2] and level >= pG[1] then
+                    return (result + pG[2]) * 0.01
+                end
+            end
+        end
+    end
+    return result * 0.01
+end
+
+---@param s BattleCharacter
+function M:GetAValue_integer(s)
+    local cited = self:GetSkillBuffConfig().cited or {}
+    if cited[1] then
+        local citedCon = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Cited, cited[1])
+        local level = s:GetBaseAtt():GetCharacterLevel() or 0
+        if citedCon and citedCon.param and citedCon.param[1] and level > 0 then
+            for i = #citedCon.param, 1, -1 do
+                local pG = citedCon.param[i] or {}
+                if pG[1] and pG[2] and level >= pG[1] then
+                    return pG[2]
+                end
+            end
+        end
+    end
+    return 0
+end
+
+---@param s BattleCharacter
+function M:GetBValue_integer(s)
+    local cited = self:GetSkillBuffConfig().cited or {}
+    if cited[2] then
+        local citedCon = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Cited, cited[2])
+        local level = s:GetBaseAtt():GetCharacterLevel() or 0
+        if citedCon and citedCon.param and citedCon.param[1] and level > 0 then
+            for i = #citedCon.param, 1, -1 do
+                local pG = citedCon.param[i] or {}
+                if pG[1] and pG[2] and level >= pG[1] then
+                    return pG[2]
+                end
+            end
+        end
+    end
+    return 0
+end
+
+--- 兵力计算
+---@param s BattleCharacter
+function M:GetNumericalStrength(s)
+    local ns = 10
+    if s.MowingCharacterType == MowingConstant.MowingCharacterType.Npc then
+        ns = 1
+    end
+    
+    local k = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_DMG_Formula_NavyNum_Param")
+    
+    return ns ^ k
+end
+
+function M:IsPlayType()
+    local playType = self.hostCharacter:GetBattleContext():GetPlayType() or 0
+    return playType == BattleEnum.BattlePlayType.World_Pve
+        or playType == BattleEnum.BattlePlayType.World_Pvp 
+        or playType == BattleEnum.BattlePlayType.World_Pve_Boss
+        or playType == BattleEnum.BattlePlayType.World_Pve_Mass
+        or playType == BattleEnum.BattlePlayType.World_Pve_Port
+        or playType == BattleEnum.BattlePlayType.World_Pve_BigWorld
+        or playType == BattleEnum.BattlePlayType.World_Pve_Boss_Win
+        
+end
+
+return M

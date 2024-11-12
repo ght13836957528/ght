@@ -1,0 +1,11 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:55:02 星期一
+----------------------------------------------------------------------
+
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+---@class BuffAngerNoDecrease
+local BuffAngerNoDecrease = class("BuffAngerNoDecrease", BasePersistentBuff)
+local M = BuffAngerNoDecrease
+
+return M

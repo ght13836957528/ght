@@ -1,0 +1,58 @@
+----------------------------------------------------------------------
+--------- 2022年12月15日 18:46:31 星期四
+----------------------------------------------------------------------
+
+---@class BaseBehaviorState
+local BaseBehaviorState = class("BaseBehaviorState")
+local M = BaseBehaviorState
+
+-- 目的：
+-- 1. 维护角色行为选择的决策
+-- 2. 角色现在目前5中行为，根据每种行为
+---@param behaviorStateManager DecisionStateManager
+function M:Ctor(stateID, behaviorStateManager)
+    self._stateID = stateID
+    self._stateManager = behaviorStateManager
+end
+
+-- 场景初始化
+-- @param ... 切换行为状态时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    local params = {...}
+    ---@type BattleCharacter
+    self.hostCharacter = params[1]
+end
+
+-- 进入场景
+function M:OnEnter(...)
+  
+end
+
+-- 持续处理
+function M:OnUpdate(fDeltaTime)
+    --
+end
+
+-- 退出场景
+function M:OnExit(callback)
+    -- body
+    if callback then
+        callback()
+    end
+end
+
+function M:GetStateID()
+    return self._stateID
+end
+
+-----------------helpers-------------------
+function M:_getCharacterBattleId()
+    if self.hostCharacter ~= nil then
+        return self.hostCharacter:GetBattleId()
+    end
+
+    return 0
+end
+
+
+return M

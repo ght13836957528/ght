@@ -1,0 +1,47 @@
+----------------------------------------------------------------------
+--------- 2023年01月31日 16:06:26 星期二
+----------------------------------------------------------------------
+
+--[[
+    处理表现效果：播放音效
+]]
+local BaseAction = require "GameLogic.Battle.SkillSystem.Actions.BaseAction"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class PlaySoundAction:BaseAction
+local PlaySoundAction = class("PlaySoundAction", BaseAction)
+local M = PlaySoundAction
+
+function M:_onInitialize()
+    local data = self.actionData or {}
+    self.soundKey = data.soundKey
+    self._soundID = nil
+end
+
+function M:_onExecute(...)
+    local sound = self.soundKey or ""
+    if sound == nil or sound == "" then
+        BattleLogger.log_error("没有对应的音效名，请检查配置!!")
+        return
+    end
+
+    self:_playSound(sound)
+end
+
+function M:_onClear()
+    if self._soundID then
+        BattleEventUtils:DisPath_Render_BreakSound(self._soundID)
+    end
+end
+
+function M:_onExit()
+    if self._soundID then
+        BattleEventUtils:DisPath_Render_BreakSound(self._soundID)
+    end
+end
+
+function M:_playSound(soundName)
+    self._soundID = BattleEventUtils:DisPath_Render_PlaySound(soundName)
+    -- BattleLogger.log_error(" 播放 音效 ", soundName)
+end
+
+return M

@@ -1,0 +1,106 @@
+local HexAStar = require "GameLogic.Battle.BattleAStar.HexAStar"
+---@class PathFinderBridge
+local PathFinderBridge = {}
+
+local resultPaths = {}
+
+function PathFinderBridge.CreateHexAStar()
+    return HexAStar.new()
+end
+
+---@param aStar AStar
+function PathFinderBridge.InitPathFinder(aStar, width, height, gridSize, startPosX, startPosZ)
+    aStar:Init(width, height, gridSize, startPosX, startPosZ)
+end
+
+---@param aStar AStar
+function PathFinderBridge.FindPath(aStar, startIndex, endIndex)
+    resultPaths = {}
+    aStar:FindPathByIndex(startIndex, endIndex, resultPaths)
+    local arr = {}
+    for _, value in ipairs(resultPaths) do
+        table.insert(arr, value)
+    end
+    return arr
+end
+
+---@param aStar AStar
+function PathFinderBridge.FindPathHZ(aStar, startIndex, endIndex)
+    resultPaths = {}
+    aStar:FindPathHZByIndex(startIndex, endIndex, resultPaths)
+    local arr = {}
+    for _, value in ipairs(resultPaths) do
+        table.insert(arr, value)
+    end
+    return arr
+end
+
+---@param aStar AStar
+---@param startPoint Point
+---@param endPoint Point
+function PathFinderBridge.FindPathByPoint(aStar, startPoint, endPoint)
+    resultPaths = {}
+    aStar:FindPathByPoint(startPoint, endPoint, resultPaths)
+    local arr = {}
+    for _, value in ipairs(resultPaths) do
+        table.insert(arr, value)
+    end
+    return arr
+end
+
+---@param aStar AStar
+function PathFinderBridge.SetPriority(aStar, posX, posZ, priorityValue)
+    aStar:SetPriority(posX, posZ, priorityValue)
+end
+
+---@param aStar AStar
+function PathFinderBridge.SetPriorityByIndex(aStar, gridIndex, priorityValue)
+    aStar:SetPriorityByIndex(gridIndex, priorityValue)
+end
+
+---@param aStar AStar
+function PathFinderBridge.SetStaticObstacle(aStar, obstaclePosX, obstaclePosZ, isObstacle)
+    aStar:SetStaticObstacle(obstaclePosX, obstaclePosZ, isObstacle)
+end
+
+---@param aStar AStar
+function PathFinderBridge.SetStaticObstacles(aStar, indexs)
+    aStar:SetStaticObstacles(indexs)
+end
+
+---@param aStar AStar
+function PathFinderBridge.SetDynamicObstacle(aStar, obstaclePosX, obstaclePosZ, isObstacle)
+    aStar:SetDynamicObstacle(obstaclePosX, obstaclePosZ, isObstacle)
+end
+
+---@param aStar AStar
+function PathFinderBridge.SetDynamicObstacleIndex(aStar, targetIndex, isObstacle)
+    aStar:SetDynamicObstacleByIndex(targetIndex, isObstacle)
+end
+
+---@param aStar AStar
+function PathFinderBridge.SetDynamicObstacles(aStar, indexs)
+    aStar:SetDynamicObstacles(indexs)
+end
+
+---@param aStar AStar
+function PathFinderBridge.IsObstacle(aStar, obstaclePosX, obstaclePosZ)
+    return aStar:IsObstacleByPos(obstaclePosX, obstaclePosZ)
+end
+
+---@param aStar AStar
+function PathFinderBridge.IsObstacleByXZ(aStar, x, z)
+    return aStar:IsObstacleByXZ(x, z)
+end
+
+---@param aStar AStar
+function PathFinderBridge.IsObstacleIndex(aStar, targetIndex)
+    return aStar:IsObstacleByIndex(targetIndex)
+end
+
+---@param aStar AStar
+function PathFinderBridge.ReleasePathFinder(aStar)
+    aStar:Release()
+end
+
+return PathFinderBridge

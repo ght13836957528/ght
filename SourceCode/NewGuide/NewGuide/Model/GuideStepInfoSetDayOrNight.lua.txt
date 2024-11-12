@@ -1,0 +1,10 @@
+---@class GuideStepInfoSetDayOrNight: GuideStepBaseInfo @引导步骤设置白天或者黑夜
+---@field public dayOrNight number 白天为1；黑夜为2
+local GuideStepInfoSetDayOrNight = class("GuideStepInfoSetDayOrNight", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoSetDayOrNight
+
+function M:onParse(params)
+    self.dayOrNight = params.dayOrNight
+end
+
+return M

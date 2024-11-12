@@ -1,0 +1,80 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:59:07 星期一
+----------------------------------------------------------------------
+
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+
+---@class BuffChangeAttribute:BasePersistentBuff
+local BuffChangeAttribute = class("BuffChangeAttribute", BasePersistentBuff)
+local M = BuffChangeAttribute
+
+--[[
+    属性变化效果，从self.buffParams中取参数，参数格式：
+    [枚举， 属性枚举， 算法， 量] - 属性枚举参考 BuffChangeAttributeType
+]]
+function M:GetBelongType()
+    return self.belongType or 2
+end
+
+function M:GetAddValue()
+    return self.operateType == BattleEnum.AttCalculateType.Add and self.value or 0
+end
+
+function M:GetMultiplyValue()
+    return self.operateType == BattleEnum.AttCalculateType.Multiply and self.value or 0
+end
+
+function M:GetAddOrMultiplyValue()
+    return self.operateType == BattleEnum.AttCalculateType.AddOrMultiply and self.value or 0
+end
+
+function M:Clear()
+    local attackData = self.hostCharacter:GetAttribute():GetAttackData(self.attEnum)
+    if attackData then
+        attackData:RemoveBuff(self, self.fromId, self.skillbuffId)
+    end
+end
+
+----------------------------------------------------------------------
+
+function M:_onUpdate(deltaTime)
+
+end
+
+function M:_onInitialize()
+    if self.skillbuffId == nil then
+        BattleLogger.log_error("没有归属skillbuffId ")
+        self.belongType = 2
+    else
+        local buffConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Buff, self.skillbuffId) or {}
+        if buffConfig.type == nil then
+            BattleLogger.log_error("Skill_Buff 没有归属Type : ", self.skillbuffId)
+        end
+        self.belongType = buffConfig.type or 2
+    end
+    self.attEnum = self.buffParams[2] or 0
+    self.operateType = self.buffParams[3] or 0
+    self.value = self.buffParams[4] or 0
+end
+
+--- buff创建开始生效的处理
+function M:_onEnter()
+    self:_calculate()
+end
+
+function M:_onExit()
+
+end
+
+----------------------------------------------------------------------
+
+function M:_calculate()
+    local attackData = self.hostCharacter:GetAttribute():GetAttackData(self.attEnum)
+    if attackData then
+        attackData:AddBuff(self, self.fromId, self.skillbuffId)
+    end
+end
+
+return M

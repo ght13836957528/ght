@@ -1,0 +1,523 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 12:09:25 星期四
+----------------------------------------------------------------------
+
+--[[
+    关于角色 移动 得逻辑处理
+]]
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleFormulaHelper = require "GameLogic.Battle.BattleAttribute.BattleFormulaHelper"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class CharacterFindPathManager
+local CharacterFindPathManager = class("CharacterFindPathManager")
+local M = CharacterFindPathManager
+
+--- 构造查找器
+--- @param hostCharacter BattleCharacter 查找需要以角色为基准
+--- @param battleContext BattleContext 战斗上下文，用于存取战斗级的数据
+function M:Ctor(hostCharacter, battleContext)
+    self.hostCharacter = hostCharacter
+    self.battleContext = battleContext
+    self._isMove = false
+    self._isRotate = false
+    self._targetWorldPos = nil
+    self._lastDis = 100000
+end
+
+function M:Initialize(initRotate, initPosIndex, initSceneId, initXZPos)
+    self:_initPos(initRotate, initPosIndex, initSceneId, initXZPos)
+end
+
+function M:OnStartFight()
+
+end
+
+function M:OnUpdateSpecial(fDeltaTime)
+    self:OnUpdate(fDeltaTime)
+end
+
+function M:OnUpdate(fDeltaTime)
+    if self._isMove and self._targetWorldPos ~= nil and self.moveVec ~= nil and self.frameSpeed then
+        local _pos = self.hostCharacter:GetTransform():GetRenderPos()
+        local dis = Vector3.Distance(_pos, self._targetWorldPos)
+        if dis <= 0.05 or dis > self._lastDis then
+            self._isMove = false
+            self._targetWorldPos = nil
+            self.moveVec = nil
+            self.frameSpeed = nil
+            self._lastDis = 10000
+            --  self:_updatePosData()
+            if self._moveEndCallBack then
+                self._moveEndCallBack()
+                -- self._moveEndCallBack = nil
+            end
+            BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_PosChange_16,
+                self.hostCharacter:GetBattleId())
+        else
+            self._lastDis = dis
+            local newPos = _pos + self.moveVec
+            if dis < self.frameSpeed then
+                newPos = self._targetWorldPos
+            end
+            self:diffPos(newPos)
+        end
+    end
+end
+
+function M:diffPos(newPos)
+    if self._isRotate then
+        if not self.hostCharacter:GetBuffManager():CheckHasBuffType(BattleEnum.BuffType.Buff_NoReturn) then
+            self.hostCharacter:GetTransform():LookRotation(newPos)
+            -- self.hostCharacter:GetRender():LookRotation(newPos)
+            BattleEventUtils:DisPath_SynsRotate(self.hostCharacter:GetBattleId(), newPos)
+        end
+    end
+    self.hostCharacter:GetTransform():SetRenderPos(newPos)
+    -- self.hostCharacter:GetRender():MoveTo(newPos)
+    BattleEventUtils:DisPath_SynsPos(self.hostCharacter:GetBattleId(), newPos)
+end
+
+function M:Clear()
+    self.hostCharacter = nil
+end
+
+function M:OnDied()
+    self:SetObstacleSelf(false)
+end
+
+function M:_updatePosData(x, z)
+    self:_upDateGridData(x, z)
+end
+
+function M:_upDateGridData(logicX, logicZ)
+    self.hostCharacter:GetTransform():SetLogicGridIndexXZ(logicX, logicZ)
+    local render_x, render_z = self.battleContext:GetMapController():XZLogicToRender(logicX, logicZ)
+    self.hostCharacter:GetTransform():SetRenderGridIndexXZ(render_x, render_z)
+    self:SetObstacleSelf(true)
+end
+
+function M:_initPos(initRotate, initPosIndex, initSceneId, initXZPos)
+    if initXZPos then
+        self:_initSummonsPos(initXZPos)
+    else
+        self:_initGeneralPos(initRotate, initPosIndex, initSceneId)
+    end
+end
+
+function M:_initSummonsPos(initXZPos)
+    local logic_x = initXZPos.x
+    local logic_z = initXZPos.z
+    local render_x, render_z = self.battleContext:GetMapController():XZLogicToRender(logic_x, logic_z)
+    self.hostCharacter:GetTransform():SetRenderGridIndexXZ(render_x, render_z)
+    self.hostCharacter:GetTransform():SetLogicGridIndexXZ(logic_x, logic_z)
+    local pos = initXZPos.pos
+    self.hostCharacter:GetTransform():SetRenderPos(pos)
+    BattleEventUtils:DisPath_SynsPos(self.hostCharacter:GetBattleId(), pos)
+    self:SetObstacleSelf(true)
+end
+
+function M:_initGeneralPos(initRotate, initPosIndex, initSceneId)
+    local con_scene = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Scene, initSceneId)
+    local positionParams = initRotate == BattleEnum.InitRotate.Left and con_scene.battleGridSelfCoor or
+        con_scene.battleGridEnemyCoor
+    local tmpP = positionParams[initPosIndex] or {}
+    local render_x, render_z = tmpP[1] or 0, tmpP[2] or 0
+    self.hostCharacter:GetTransform():SetRenderGridIndexXZ(render_x, render_z)
+    local logic_x, logic_z = self.battleContext:GetMapController():XZRenderToLogic(render_x, render_z)
+    self.hostCharacter:GetTransform():SetLogicGridIndexXZ(logic_x, logic_z)
+    local pos = self.battleContext:GetMapController():GetRenderPositionByLogicPos(logic_x, logic_z)
+    self.hostCharacter:GetTransform():SetRenderPos(pos)
+    BattleEventUtils:DisPath_SynsPos(self.hostCharacter:GetBattleId(), pos)
+    self:SetObstacleSelf(true)
+end
+
+function M:SetObstacleSelf(isObstacle)
+    if self.hostCharacter:GetTransform():GetVolumeRadius() <= 1 then
+        local index = self.hostCharacter:GetTransform():GetLogicGridIndex()
+        self.battleContext:GetMapController():SetDynamicObstacle(index, isObstacle)
+    else
+        local logic_x, logic_z = self.hostCharacter:GetTransform():GetLogicGridIndexXZ()
+        local points = self.battleContext:GetMapController():GetSurroundList(logic_x, logic_z)
+        for _, offest in ipairs(points) do
+            local neighPointX = logic_x + offest.x
+            local neighPointZ = logic_z + offest.y
+            local index = self.battleContext:GetMapController():GetLogicIndexByXZ(neighPointX, neighPointZ)
+            self.battleContext:GetMapController():SetDynamicObstacle(index, isObstacle)
+        end
+    end
+end
+
+function M:SetObstacleTargetByIndex(index, isObstacle)
+    self.battleContext:GetMapController():SetDynamicObstacle(index, isObstacle)
+end
+
+---@param targerCharacter BattleCharacter
+function M:SetObstacleTarget(targerCharacter, isObstacle)
+    targerCharacter:GetFindPathManager():SetObstacleSelf(isObstacle)
+end
+
+function M:MoveToNormalAttackTarget(iTargetCharacterBattleId, moveEndCallback)
+    local targetCharacterId = iTargetCharacterBattleId or 0
+    if targetCharacterId <= 0 then
+        return false
+    end
+    if self._isMove then
+        BattleLogger.log_error("????  移动中 要被位移 查看逻辑 是够没有结束击飞/击退等相关位移 ")
+        return
+    end
+
+    return self:MoveTo(targetCharacterId, moveEndCallback)
+end
+
+function M:MoveTo(iTargetCharacterBattleId, moveEndCallback)
+    self._moveEndCallBack = moveEndCallback
+    local targetCharacterBattleId = iTargetCharacterBattleId or 0
+    if targetCharacterBattleId <= 0 then
+        -- 不能导航
+        return false
+    end
+
+    local characterManager = self.battleContext:GetCharacterManager()
+    if characterManager == nil then
+        return false
+    end
+
+    local targerCharacter = characterManager:GetCharacterById(iTargetCharacterBattleId)
+    local targerGridIndex = targerCharacter:GetTransform():GetLogicGridIndex()
+    local starGridIndex = self.hostCharacter:GetTransform():GetLogicGridIndex()
+    self:SetObstacleSelf(false)
+    self:SetObstacleTarget(targerCharacter, false)
+
+    local pathArry = self.battleContext:GetMapController():FindPathHZ(starGridIndex, targerGridIndex)
+    self:SetObstacleTarget(targerCharacter, true)
+    -- local selfid =  self.hostCharacter:GetBattleId()
+    -- log_Error(selfid ,"    starGridIndex : ",starGridIndex,"  targerGridIndex: ",targerGridIndex)
+    if pathArry and #pathArry > 1 then
+        local targetGridHZ = pathArry[1]
+        local targetWorldPos = self.battleContext:GetMapController():GetRenderPositionByLogicPos(targetGridHZ.x,
+            targetGridHZ.y)
+        self:Move(targetWorldPos, targetGridHZ)
+    else
+        if not self.hostCharacter:GetBuffManager():CheckHasBuffType(BattleEnum.BuffType.Buff_NoReturn) then
+            local newPos = targerCharacter:GetTransform():GetRenderPos()
+            self.hostCharacter:GetTransform():LookRotation(newPos)
+            -- self.hostCharacter:GetRender():LookRotation(newPos)
+            BattleEventUtils:DisPath_SynsRotate(self.hostCharacter:GetBattleId(), newPos)
+        end
+        self:SetObstacleSelf(true)
+        return false
+    end
+    return true
+end
+
+function M:Move(targetWorldPos, targetGridHZ)
+    local aniSpeed = BattleFormulaHelper:MoveSpeedMultiple(self.hostCharacter) * self.battleContext:GetBattleSpeed()
+    -- self.hostCharacter:GetRender():SetAnimationSpeed(aniSpeed)
+    -- self.hostCharacter:GetRender():PlayAnimation(BattleEnum.AnimationClip.Run,false)
+    BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Run, aniSpeed, false)
+    self._targetWorldPos = targetWorldPos
+    local _pos = self.hostCharacter:GetTransform():GetRenderPos()
+    local dis = Vector3.Distance(_pos, self._targetWorldPos)
+    local speed = aniSpeed * self.hostCharacter:GetBaseAtt():GetBaseMoveSpeed()
+    --- 注意 这里 必定是一个格子 得位移距离
+    dis = dis * speed
+    self.frameSpeed = dis / self.battleContext:GetBattleManager():GetLogicFPS()
+    self.moveVec = Vector3.Normalize(self._targetWorldPos - _pos) * self.frameSpeed
+    self:_updatePosData(targetGridHZ.x, targetGridHZ.y)
+    self._isMove = true
+    self._isRotate = true
+end
+
+function M:StopMove()
+    self._isMove = false
+    self._moveEndCallBack = nil
+end
+
+function M:RepelTo(fromId, time, gridNum, moveEndCallback)
+    -- BattleLogger.log_error("击退 ：",gridNum)
+    self._moveEndCallBack = moveEndCallback
+    if self._isMove then
+        BattleLogger.log_error("????  移动中 要被位移 查看逻辑 是够没有结束寻路相关位移 ")
+        return
+    end
+    local fromCharacter = self.battleContext:GetCharacterManager():GetCharacterById(fromId)
+    local _back_nomarl = fromCharacter:GetTransform():Forward()
+    local orientation = self:_getOrientation(_back_nomarl)
+    local gridIndex_x, gridIndex_z = self.hostCharacter:GetTransform():GetLogicGridIndexXZ()
+    local resultPath = self:_getOrientationPath(orientation, gridNum, gridIndex_x, gridIndex_z)
+    local targetGrid = self:_getNoObstacleLastGrid(resultPath)
+    if targetGrid == nil then
+        BattleLogger.log("一格也不能击退")
+        return
+    else
+        -- BattleLogger.log_error(targetGrid[1], targetGrid[2])
+    end
+    self:SetObstacleSelf(false)
+    self._targetWorldPos = self.battleContext:GetMapController():GetRenderPositionByLogicPos(targetGrid[1], targetGrid
+        [2])
+    -- log_Error(" self._targetWorldPos == ", self._targetWorldPos)
+    local _pos = self.hostCharacter:GetTransform():GetRenderPos()
+    local _dis = Vector3.Distance(_pos, self._targetWorldPos)
+    -- log_Error(" _dis == ", _dis)
+    self.frameSpeed = _dis / (time * self.battleContext:GetBattleManager():GetLogicFPS()) * 1000
+    -- log_Error(" self.frameSpeed  == ",  self.frameSpeed )
+    self.moveVec = _back_nomarl * self.frameSpeed
+    self:_updatePosData(targetGrid[1], targetGrid[2])
+    self._isMove = true
+    self._isRotate = false
+    -- self:OnUpdate()
+end
+
+function M:PressOnward_targetEntity(targetId, time, dropPointType, moveEndCallback)
+    if self._isMove then
+        BattleLogger.log_error("????  移动中 还要突刺  查看逻辑  是否没有结束寻路相关位移 ")
+        return
+    end
+    self._moveEndCallBack = moveEndCallback
+    local targetCharacter = self.battleContext:GetCharacterManager():GetCharacterById(targetId)
+    local _back_nomarl = targetCharacter:GetTransform():Forward()
+    local orientation = self:_getOrientation(_back_nomarl)
+    local gridIndex_x, gridIndex_z = targetCharacter:GetTransform():GetLogicGridIndexXZ()
+    self:SetObstacleSelf(false)
+    local targetGrid_X, targetGrid_Z = self:NoObstacleAround(gridIndex_x, gridIndex_z, orientation, dropPointType, 2)
+
+    if targetGrid_X == nil or targetGrid_Z == nil then
+        BattleLogger.log_error("????? 没找到对应格子 ")
+        self:SetObstacleSelf(true)
+        return
+    end
+    self:SetObstacleSelf(false)
+    local logicIndex = self.battleContext:GetMapController():GetLogicIndexByXZ(targetGrid_X, targetGrid_Z)
+    self:SetObstacleTargetByIndex(logicIndex, true)
+    self._targetWorldPos = self.battleContext:GetMapController():GetRenderPositionByLogicPos(targetGrid_X, targetGrid_Z)
+    local _pos = self.hostCharacter:GetTransform():GetRenderPos()
+    local _dis = Vector3.Distance(_pos, self._targetWorldPos)
+    local _targetNormal = Vector3.Normalize(self._targetWorldPos - _pos)
+    self.frameSpeed = _dis / (time * self.battleContext:GetBattleManager():GetLogicFPS()) * 1000
+    self.moveVec = _targetNormal * self.frameSpeed
+    self:_updatePosData(targetGrid_X, targetGrid_Z)
+    self._isMove = true
+    self._isRotate = false
+end
+
+function M:Teleport_targetEntity(targetId, time, dropPointType, moveEndCallback)
+    if self._isMove then
+        BattleLogger.log_error("????  移动中 还要突刺  查看逻辑  是否没有结束寻路相关位移 ")
+        return
+    end
+    self._moveEndCallBack = moveEndCallback
+    local targetCharacter = self.battleContext:GetCharacterManager():GetCharacterById(targetId)
+    local _back_nomarl = targetCharacter:GetTransform():Forward()
+    local orientation = self:_getOrientation(_back_nomarl)
+    local gridIndex_x, gridIndex_z = targetCharacter:GetTransform():GetLogicGridIndexXZ()
+    self:SetObstacleSelf(false)
+    local targetGrid_X, targetGrid_Z = self:NoObstacleAround(gridIndex_x, gridIndex_z, orientation, dropPointType, 2)
+    if targetGrid_X == nil or targetGrid_Z == nil then
+        BattleLogger.log_error("????? 没找到对应格子 ")
+        self:SetObstacleSelf(true)
+        return
+    end
+    local logicIndex = self.battleContext:GetMapController():GetLogicIndexByXZ(targetGrid_X, targetGrid_Z)
+    self:SetObstacleTargetByIndex(logicIndex, true)
+    self:_updatePosData(targetGrid_X, targetGrid_Z)
+    local targetWorldPos = self.battleContext:GetMapController():GetRenderPositionByLogicPos(targetGrid_X, targetGrid_Z)
+
+    do
+        BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_PosChange_16, self.hostCharacter:GetBattleId())
+        self._isRotate = false
+        self:diffPos(targetWorldPos)
+        return
+    end
+
+
+    local _pos = self.hostCharacter:GetTransform():GetRenderPos()
+    local _dis = Vector3.Distance(_pos, self._targetWorldPos)
+    local _targetNormal = Vector3.Normalize(self._targetWorldPos - _pos)
+    self.frameSpeed = _dis / (time * self.battleContext:GetBattleManager():GetLogicFPS()) * 1000
+    self.moveVec = _targetNormal * self.frameSpeed
+    self:_updatePosData(targetGrid_X, targetGrid_Z)
+    self._isMove = true
+    self._isRotate = false
+end
+
+function M:NoObstacleAround(gridIndex_x, gridIndex_z, orientation, dropPointType, level)
+    level = level or 1
+    local sameO_Index = self:_getSameOrientationIndex(orientation, dropPointType)
+    return self:_getNoObstacleAround(sameO_Index, gridIndex_x, gridIndex_z, level)
+end
+
+function M:_getNoObstacleAround(sameO_Index, gridIndex_x, gridIndex_z, level)
+    local points = self.battleContext:GetMapController():GetSurroundList(gridIndex_x, gridIndex_z)
+    local aroundList = {}
+    for _, index in ipairs(sameO_Index) do
+        local offest = points[index]
+        local neighPointX = gridIndex_x + offest.x
+        local neighPointZ = gridIndex_z + offest.y
+        table.insert(aroundList, { neighPointX, neighPointZ })
+        if neighPointX > 0 and neighPointZ > 0 and not self.battleContext:GetMapController():IsObstacle(neighPointX, neighPointZ) then
+            return neighPointX, neighPointZ
+        end
+    end
+    if level > 1 then
+        for _, pointInfo in ipairs(aroundList) do
+            return self:_getNoObstacleAround(sameO_Index, pointInfo[1], pointInfo[1], level - 1)
+        end
+    else
+        return nil
+    end
+end
+
+---
+-- function M:_getNoObstacleAround(gridIndex_x, gridIndex_z, orientation, dropPointType, level)
+--     local points = self.battleContext:GetMapController():GetSurroundList(gridIndex_x, gridIndex_z)
+--     local sameO_Index = self:_getSameOrientationIndex(orientation, dropPointType)
+--     for _, index in ipairs(sameO_Index) do
+--         local offest = points[index]
+--         local neighPointX = gridIndex_x + offest.x
+--         local neighPointZ = gridIndex_z + offest.y
+--         if neighPointX > 0 and neighPointZ > 0 and not self.battleContext:GetMapController():IsObstacle(neighPointX, neighPointZ) then
+--             return neighPointX, neighPointZ
+--         end
+--     end
+
+--     return nil
+-- end
+
+function M:_getSameOrientationIndex(orientation, dropPointType)
+    if orientation == BattleEnum.MapGridOrientation.Top then
+        if dropPointType == 1 then
+            return { 1, 2, 6, 3, 5, 4 }
+        else
+            return { 4, 3, 5, 2, 6, 1 }
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.Down then
+        if dropPointType == 1 then
+            return { 4, 3, 5, 2, 6, 1 }
+        else
+            return { 1, 2, 6, 3, 5, 4 }
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.LT then
+        if dropPointType == 1 then
+            return { 6, 5, 1, 4, 2, 3 }
+        else
+            return { 3, 2, 4, 1, 5, 6 }
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.LD then
+        if dropPointType == 1 then
+            return { 5, 6, 4, 1, 3, 2 }
+        else
+            return { 2, 1, 3, 6, 4, 5 }
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.RT then
+        if dropPointType == 1 then
+            return { 2, 1, 3, 6, 4, 5 }
+        else
+            return { 5, 4, 6, 3, 1, 2 }
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.RD then
+        if dropPointType == 1 then
+            return { 3, 2, 4, 1, 5, 6 }
+        else
+            return { 6, 5, 1, 4, 2, 3 }
+        end
+    end
+end
+
+function M:_getNoObstacleLastGrid(pathList)
+    for index, value in ipairs(pathList) do
+        if self.battleContext:GetMapController():IsObstacle(value[1], value[2]) then
+            return pathList[index - 1] or nil
+        end
+    end
+    return pathList[#pathList]
+end
+
+function M:_getOrientationPath(orientation, gridNum, gridIndex_x, gridIndex_z)
+    local max_x = self.battleContext:GetMapController().mapSize_x
+    local max_z = self.battleContext:GetMapController().mapSize_z
+    local result = {}
+    if orientation == BattleEnum.MapGridOrientation.Top then
+        for i = 1, gridNum do
+            local tmpx = gridIndex_x - i
+            if tmpx <= max_x and tmpx >= 1 then
+                table.insert(result, { tmpx, gridIndex_z })
+            end
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.Down then
+        for i = 1, gridNum do
+            local tmpx = gridIndex_x + i
+            if tmpx <= max_x and tmpx >= 1 then
+                table.insert(result, { tmpx, gridIndex_z })
+            end
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.LT then
+        local _isOuNumber = not self:_isOuNumber(gridIndex_z)
+        for i = 1, gridNum do
+            local tmpI = _isOuNumber and math.modf((i + 1) // 2) or math.modf(i / 2)
+            local tmpx = gridIndex_x - tmpI
+            local tmpz = gridIndex_z - i
+            if tmpx <= max_x and tmpx >= 1 and tmpz >= 1 and tmpz <= max_z then
+                table.insert(result, { tmpx, tmpz })
+            end
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.LD then
+        local _isOuNumber = not self:_isOuNumber(gridIndex_z)
+        for i = 1, gridNum do
+            local tmpI = _isOuNumber and math.modf((i) / 2) or math.modf((i + 1) / 2)
+            local tmpx = gridIndex_x + tmpI
+            local tmpz = gridIndex_z - i
+            if tmpx <= max_x and tmpx >= 1 and tmpz >= 1 and tmpz <= max_z then
+                table.insert(result, { tmpx, tmpz })
+            end
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.RT then
+        local _isOuNumber = not self:_isOuNumber(gridIndex_z)
+        for i = 1, gridNum do
+            local tmpI = _isOuNumber and math.modf((i + 1) / 2) or math.modf(i / 2)
+            local tmpx = gridIndex_x - tmpI
+            local tmpz = gridIndex_z + i
+            if tmpx <= max_x and tmpx > 0 and tmpz > 0 and tmpz <= max_z then
+                table.insert(result, { tmpx, tmpz })
+            end
+        end
+    elseif orientation == BattleEnum.MapGridOrientation.RD then
+        local _isOuNumber = not self:_isOuNumber(gridIndex_z)
+        for i = 1, gridNum do
+            local tmpI = _isOuNumber and math.modf((i) / 2) or math.modf((i + 1) / 2)
+            local tmpx = gridIndex_x + tmpI
+            local tmpz = gridIndex_z + i
+            if tmpx <= max_x and tmpx > 0 and tmpz > 0 and tmpz <= max_z then
+                table.insert(result, { tmpx, tmpz })
+            end
+        end
+    else
+        -- nothing to do
+    end
+
+    return result
+end
+
+function M:_getOrientation(back_nomarl)
+    local angle = Vector3.Angle(back_nomarl, Vector3.forward)
+    -- BattleLogger.log("angle = " .. angle)
+    if angle <= 30 then
+        return BattleEnum.MapGridOrientation.Top
+    elseif angle > 30 and angle <= 90 then
+        return back_nomarl.x > 0 and BattleEnum.MapGridOrientation.RT or BattleEnum.MapGridOrientation.LT
+    elseif angle > 90 and angle <= 150 then
+        return back_nomarl.x > 0 and BattleEnum.MapGridOrientation.RD or BattleEnum.MapGridOrientation.LD
+    else
+        return BattleEnum.MapGridOrientation.Down
+    end
+end
+
+function M:_isOuNumber(num)
+    local _, num2 = math.modf(num / 2)
+    if num2 == 0 then
+        return true
+    else
+        return false
+    end
+end
+
+return M

@@ -1,0 +1,74 @@
+local RenderMoveSystem          = require "GameLogic.Battle.BattleRender.BattleRenderSystem.RenderMoveSystem"
+local RenderEffectSystem        = require "GameLogic.Battle.BattleRender.BattleRenderSystem.RenderEffectSystem"
+local RenderAnimatorSystem      = require "GameLogic.Battle.BattleRender.BattleRenderSystem.RenderAnimatorSystem"
+local RenderUISystem            = require "GameLogic.Battle.BattleRender.BattleRenderSystem.RenderUISystem"
+local RenderSceneSystem         = require "GameLogic.Battle.BattleRender.BattleRenderSystem.RenderSceneSystem"
+---@class BattleRenderSystemManager
+local BattleRenderSystemManager = class("BattleRenderSystemManager")
+local M                         = BattleRenderSystemManager
+---@param renderWord BattleRenderWorld
+function M:Ctor(renderWord)
+    self._entityMap = {}
+    self._renderWord = renderWord
+end
+
+function M:Initialize()
+    self._moveSystem = RenderMoveSystem.new(self)
+    self._effectSystem = RenderEffectSystem.new(self)
+    self._animatorSystem = RenderAnimatorSystem.new(self)
+    self._uiSystem = RenderUISystem.new(self)
+    self._renderSceneSystem = RenderSceneSystem.new(self)
+end
+
+function M:StartFight(callback)
+
+end
+
+function M:OnEndFight(iResult)
+
+end
+
+function M:OnUpdate(dt)
+
+end
+
+function M:Clear()
+    self._moveSystem:Clear()
+    self._effectSystem:Clear()
+    self._animatorSystem:Clear()
+    self._uiSystem:Clear()
+    self._renderSceneSystem:Clear()
+    self._entityMap = {}
+end
+
+-------------------------------------------------------------------------------
+---@param entity BattleRenderEntityBase
+function M:AddEntity(entity)
+    if entity then
+        if self._entityMap[entity:GetEntityId()] then
+            BattleLogger.log_error("repetition add Entity :  ", entity:GetEntityId())
+            return
+        end
+        self._entityMap[entity:GetEntityId()] = entity
+    end
+end
+
+function M:CheckExitEntity(entityId)
+    if entityId and self._entityMap then
+        return self._entityMap[entityId] ~= nil
+    end
+    
+    return false
+end
+
+function M:RemoveEntity(entityId)
+    if entityId then
+        if self._entityMap[entityId] == nil then
+            -- BattleLog.error("Entity 已经从删除 :  ",Entity:GetEntityId())
+            return
+        end
+        self._entityMap[entityId] = nil
+    end
+end
+
+return M

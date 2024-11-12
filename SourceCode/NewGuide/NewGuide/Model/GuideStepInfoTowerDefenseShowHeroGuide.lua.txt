@@ -1,0 +1,9 @@
+---@class GuideStepInfoTowerDefenseShowHeroGuide : GuideStepBaseInfo @塔防小游戏显示英雄上阵引导
+local GuideStepInfoTowerDefenseShowHeroGuide = class("GuideStepInfoTowerDefenseShowHeroGuide", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoTowerDefenseShowHeroGuide
+
+function M:onParse(params)
+
+end
+
+return M

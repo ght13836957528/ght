@@ -1,0 +1,10 @@
+---@class GuideStepInfoGenerateTowerZombie : GuideStepBaseInfo @引导英雄招募类型
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfoGenerateTowerZombie = class("GuideStepInfoGenerateTowerZombie", base)
+local M = GuideStepInfoGenerateTowerZombie
+
+function M:onParse()
+
+end
+
+return M

@@ -1,0 +1,349 @@
+--滚动组件
+--前提要绑定UnityEngine.UI.ScrollRect
+--1.只适用于水平、竖直滚动类型
+--2.支持水平、竖直、网格3种布局
+--3.只实例化比显示区域额外多2行或2列的item
+--4.可自由开启、关闭滚动事件
+--5.TODO ：使用网格类型时，如果Item预制体放在content下，有可能导致实例化的Item大小为0，
+--  把Item预制体放在外面可以解决（调用setData方法再传入预制体的参数）。这个问题待修复。
+
+UIScrollView = class("UIScrollView", UINode)
+local M = UIScrollView
+
+local GameObject = CS.UnityEngine.GameObject
+local RectTransform = CS.UnityEngine.RectTransform
+
+--滚动类型
+local ScrollType =
+{
+    Horizontal = 1,     --水平滚动
+    Vertical = 2,       --竖直滚动
+}
+
+--布局类型
+local LayoutType =
+{
+    Horizontal = 1,     --水平布局
+    Vertical = 2,       --竖直布局
+    Grid = 3,           --网格布局
+}
+
+function M:Ctor(gameObject)
+    self.gameObject = gameObject
+    self.transform = gameObject.transform
+    self.scrollRect = nil       --滚动组件
+    self.scrollSize = nil       --滚动组件的尺寸
+    self.content = nil          --滚动节点
+    self.contentSize = nil      --滚动节点的尺寸
+    self.scrollType = nil       --滚动类型
+    self.layout = nil           --自动布局组件
+    self.layoutType = nil       --布局类型
+    self.layoutSpace = nil      --布局间距
+    self.rowCount = nil         --区域内最大显示行数量
+    self.columnCount = nil      --区域内最大显示列数量
+    self.setItemHandler = nil   --设置Item的回调 function(GameObject, index)
+    self.clearItemHandler = nil --清除Item的回调 function(index)
+    self.contentStartPos = nil  --容器初始的位置
+    self.contentOldPos = nil    --容器旧的位置
+    self.itemPrefab = nil       --Item预制
+    self.itemSize = nil         --Item的尺寸
+    self.emptyItems = nil       --空壳Item列表(List<GameObject>)
+    self.viewItems = nil        --显示Item列表(List<GameObject>)
+    self.moreLine = nil         --多显示的行数或列数（防止移动时露馅）
+    self.timer = nil            --计时器
+    self.pool = nil             --Item对象池
+    self:init()
+end
+
+function M:init()
+    self.scrollRect = self.gameObject:GetComponent("ScrollRect")
+    self.scrollSize = self.gameObject:GetComponent("RectTransform").sizeDelta
+    self.content = self.scrollRect.content
+    self.contentSize = self.content:GetComponent("RectTransform").sizeDelta
+    self.scrollType = self.scrollRect.horizontal and ScrollType.Horizontal or ScrollType.Vertical
+    local layoutH = self.content:GetComponent("HorizontalLayoutGroup")
+    local layoutV = self.content:GetComponent("VerticalLayoutGroup")
+    local layoutG = self.content:GetComponent("GridLayoutGroup")
+    self.layout = layoutH and layoutH or layoutV and layoutV or layoutG
+    self.layoutType = layoutH and LayoutType.Horizontal or layoutV and LayoutType.Vertical or LayoutType.Grid
+    self.layoutSpace = self.layout.spacing
+    if self.layoutType == LayoutType.Grid then
+        self.layoutSpace = self.scrollType == ScrollType.Horizontal and self.layout.spacing.x or self.layout.spacing.y
+    end
+    self.contentStartPos = self.content.localPosition
+    self.contentOldPos = self.contentStartPos
+    local childCount = self.content.childCount
+    if childCount > 0 then
+        self.itemPrefab = self.content:GetChild(0).gameObject
+        self.itemSize = self.itemPrefab:GetComponent("RectTransform").sizeDelta
+    end
+    self.emptyItems = {}
+    self.viewItems = {}
+    self.moreLine = 2--多显示2行或2列，这样滚动时才不会露馅(1行不够，2行才够。因为在网格类型，且最后一行没填满，移动时会露馅)
+    self.pool = {}
+end
+
+function M:clear()
+    for i, v in pairs(self.viewItems) do
+        GameObject.Destroy(v)
+    end
+    self.viewItems = {}
+    for _, v in pairs(self.emptyItems) do
+        GameObject.Destroy(v)
+    end
+    self.emptyItems = {}
+    for i, v in pairs(self.pool) do
+        GameObject.Destroy(v)
+    end
+    self.pool = {}
+    self.content.localPosition = self.contentStartPos
+    self.contentOldPos = self.contentStartPos
+    if self.timer then
+        self.timer:Dispose()
+        self.timer = nil
+    end
+end
+
+function M:update()
+    if self:getViewItemCount() == 0 then return end
+    self:checkMoveViewItem()
+end
+
+--- @param allCount number Item总数量
+--- @param rowCount number 区域内最大显示行数量
+--- @param columnCount number 区域内最大显示列数量
+--- @param itemPrefab GameObject Item预制(默认用content的子节点作为预制体)
+--- @param setItemHandler function(GameObject, index) 设置Item的回调
+--- @param clearItemHandler function(index) 清除Item的回调（item被循环使用之前，可能要先清除数据）
+function M:setData(allCount, rowCount, columnCount, itemPrefab, setItemHandler, clearItemHandler)
+    self.rowCount = rowCount
+    self.columnCount = columnCount
+    self.setItemHandler = setItemHandler
+    self.clearItemHandler = clearItemHandler
+    if itemPrefab then
+        self.itemPrefab = itemPrefab
+        self.itemSize = self.itemPrefab:GetComponent("RectTransform").sizeDelta
+    end
+    if self:getViewItemCount() > 0 then self:clear() end--已经设置过了
+    self:setEmptyItems(allCount)
+    self:setViewItems(allCount, rowCount * columnCount)
+    self.itemPrefab:SetActive(false)
+    if self.timer then self.timer:Dispose() end
+    self.timer = Timer.new(0, 1, true, true, self.update, self)
+    self.timer:start()
+end
+
+--- @param count number Item总数量
+function M:resetData(count)
+    if self:getViewItemCount() > 0 then self:clear() end--已经设置过了
+    self:setEmptyItems(count)
+    self:setViewItems(count, self.rowCount * self.columnCount)
+    self.itemPrefab:SetActive(false)
+end
+
+function M:setPadding(left, right, top, bottom)
+    self.layout.padding.left = left
+    self.layout.padding.right = right
+    self.layout.padding.top = top
+    self.layout.padding.bottom = bottom
+end
+
+function M:setEmptyItems(count)
+    for i = 1, count do
+        if not self.emptyItems[i] then
+            local gameObject = GameObject("EmptyItem")
+            gameObject.transform:SetParent(self.content)
+            gameObject.transform.localPosition = Vector3.zero
+            gameObject.transform.localScale = Vector3.one
+            local rectTransform = gameObject:AddComponent(typeof(RectTransform))
+            rectTransform.sizeDelta = self.itemSize
+            rectTransform.pivot = Vector2(0, 1);
+            table.insert(self.emptyItems, gameObject)
+        end
+    end
+end
+
+function M:setViewItems(allCount, viewCount)
+    local addCount = self.scrollType == ScrollType.Horizontal and self.rowCount or self.columnCount
+    viewCount = viewCount + addCount * self.moreLine
+    local count = allCount < viewCount and allCount or viewCount
+    for i = 1, count do
+        local gameObject = self.viewItems[i]
+        if not gameObject then
+            gameObject = self:clone(self.emptyItems[i].transform)
+            local rectTransform = gameObject:GetComponent("RectTransform")
+            rectTransform.sizeDelta = self.itemSize
+            self.viewItems[i] = gameObject
+        end
+        self.setItemHandler(gameObject, i)
+    end
+end
+
+--克隆对象
+function M:clone(parent)
+    local gameObject
+    for i, v in pairs(self.pool) do
+        table.remove(self.pool, i)
+        gameObject = v
+        break
+    end
+    if not gameObject then
+        gameObject = GameObject.Instantiate(self.itemPrefab)
+    end
+    gameObject:SetActive(true)
+    gameObject.transform:SetParent(parent)
+    gameObject.transform.localPosition = Vector3.zero
+    gameObject.transform.localScale = Vector3.one
+    return gameObject
+end
+
+--区域滚动时，检查是否要移动ViewItem
+function M:checkMoveViewItem()
+    if not self.content or not self.content.localPosition then return end
+    local oldPos = self.contentOldPos
+    local newPos = self.content.localPosition
+    if self.scrollType == ScrollType.Horizontal then
+        local dx = oldPos.x - newPos.x--滚动的间距
+        if dx >= 0 then--左滑判断滑动间距超过padding.left
+            if dx <= self.layout.padding.left then return end
+            dx = dx - self.layout.padding.left
+        else
+            --TODO
+        end
+        local space = self.itemSize.x + self.layoutSpace--item的间距
+        local offset = math.floor(dx / space)
+        if offset == 0 then return end
+        self:moveViewItem(offset)
+    else
+        local dy = newPos.y - oldPos.y--滚动的间距
+        if dy >= 0 then--上滑判断滑动间距超过padding.top
+            if dy <= self.layout.padding.top then return end
+            dy = dy - self.layout.padding.top
+        else
+            --TODO
+        end
+        local space = self.itemSize.y + self.layoutSpace--item的间距
+        local offset = math.floor(dy / space)
+        if offset == 0 then return end
+        self:moveViewItem(offset)
+    end
+end
+
+function M:moveViewItem(offset)
+    if offset > 0 then
+        for i = 1, offset do
+            self:moveViewItemDown()
+        end
+    elseif offset < 0 then
+        for i = 1, -offset do
+            self:moveViewItemUp()
+        end
+    end
+end
+
+--往上滑动时，顶部Item移到底部
+function M:moveViewItemDown()
+    local index = self:getNextEmptyItemIndex()
+    if index == 0 then return end--已经滑到底部了
+    local count = self.scrollType == ScrollType.Horizontal and self.rowCount or self.columnCount
+    local offset = self.rowCount * self.columnCount + count * self.moreLine
+    for i = 1, count do
+        local gameObject = self.viewItems[index - offset]
+        if not gameObject then break end
+        self.viewItems[index - offset] = nil
+        if self.clearItemHandler then self.clearItemHandler(index - offset) end
+        gameObject.transform:SetParent(self.emptyItems[index].transform)
+        gameObject.transform.localPosition = Vector3.zero
+        self.viewItems[index] = gameObject
+        self.setItemHandler(gameObject, index)
+        index = index + 1
+        if index > #self.emptyItems then break end
+    end
+    self:setContentOldPos(true)
+end
+
+--往下滑动时，底部Item移到顶部
+function M:moveViewItemUp()
+    local index = self:getPerEmptyItemIndex()
+    if index == 0 then return end--已经滑到顶部了
+    local count = self.scrollType == ScrollType.Horizontal and self.rowCount or self.columnCount
+    local offset = self.rowCount * self.columnCount + count * self.moreLine
+    for i = 1, count do
+        local gameObject = self.viewItems[index + offset]
+        if not gameObject then break end
+        self.viewItems[index + offset] = nil
+        if self.clearItemHandler then self.clearItemHandler(index + offset) end
+        gameObject.transform:SetParent(self.emptyItems[index].transform)
+        gameObject.transform.localPosition = Vector3.zero
+        self.viewItems[index] = gameObject
+        self.setItemHandler(gameObject, index)
+        index = index - 1
+        if index < 1 then break end
+    end
+    self:setContentOldPos(false)
+end
+
+--获得上一个空壳的索引
+function M:getPerEmptyItemIndex()
+    local index = 1
+    if self.emptyItems[index].transform.childCount > 0 then return 0 end--已经滑到顶部了
+    for i = 1, #self.emptyItems do
+        local item = self.emptyItems[i]
+        if item.transform.childCount == 0 then
+            index = i
+        else
+            return index
+        end
+    end
+    return 0
+end
+
+--获得下一个空壳索引
+function M:getNextEmptyItemIndex()
+    local index = #self.emptyItems
+    if self.emptyItems[index].transform.childCount > 0 then return 0 end--已经滑到底部了
+    for i = #self.emptyItems, 1, -1 do
+        local item = self.emptyItems[i]
+        if item.transform.childCount == 0 then
+            index = i
+        else
+            return index
+        end
+    end
+    return 0
+end
+
+--设置容器旧的位置
+function M:setContentOldPos(isScrollLeftOrUp)
+    local oldPos = self.contentOldPos
+    if self.scrollType == ScrollType.Horizontal then
+        local space = self.itemSize.x + self.layoutSpace
+        self.contentOldPos = Vector3(oldPos.x + (isScrollLeftOrUp and -space or space), oldPos.y, 0)
+    else
+        local space = self.itemSize.y + self.layoutSpace
+        self.contentOldPos = Vector3(oldPos.x, oldPos.y + (isScrollLeftOrUp and space or -space), 0)
+    end
+end
+
+--开启/屏蔽滑动事件
+--如果item也是个ScrollView，通过屏蔽父级/子级的滑动事件，从而实现只有子级/父级响应滑动事件
+function M:setActiveDragEvent(active)
+    -- TODO set all child image RaycastTarget
+    if self.scrollType == ScrollType.Horizontal then
+    else
+    end
+end
+
+--不能用#self.viewItems
+function M:getViewItemCount()
+    -- table.getCount(self.viewItems)--直接用这个代替
+    local count = 0
+    for _, v in pairs(self.viewItems) do
+        if v then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+return M

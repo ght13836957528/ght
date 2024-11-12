@@ -1,0 +1,35 @@
+----------------------------------------------------------------------
+--------- 2022年12月19日 16:49:13 星期一
+----------------------------------------------------------------------
+
+--[[
+    角色在战斗中寻路
+]]
+
+---@class CharacterNavigation
+local CharacterNavigation = class("CharacterNavigation")
+local M = CharacterNavigation
+
+--------------------------------------------------------------------------------------------------------
+
+function M:Ctor(tbBattleContext)
+    -- 战斗context，可以取MapController
+    self.context = tbBattleContext
+end
+
+function M:Initialize()
+    --
+end
+
+function M:Clear()
+    --
+end
+
+--------------------------------------------------------------------------------------------------------
+
+function M:FindPath(tbSrc, tbTarget, tbPath)
+    --
+end
+
+
+return M

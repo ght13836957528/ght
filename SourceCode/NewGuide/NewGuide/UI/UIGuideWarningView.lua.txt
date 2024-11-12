@@ -1,0 +1,51 @@
+--新手引导闪屏警告
+---@class UIGuideWarningView:UIPanel
+---@field duration number 持续时间
+local UIGuideWarningView = class("UIGuideWarningView", UIPanel)
+local M = UIGuideWarningView
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UIGuideWarning.prefab"
+end
+
+function M:getConfigLayerType()
+    return UILayerType.Guide
+end
+
+function M:onParse(params)
+    self.duration = params.duration
+    self.waringType=params.waringType
+end
+
+function M:onCreate()
+    --if CS.UIMain.Instance then
+    --    CS.UIMain.Instance:ShowWarning(true)
+    --end
+    if self.duration and self.duration > 0 then
+        self.timer = Timer.new(0, self.duration, false, false, self.onFinish, self)
+        self.timer:start()
+    end
+end
+
+function M:onFinish()
+    self:closeSelf()
+end
+
+function M:onDispose()
+    if self.timer then
+        self.timer:dispose()
+        self.timer = nil
+        GameEntry.Event:Fire(self, CS.CommonEventArgs(CS.EventId.CloseUIMainWarningCell))
+    end
+    --if self.waringType==CS.UIMainWarningCell.WarningCellType.MonsterFlood then
+    --    print_error("不用关警报")
+    --else
+    --    GameEntry.Event:Fire(self, CS.CommonEventArgs(CS.EventId.CloseUIMainWarningCell))
+    --end
+    --if CS.UIMain.Instance then
+    --    CS.UIMain.Instance:ShowWarning(false)
+    --end
+end
+
+return M

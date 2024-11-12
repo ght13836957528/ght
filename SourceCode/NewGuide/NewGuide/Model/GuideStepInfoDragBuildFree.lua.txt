@@ -1,0 +1,12 @@
+---@class GuideStepInfoDragBuildFree: GuideStepBaseInfo @GuideStepInfoCheckIfTowerDefenseLoaded
+---@field public buildID number buildID
+---@field public cancelJumpId number 点击退出跳转的引导id
+local GuideStepInfoDragBuildFree = class("GuideStepInfoDragBuildFree", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoDragBuildFree
+
+function M:onParse(params)
+    self.buildID = params.buildID
+    self.cancelJumpId = params.cancelJumpId
+end
+
+return M

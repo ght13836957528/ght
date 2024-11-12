@@ -1,0 +1,77 @@
+----------------------------------------------------------------------
+--------- 2022年12月02日 16:46:45 星期五
+----------------------------------------------------------------------
+
+---@class BattleCharacterContext
+local BattleCharacterContext = class("BattleCharacterContext")
+local M = BattleCharacterContext
+
+function M:Ctor(battleCamp)
+    self._battleCamp = battleCamp
+    --- 被控制的时间（不包含沉默）
+    self._beControlledTime = 0
+    self._isBoss = false
+    self._parentEntityId = nil
+    self._isSummon = false
+end
+
+function M:Initialize(battleData, parentEntityId)
+    self._isBoss = battleData._isBoss
+    self._parentEntityId = parentEntityId or nil
+end
+
+function M:SetIsSummon(isSummon)
+    self._isSummon = isSummon
+end
+
+function M:GetIsSummon()
+    return self._isSummon
+end
+
+function M:GetParentEntityId()
+    return self._parentEntityId
+end
+
+function M:isBoss()
+    return self._isBoss
+end
+
+--- time / ms
+function M:SetBeControlledTime(time)
+    time = time or 0
+    self._beControlledTime = self._beControlledTime > self._beControlledTime and time or time
+end
+
+function M:GetBeControlledTime()
+    return self._beControlledTime
+end
+
+function M:GetBattleCamp()
+    return self._battleCamp
+end
+
+function M:OnUpdate(dt)
+    self:_update(dt)
+end
+
+function M:OnUpdateSpecial(dt)
+    self:OnUpdate(dt)
+end
+
+function M:Clear()
+
+end
+
+function M:_update(dt)
+    -- self:_updateControlledTime(dt)
+end
+
+function M:_updateControlledTime(dt)
+    if self._beControlledTime > 0 then
+        self._beControlledTime = self._beControlledTime - dt
+        self._beControlledTime = self._beControlledTime < 0 and 0 or self._beControlledTime
+        -- BattleLogger.log("被控制时间 ： " .. self._beControlledTime)
+    end
+end
+
+return M

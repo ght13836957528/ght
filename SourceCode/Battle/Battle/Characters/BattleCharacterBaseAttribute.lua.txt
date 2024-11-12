@@ -1,0 +1,438 @@
+---- 玩家三个基础值
+--- 血量 怒气值 护盾值
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local BattleLogger = BattleLogger
+local ConfigHandler = ConfigHandler
+local BattleFormulaHelper = require "GameLogic.Battle.BattleAttribute.BattleFormulaHelper"
+---@class BattleCharacterBaseAttribute
+local BattleCharacterBaseAttribute = class("BattleCharacterBaseAttribute")
+
+local M = BattleCharacterBaseAttribute
+---@param character BattleCharacter
+---@param battleContext BattleContext
+function M:Ctor(character, battleContext)
+    self.hostCharacter = character
+    self.battleContext = battleContext
+
+    self.characterLevel = 1
+    self.currentHP = 0
+    self.totalHp = 0
+    self.hpRate = 1
+    self.anger = 0
+    self.shield_baseStatic = 0
+    self.shield_total = 0
+    self.shield_static = 0
+    self.moveSpeed = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Init_Mov_Spd")
+    ---@type BuffShield[]
+    self.list_shieldEff = {}
+    --- 重伤
+    self.severeWound = 0
+    --- 轻伤
+    self.minorWound = 0
+    --- 轻伤治疗
+    self.minorCure = 0
+end
+
+------------------------------------------------------------------------------------------------------
+---@param battleData BattleCharacterModelBase
+function M:Initialize(battleData)
+    self.characterLevel = battleData._level or 1
+    if battleData._baseHp ~= -1 then
+        self.currentHP = battleData._baseHp
+    end
+    local v = battleData._attMap[5] or 0
+    self.hpRate = 1 - v * 0.0001
+    self:UpdateHPOnBaseChange()
+end
+
+function M:UpdateAttribute(battleData)
+    self.characterLevel = battleData._level or 1
+
+    BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_ATTRIBUTE_CHANGED,
+            {
+                characterBattleId = self.hostCharacter:GetBattleId(),
+                type = BattleEnum.BaseProperty.Hp,
+                maxValue = self:GetHpTotal(),
+                currentValue = self.currentHP
+            })
+end
+
+function M:Clear()
+
+end
+
+function M:GetHpTotal()
+    return self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_HP_1)
+end
+
+function M:GetAnger()
+    return self.anger
+end
+
+function M:GetShield()
+    return self.shield_total
+end
+
+function M:GetCharacterLevel()
+    -- do
+    --     return 11
+    -- end
+    return self.characterLevel
+end
+
+function M:GetBaseMoveSpeed()
+    return self.moveSpeed
+end
+
+--------------------------------------------------------------------------------------------
+----
+function M:refreshCasualties(damageValue)
+    local ratio = self.battleContext:GetTroopsLoss() * 0.01
+    local minorWound = damageValue * ratio
+    local severeWound = damageValue - minorWound
+    self.minorWound = self.minorWound + minorWound
+    self.severeWound = self.severeWound + severeWound
+end
+
+function M:refreshTroopCure(cure)
+    self.minorCure = self.minorCure + cure
+end
+
+---@return {minorWound ,severeWound,minorCure,bassHp}
+function M:cloneTroopLossData()
+    return {
+        minorWound = math.floor(self.minorWound),
+        severeWound = math.floor(self.severeWound),
+        minorCure = math.floor(self.minorCure),
+        bassHp = math.floor(self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+            .AttributeType_HP_1))
+    }
+end
+
+-----------------------------------------------------------------------------------------------------------
+------------------------------------------- HP
+-----------------------------------------------------------------------------------------------------------
+--- 血量百分比
+function M:GetHpRate()
+    return self.hpRate
+end
+
+function M:GetCurrentHpValue()
+    return self.currentHP
+end
+
+--- 属性值修改HP
+function M:UpdateHPOnBaseChange()
+    local baseHp = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_HP_1)
+    if self.currentHP > baseHp then
+        self.currentHP = baseHp
+    else
+        self.currentHP = baseHp * self.hpRate
+    end
+    BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_ATTRIBUTE_CHANGED,
+        {
+            characterBattleId = self.hostCharacter:GetBattleId(),
+            type = BattleEnum.BaseProperty.Hp,
+            maxValue = baseHp,
+            currentValue = self.currentHP
+        })
+end
+
+--- 血量变化计算
+--- @param changeValue number 血量变化值
+--- @param valueChangeAction function 每次血量变化时的回调函数
+--- @param dieAction function 血量减少到0时的回调函数
+function M:AddHp(changeValue, dieAction, fromId, ignoreSevereWound)
+    local toChangeValue = changeValue or 0
+    if toChangeValue <= 0 then
+        -- 没有数值变化
+        return
+    end
+    local currentHp = self.currentHP or 0
+    if currentHp <= 0 then
+        BattleLogger.log("角色已经死亡")
+        return
+    end
+    local currentHp = self.currentHP or 0
+    local newHp = currentHp + changeValue
+
+    local baseHp = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_HP_1)
+    
+    if not ignoreSevereWound then
+        baseHp = baseHp - self.severeWound
+    end
+    
+    local newHp = newHp > baseHp and baseHp or newHp
+    self:refreshTroopCure(newHp - self.currentHP)
+    self.hpRate = newHp / baseHp
+    self.currentHP = newHp
+    self:_onHpValueChange(changeValue, self.currentHP, baseHp, false, fromId)
+    -- if self.currentHP <= 0 then
+    --     if dieAction ~= nil then
+    --         dieAction()
+    --     end
+    -- end
+end
+
+function M:ReviveHp()
+    local baseHp = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType.AttributeType_HP_1)
+    self.currentHP = baseHp
+    
+    self:_onHpValueChange(baseHp, self.currentHP, baseHp)
+end
+
+--- 血量变化计算
+--- @param changeValue number 血量变化值
+--- @param valueChangeAction function 每次血量变化时的回调函数
+--- @param dieAction function 血量减少到0时的回调函数
+function M:DeductHp(fromId, changeValue, params, isCritical, dieAction)
+    local toChangeValue = changeValue or 0
+    if toChangeValue <= 0 then
+        -- 没有数值变化
+        return
+    end
+
+    local currentHp = self.currentHP or 0
+    if currentHp <= 0 then
+        if dieAction ~= nil then
+            dieAction()
+        end
+        return
+    end
+    params = params or {}
+    local specialA = params[4]
+    local specialB = params[5]
+
+    if self.hostCharacter:GetLogicHandle():CheckHasBuff(BattleEnum.BuffType.Buff_Invincible) then
+        local isLeft = self.hostCharacter:GetTransform():isLeftTeam()
+        BattleEventUtils:DisPath_Immune(self.hostCharacter:GetBattleId(), isLeft)
+        changeValue = 0
+    end
+
+    local hpCost = self:DeductShieldValue(changeValue, specialA, specialB)
+
+    self:_handleSuckBlood(fromId, params, hpCost)
+
+    -- hpCost = 50
+    self:_doMulHp(-hpCost, isCritical, dieAction, fromId)
+end
+
+function M:_handleSuckBlood(fromId, params, hpCost)
+    local paramA = params[4] or 0
+    local paramB = params[5] or 0
+    local fromCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(fromId)
+    local suckBlood = 0
+    if paramA == BattleEnum.HitSpecialType.Hemophagia and paramB and paramB > 0 then
+        suckBlood = BattleFormulaHelper:bloodsucker(hpCost, fromCharacter, paramB)
+    else
+        suckBlood = BattleFormulaHelper:bloodsucker(hpCost, fromCharacter, 0)
+    end
+    if suckBlood > 0 then
+        -- BattleLogger.log_error("吸血 ：  to do ", suckBlood)
+        fromCharacter:GetLogicHandle():AddHp(fromId, suckBlood)
+    end
+end
+
+function M:_doMulHp(hpCost, isCritical, dieAction, fromId)
+    local currentHp = self.currentHP or 0
+    local newHp = currentHp + hpCost
+    if newHp <= 0 then
+        BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_OnOneSDeathbed_8,
+            self.hostCharacter:GetBattleId())
+        if self.hostCharacter:GetLogicHandle():CheckHasBuff(BattleEnum.BuffType.Buff_NotDie) then
+            newHp = 1
+        end
+        --- todo 可能有冒字
+    end
+    if newHp <= 0 then
+        self:refreshCasualties(self.currentHP)
+    else
+        self:refreshCasualties(-hpCost)
+    end
+
+    self.currentHP = newHp
+    local baseHp = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_HP_1)
+    self.hpRate = newHp / baseHp
+    self:_onHpValueChange(hpCost, self.currentHP, baseHp, isCritical, fromId)
+    if self.currentHP <= 0 then
+        if dieAction ~= nil then
+            dieAction()
+        end
+    end
+end
+
+function M:_onHpValueChange(fChangeValue, fCurrentValue, fMaxValue, isCritical, fromId)
+    isCritical = isCritical or false
+    BattleEventUtils:DisPath_Diff_Hp(self.hostCharacter:GetBattleId(), fChangeValue,
+        fCurrentValue, fMaxValue, isCritical, self.hostCharacter:GetCharacterContext():isBoss())
+    if fChangeValue < 0 then
+        local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+        BattleEventUtils:DisPath_PlayEffAni(self.hostCharacter:GetBattleId(),
+            BattleEnum.BattleCommonEffAniClip.CommonHurt, aniSpeed)
+    end
+    BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_ATTRIBUTE_CHANGED,
+        {
+            characterBattleId = self.hostCharacter:GetBattleId(),
+            type = BattleEnum.BaseProperty.Hp,
+            maxValue = fMaxValue,
+            currentValue = fCurrentValue
+        })
+    self:debugLog_hp(fChangeValue, fromId)
+    -- self.hostCharacter:GetRender():UpdateHpDisplay(fChangeValue, fCurrentValue, fMaxValue)
+    -- BattleLogger.log_error("更新 UI 血条 ")
+end
+
+---------------------------------------------------------------------------------------------------------------
+------------------护盾
+-------------------------------------------------------------------------------
+
+function M:DeductShieldValue(value, specialA, specialB)
+    specialA = specialA or 0
+    specialB = specialB or 0
+    if specialA == BattleEnum.HitSpecialType.NoShield then
+        return value
+    end
+    if specialA == BattleEnum.HitSpecialType.DoubleOnShield then
+        if specialB <= 0 or specialB == nil then
+            BattleLogger.log_error("伤害特殊参数B 必须大于 0 ", tostring(specialB))
+            specialB = 1
+        end
+        if value >= self.shield_total then
+            self:_mulShield(self.shield_total)
+            return value - self.shield_total / specialB
+        else
+            local tmp = value * 2
+            if tmp >= self.shield_total then
+                self:_mulShield(self.shield_total)
+                return value - self.shield_total / specialB
+            else
+                self:_mulShield(tmp)
+                return 0
+            end
+        end
+    end
+    self:_mulShield(value)
+    local tmp = value - self.shield_total
+    return tmp > 0 and tmp or 0
+end
+
+function M:_mulShield(v)
+    if v > 0 then
+        if self.shield_total > 0 then
+            BattleEventUtils:DisPath_Parry(self.hostCharacter:GetBattleId(),
+                self.hostCharacter:GetTransform():isLeftTeam())
+        end
+        for _, buffNode in ipairs(self.list_shieldEff) do
+            if v > 0 then
+                local tmpV = v
+                v = v - buffNode:GetResultValue()
+                buffNode:MulValue(tmpV)
+            else
+                break
+            end
+        end
+        if v > 0 then
+            self.shield_static = self.shield_static - v
+            self.shield_static = self.shield_static > 0 and self.shield_static or 0
+        end
+
+        self:_updateShieldTotal()
+    end
+end
+
+function M:AddShieldStaticValue(value, fromId)
+    self.shield_static = self.shield_static + value
+    self.shield_baseStatic = self.shield_baseStatic + value
+    self:_updateShieldTotal()
+    self:UpdateShieldNumBox(value, fromId)
+end
+
+function M:UpdateShieldNumBox(value, fromId)
+    value = value > 0 and value or 0
+    local fromCharacter = self.battleContext:GetCharacterManager():GetCharacterById(fromId)
+    if fromCharacter then
+        fromCharacter:GetBattleNumericalBox():counter(BattleEnum.NumericalType.AllShield, value)
+    end
+end
+
+---@param buff BuffShield
+function M:AddShieldEff(buff, fromId)
+    local total = self.shield_total
+    table.insert(self.list_shieldEff, buff)
+    self:_updateShieldTotal()
+    self:UpdateShieldNumBox(self.shield_total - total, fromId)
+end
+
+---@param buff BuffShield
+function M:RemoveShieldEff(buff)
+    table.removebyvalue(self.list_shieldEff, buff)
+    self:_updateShieldTotal()
+end
+
+function M:_updateShieldTotal()
+    local tmp = 0
+    local baseBuff = 0
+    for _, buffNode in ipairs(self.list_shieldEff) do
+        local value = buffNode:GetResultValue(0)
+        tmp = tmp + buffNode:GetResultValue(0)
+        if value > 0 then
+            baseBuff = baseBuff + buffNode:GetMaxValue()
+        end
+    end
+    local total = self.shield_static + tmp
+    if total ~= self.shield_total then
+        local baseTotal = baseBuff
+        if self.shield_static > 0 then
+            baseTotal = baseTotal + self.shield_baseStatic
+        else
+            self.shield_baseStatic = 0
+        end
+        BattleEventUtils:DisPath_Diff_Shield(self.hostCharacter:GetBattleId(), total - self.shield_total, total,
+            baseTotal, self.hostCharacter:GetCharacterContext():isBoss())
+    end
+    local isSummon = self.hostCharacter:GetCharacterContext():GetIsSummon()
+    if isSummon then
+        total = BattleHelper:ModifiedSummonEffValue_Shield(total)
+    end
+    self:debugLog_shield(total - self.shield_total)
+    self.shield_total = total
+end
+
+function M:debugLog_hp(changeValue, fromId)
+    if BattleLogger.IsOpenRealTimeProperty_Hp() then
+        local hp = self.currentHP
+        local anger = self.hostCharacter:GetRageManager():GetCurrentRage()
+        local shield = self.shield_total
+        local m_camp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+        local m_pos = self.hostCharacter:GetTransform():GetInitPos()
+        local m_str = m_camp == BattleEnum.BattleCamp.Attack and "左" or "右"
+        local s_character = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(fromId)
+        local s_camp = s_character:GetCharacterContext():GetBattleCamp()
+        local s_pos = s_character:GetTransform():GetInitPos()
+        local s_str = s_camp == BattleEnum.BattleCamp.Attack and "左" or "右"
+        BattleLogger.logBattleRealTimeBaseProperty(m_str, m_pos, "  施法者：", s_str, s_pos,
+            "   血:", hp, "   护盾:", shield, "   怒气:", anger, "   血量变化:", changeValue)
+    end
+end
+
+function M:debugLog_shield(changeValue)
+    if BattleLogger.IsOpenRealTimeProperty_Shield() then
+        local hp = self.currentHP
+        local anger = self.hostCharacter:GetRageManager():GetCurrentRage()
+        local shield = self.shield_total
+        local m_camp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+        local m_pos = self.hostCharacter:GetTransform():GetInitPos()
+        local m_str = m_camp == BattleEnum.BattleCamp.Attack and "左" or "右"
+        BattleLogger.logBattleRealTimeBaseProperty(m_str, m_pos,
+            "   血:", hp, "   护盾:", shield, "   怒气:", anger, "  护盾变化:", changeValue)
+    end
+end
+
+return M

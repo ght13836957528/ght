@@ -1,0 +1,11 @@
+----------------------------------------------------------------------
+--------- 2023年02月07日 21:07:50 星期二
+----------------------------------------------------------------------
+
+local BaseRepresentCharacter = require "GameLogic.Battle.Represent.BaseRepresentCharacter"
+
+---@class DefaultRepresentCharacter
+local DefaultRepresentCharacter = class("DefaultRepresentCharacter", BaseRepresentCharacter)
+local M = DefaultRepresentCharacter
+
+return M

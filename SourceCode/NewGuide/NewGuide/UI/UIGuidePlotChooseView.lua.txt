@@ -1,0 +1,64 @@
+--处死艾达界面
+--对应cocos    GuidePlotChooseView.cpp
+---@class UIGuidePlotChooseView:UIPanel
+local UIGuidePlotChooseView = class("UIGuidePlotChooseView", UIPanel)
+local M = UIGuidePlotChooseView
+
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UIGuidePlotChooseView.prefab"
+end
+
+function M:getConfigLayerType()
+    return UILayerType.UIResourcePopUp
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+--<!--玩家抉择  --> 
+--<ItemSpec id="80000604" next="" enforce="1" closeAllPop="1" cartoon="ShowGuidePlotChooseView" hideLayer="1" 
+--para1="110279022" para2="110279023" para3="110279024" para4="297" para5="295" para6="110279025"  para7="110279026" jump1="80000605" jump2="80000607"/>
+
+function M:onParse(params)
+end
+
+function M:onCreate()
+    self:initText()
+end
+
+function M:initText()
+    --110279022=是否殺死艾達？
+    --110279023=殺了她，我們可不需要一個喪屍做夥伴！
+    --110279024=沒完全異化之前我們不能放棄！
+    --110279025=同意西蒙
+    --110279026=同意尼克
+    self._textTitle.text = GameEntry.Localization:GetString("110279022")
+    self._textDesLeft.text = GameEntry.Localization:GetString("110279023")
+    self._textDesRight.text = GameEntry.Localization:GetString("110279024")
+    self._textChoose1.text = GameEntry.Localization:GetString("110279025")
+    self._textChoose2.text = GameEntry.Localization:GetString("110279026")
+end
+
+function M:onAddListener()
+    self._btnChoose1:addEventListener(ButtonEvent.CLICK, self.onClickChooseBtn1, self)
+    self._btnChoose2:addEventListener(ButtonEvent.CLICK, self.onClickChooseBtn2, self)
+end
+
+function M:onRemoveListener()
+    self._btnChoose1:removeEventListener(ButtonEvent.CLICK, self.onClickChooseBtn1, self)
+    self._btnChoose2:removeEventListener(ButtonEvent.CLICK, self.onClickChooseBtn2, self)
+end
+
+function M:onClickChooseBtn1()
+    self:closeSelf()
+    BroadcastEvent.dispatch(GuideEvent.Trigger, GuideTriggerType.AgreeKillIAida)
+end
+
+function M:onClickChooseBtn2()
+    self:closeSelf()
+    BroadcastEvent.dispatch(GuideEvent.Trigger, GuideTriggerType.AgreeNotKillAida)
+end
+return M

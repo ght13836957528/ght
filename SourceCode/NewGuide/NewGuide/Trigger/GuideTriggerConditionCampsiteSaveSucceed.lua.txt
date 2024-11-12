@@ -1,0 +1,13 @@
+---@class GuideTriggerConditionCampsiteSaveSucceed:GuideTriggerCondition
+local GuideTriggerConditionCampsiteSaveSucceed = class("GuideTriggerConditionCampsiteSaveSucceed", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionCampsiteSaveSucceed
+
+function M:equals(param)
+    local result = false
+    if param == self.triggerParam then
+        result = true
+    end
+    return result
+end
+
+return M

@@ -1,0 +1,319 @@
+
+---@CartoonManager
+CartoonManager = {}
+local M = CartoonManager
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+local CommonUtils = CS.CommonUtils
+local GameObject = CS.UnityEngine.GameObject
+local EventId = CS.EventId
+local GuideFly = "Assets/Main/Prefabs/UI/Guide/GuideFlyEffect.prefab"
+local prefab_GanTanHao= "Assets/Main/Prefabs/UI/Build/tanhao.prefab"
+
+local cartoonList={
+    [NewGuideConst.CartoonActionType.ShowNewShiftCar] = {func =function() M.showNewGuideShiftCar()  end},
+    [NewGuideConst.CartoonActionType.ShowNewShiftCarEnd] = {func =function() M.showNewGuideShiftCarEnd()  end},
+    [NewGuideConst.CartoonActionType.ShowHeroRunToBase] = {func =function() M.showNewGudieHeroRunToBase()  end},
+    [NewGuideConst.CartoonActionType.ShowWorkerRunToGarage] = {func =function() M.showNewGuideRunToGarage()  end},
+    [NewGuideConst.CartoonActionType.Show_flyEffect] = {func = function()M.showNewGuideFlyEffect()  end},
+    [NewGuideConst.CartoonActionType.WaitFreeBuildBtnsViewEnd] = {func = function()M.showNewGuideWaitTime()  end},
+    [NewGuideConst.CartoonActionType.Guide_FinishUpgradeFunBuild_548000] = {func = function()M.showNewGuideCarToUpgradeBuild()  end},
+    [NewGuideConst.CartoonActionType.Guide_FinishUpgradeFunBuild_400000] = {func = function()M.showNewGuideCarToUpgradeBuild()  end},
+    [NewGuideConst.CartoonActionType.ShowCreateWall] = {func = function()M.showNewGuideCreatWall()  end},
+    [NewGuideConst.CartoonActionType.ShowOpenDoor] = {func = function()M.showNewGuideOpendDoor()  end},
+    [NewGuideConst.CartoonActionType.ShowBaseMoveBox] = {func = function()M.showNewGuideMoveBox()  end},
+    [NewGuideConst.CartoonActionType.ShowTransportGuideHand] = {func = function()M.showTransportGuideHand()  end},
+    [NewGuideConst.CartoonActionType.ShowTrainGuideHand] = {func = function()M.showTrainGuideHand()  end},
+    [NewGuideConst.CartoonActionType.ShowTana] = {func = function()M.showTanHao()  end},
+    [NewGuideConst.CartoonActionType.SetBaseLightOff] = {func = function()M.setBaseLightOff()  end},
+    [NewGuideConst.CartoonActionType.HideNike] = {func = function()M.hideNike()  end},
+}
+
+function M.initManager()
+    M.curTruck = nil
+    M.curStepInfo = nil
+end
+
+function M.doGuideAction(stepInfo)
+    M.curStepInfo = stepInfo
+    local cartoonLogic = CartoonManager.getCartoonByName(M.curStepInfo.cartoonName)
+    cartoonLogic()
+end
+
+---@param name string
+---@return function
+function M.getCartoonByName(name)
+    if cartoonList[name] == nil then
+        print_error("not exist function for :"  .. name)
+        return nil
+    end
+    return cartoonList[name].func
+end
+
+--显示吉普车漂移 ShowNewShiftCar
+function M.showNewGuideShiftCar()
+    local key_zom = GameEntry.Data.Player.Uid .. "_ZombieCreateFlag"
+    GameEntry.Setting:SetString(key_zom,"ShowNewShiftCar")
+    CS.ZombieCreateController.Instance:CSStart();
+    CommonUtils.CamaraAutoLookAtAfterScale(40, 26, -1, 0)
+    local key = GameEntry.Data.Player.Uid .. "_JeepState"
+    local temp = GameEntry.Setting:GetString(key)
+    local lampKey = GameEntry.Data.Player.Uid .. "_LampState";
+    GameEntry.Setting:SetString(lampKey, "thisislock");
+    if string.isNilOrEmpty(temp) then
+        CS.JiPuCheController.Instance:AddJeep(false)
+    end
+end
+
+---显示吉普车动画结束 ShowNewShiftCarEnd
+function M.showNewGuideShiftCarEnd()
+    local key = GameEntry.Data.Player.Uid .. "_baseFenceNewGuideState"
+    GameEntry.Setting:SetString(key,"_ShowNewShiftCarEnd")
+    local carEndKey = GameEntry.Data.Player.Uid .. "_guideNewShiftCarEnd"
+    GameEntry.Setting:SetBool(carEndKey, true)
+    BroadcastEvent.dispatch(NewGuideConst.eventType.CurStepActionOver)
+end
+
+--显示侦查员跑向基地 ShowHeroRunToBase
+function M.showNewGudieHeroRunToBase()
+    CS.QBRunToBaseController.Instance:StarRun()
+end
+
+---ShootZombieByPlot 扫射区域丧尸 
+function M.showNewGuideShootZombie()
+    --todo 这块没有逻辑
+end
+
+---尼克跑向车库 ShowWorkerRunToGarage
+function M.showNewGuideRunToGarage()
+    CS.NiKeRunToGarageController.Instance:StarRun()
+end
+
+--- 飞行拖尾特效 show_flyEffect(GuideFlyEffect以前使用的是这个脚本移动)
+function M.showNewGuideFlyEffect()
+    local buildType = M.curStepInfo.cartoonPara1
+    if buildType == nil then
+        return
+    end
+
+    UResourceManager.LoadAsset(UnityType.GameObject, GuideFly, function(request)
+        if string.isNilOrEmpty(request.error) then
+            local asset = request.Result
+            if asset then
+                --参数不要了，先写建筑物的id
+                local cityBuilding = GameSceneManager.getActor(SceneType.City).building
+                local buildInfoTable = cityBuilding:getBuildInfosByType(buildType)
+                if not buildInfoTable then
+                    print_error("cityInfo is nil")
+                    return
+                end
+                local cityInfo = {}
+                if #buildInfoTable >= 1 then
+                    cityInfo = buildInfoTable[1]
+
+                end
+                local buildTileX = cityInfo.x
+                local buildTileY = cityInfo.y
+                local buildPosition =  Vector2Int(tonumber(buildTileX), tonumber(buildTileY))
+                local worldPos = M.tileToWorld(buildPosition)
+                local screenPos = M.worldToScreenPoint(worldPos)
+                local obj = GameObject.Instantiate(asset)
+                obj.transform:SetParent(CS.UIMain.Instance.transform)
+                obj.transform.position = Vector3.New(screenPos.x,screenPos.y,0)
+                obj.transform.localScale = Vector3.one
+                obj.gameObject:SetActive(true)
+
+                local endPos = CommonUtils.FindChild(CS.UIMain.Instance.transform, "TruckImage").position
+                if endPos then
+                    obj.transform:DOMove(endPos,1).onComplete= function()
+                        UResourceManager.ReleaseAsset(GuideFly)
+                        if obj then
+                            GameObject.Destroy(obj.gameObject)
+                        end
+                        GameEntry.Event:Fire(self, CS.CommonEventArgs(CS.EventId.ShowTruckIcon))
+                        GameEntry.Setting:SetBool(GameEntry.Data.Player.Uid .. CS.GameDefines.SettingKeys.GUIDE_GARAGE_FLAG,true);
+                    end
+                end
+            end
+        end
+    end)
+end
+
+---如果没有配置，但是调用这个函数，按照默认1秒 WaitFreeBuildBtnsViewEnd
+function M.showNewGuideWaitTime()
+    local curDelayTime = 0
+    if M.curStepInfo.lag == nil then
+        curDelayTime = 1
+    else
+        curDelayTime = M.curStepInfo.lag
+    end
+    if self.timer then
+        self.timer:dispose()
+    end
+    self.timer = Timer.new(0, 1, true, false, function()
+        if self.timer then
+            self.timer:dispose()
+        end
+        BroadcastEvent.dispatch(NewGuideConst.eventType.CurStepActionOver)
+    end, self)
+    self.timer:start()
+end
+
+--小车去升级建筑 Guide_FinishUpgradeFunBuild_548000（这块有特殊处理，是按照Guide_FinishUpgradeFunBuild） 
+--所以的升级建筑动画都使用这个，cartoonName不一样，并需要添加到cartoonList中
+function M.showNewGuideCarToUpgradeBuild()
+    local cartoon = M.curStepInfo.cartoonName
+    local cartoonPara1 = M.curStepInfo.cartoonPara1
+    if cartoon and cartoonPara1 then
+        local strSplits = string.split(cartoon,"_")
+        if strSplits and #strSplits ==3 then
+            local buildInfo = GameEntry.Data.Building:GetFunbuildByItemID(strSplits[3])
+            if buildInfo then
+                if self.truckTime then
+                    self.truckTime:dispose()
+                end
+                self.truckTime = Timer.new(0,0.1,true,false,function()
+                    if buildInfo.level < tonumber(cartoonPara1) then
+                        --等待升到配置的等级
+                        M.cameraLookAtTruck()
+                    else
+                        BroadcastEvent.dispatch(NewGuideConst.eventType.CurStepActionOver)
+                        if self.truckTime then
+                            self.truckTime:dispose()
+                        end
+                    end
+                end)
+            end
+        end
+    end
+end
+
+---显示造墙动画 ShowCreateWall
+function M.showNewGuideCreatWall()
+    CS.GuideControllerComponent.isCreateZombie = false --停止产生僵尸 
+    local key_zom = GameEntry.Data.Player.Uid .. "_ZombieCreateFlag"
+    GameEntry.Setting:RemoveSetting(key_zom)
+    local key = GameEntry.Data.Player.Uid .. "_baseBrokeBuildGuideState"
+    GameEntry.Setting:SetString(key,"ShowCreateWall")
+    --发消息
+    GameEntry.Event:Fire(M,CS.CommonEventArgs(EventId.REFRESH_BROKEFENCE))
+    local buildWallCtr = CS.BuildBrokenWallController.Instance
+    if buildWallCtr then
+        buildWallCtr:StartBuild()
+    end
+end
+
+---开门动画 ShowOpenDoor
+function M.showNewGuideOpendDoor()
+    local key = GameEntry.Data.Player.Uid .. "_baseBuildGuideState"
+    GameEntry.Setting:SetString(key,"ShowOpenDoor")
+    GameEntry.Event:Fire(M,CS.CommonEventArgs(EventId.REFRESH_BASEBUILD))
+end
+
+--搬东西动画 ShowBaseMoveBox
+function M.showNewGuideMoveBox()
+    local key  = GameEntry.Data.Player.Uid .. "_baseBuildGuideState"
+    GameEntry.Setting:SetString(key,"ShowBaseMoveBox")
+    GameEntry.Event:Fire(M,CS.CommonEventArgs(EventId.REFRESH_BASEBUILD))
+    --隐藏尼克
+    CS.QBRunToBaseController.Instance:HideNike()
+end
+
+---添加绿色地格闪烁 Free_add_ground_green_spr
+function M.showNewGuideAddGreenTile()
+    
+end
+
+-- 地块坐标转世界坐标
+function M.tileToWorld(tilePos)
+    local citySceneView = GameSceneManager.getView(SceneType.City)
+    return citySceneView.actor.tilemap:tileToWorld({x = tilePos.x, y = tilePos.y})
+end
+
+---世界坐标转换屏幕坐标
+function M.worldToScreenPoint(worldPos)
+    local citySceneView = GameSceneManager.getView(SceneType.City)
+    local camera = citySceneView.camera
+    local screenPoint = camera.camera:WorldToScreenPoint(worldPos)
+    
+    return screenPoint
+end
+
+function M.cameraLookAtTruck()
+    if M.curTruck then
+        GameEntry.UI.CityScene.Camera:Lookat(M.curTruck.transform.position)
+    end
+end
+
+-------c#调用
+function newGuideGetTruck(truck)
+    M.curTruck = truck
+end
+
+
+function M.showTransportGuideHand()
+    if not UIManager.panel:isOpening(CS.GameDefines.UIAssets.UIResourceTransport) then
+        print_error("UIResourceTransport is not opening")
+        return
+    end
+    M.timerUIResourceTransport = Timer.new(0, 0.1, true, false, function()
+        if UIManager.panel:isOpened(CS.GameDefines.UIAssets.UIResourceTransport) then
+            if M.timerUIResourceTransport then
+                M.timerUIResourceTransport:dispose()
+            end
+            local transportView =  GameEntry.UI:GetUIForm(CS.GameDefines.UIAssets.UIResourceTransport)
+            transportView:GetComponent("UIResourceTransport"):DoShowHands(false)
+        end
+    end, M)
+    M.timerUIResourceTransport:start()
+end
+
+function M.showTrainGuideHand()
+    if not UIManager.panel:isOpening(CS.GameDefines.UIAssets.TrainingCamp) then
+        print_error("TrainingCamp is not opening")
+        return
+    end
+    M.timerTrainingCamp = Timer.new(0, 0.1, true, false, function()
+        if UIManager.panel:isOpened(CS.GameDefines.UIAssets.TrainingCamp) then
+            if M.timerTrainingCamp then
+                M.timerTrainingCamp:dispose()
+            end
+            
+        end
+    end, M)
+    M.timerTrainingCamp:start()
+end
+
+function M.showTanHao()
+    UResourceManager.LoadAsset(UnityType.GameObject, prefab_GanTanHao, function(request)
+        if string.isNilOrEmpty(request.error) then
+            local asset = request.Result
+            if asset then
+                local obj = GameObject.Instantiate(asset)
+                obj.transform.position = CS.FreeBuildScene.TileFloatToWorld(26.74, 26.23)
+                M.exclamationPointTimer = Timer.new(0,3,false,false,function()
+                    M.exclamationPointTimer:dispose()
+                    UResourceManager.ReleaseAsset(prefab_GanTanHao)
+                    if obj then
+                        GameObject.Destroy(obj.gameObject)
+                    end
+                end,M)
+                M.exclamationPointTimer:start()
+            end
+        end
+    end)
+end
+
+function M.setBaseLightOff()
+    GameEntry.UI.CityScene.LampManager:SetBasementLightOff() --设置大本闪烁
+end
+
+function M.hideNike()
+    CS.QBRunToBaseController.Instance:HideNike()
+end
+
+function M.clear()
+    M.curTruck = nil
+    M.curStepInfo = nil
+end
+
+return M

@@ -1,0 +1,10 @@
+---@class GuideStepInfoCameraJumpToMusic : GuideStepBaseInfo @镜头跳转到音响
+---@field public time number 跳转时间
+local GuideStepInfoCameraJumpToMusic = class("GuideStepInfoCameraJumpToMusic", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoCameraJumpToMusic
+
+function M:onParse(params)
+    self.time = params.time
+end
+
+return M

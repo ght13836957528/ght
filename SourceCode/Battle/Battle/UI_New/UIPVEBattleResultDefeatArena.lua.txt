@@ -1,0 +1,71 @@
+----------------------------------------------------------------------
+--------- 2023年01月04日 11:07:12 星期三
+----------------------------------------------------------------------
+local UIBattleDetailsPanel = require "GameLogic.Battle.UI_New.UIBattleDetailsPanel"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local UIPVEBattleResultDefeat = require "GameLogic.Battle.UI_New.UIPVEBattleResultDefeat"
+local UIArenaIntegralItem = require "GameLogic.Battle.UI_New.UIArenaIntegralItem"
+---@class UIPVEBattleResultDefeatArena:UIPVEBattleResultDefeat
+local UIPVEBattleResultDefeatArena = class("UIPVEBattleResultDefeatArena", UIPVEBattleResultDefeat)
+local M = UIPVEBattleResultDefeatArena
+
+function M:GetConfigAssetPath()
+    return UIPanelAsset.UIPVEBattleResultDefeat
+end
+
+function M:GetPanelConfig()
+    return UIPanelConfig.Default_Default
+end
+
+------UIPanel生命周期 end------
+
+function M:init()
+    UIPVEBattleResultDefeat.init(self)
+    GameObjectUtil.SafeSetActiveSelf(self._goChaBtnRoot,false)
+    GameObjectUtil.SafeSetActiveSelf(self._goArena,true)
+    self:refreshArena()
+end
+
+function M:refreshArena()
+    if self.arenaItem == nil then
+        self.arenaItem = UIArenaIntegralItem.new({ arenaData = self._battleResult.arenaData, isWin = false })
+        self.arenaItem:SetParentGo(self._goArena)
+        self.arenaItem:Load()
+    else
+        self.arenaItem:Refresh({ arenaData = self._battleResult.arenaData, isWin = false })
+    end
+end
+
+function M:_onClickJump01()
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEBattleResultDefeatArena)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+
+        SceneHelper.ChangeScene(SceneType.HeroView)
+    end
+    self:closeAni(cb)
+end
+
+function M:_onClickChallenge()
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEBattleResultDefeatArena)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+
+        SceneHelper.ChangeScene(SceneType.Homeland)
+
+        Game.BusinessManager.BattleTeamManager:SwitchNormalScene(self._customId)    
+    end
+    self:closeAni(cb)
+end
+
+function M:_onClickClose()
+    local cb = function()
+        UIManager.panel:Close(UIPanelType.UIPVEBattleResultDefeatArena)
+        UIManager.panel:Close(UIPanelType.UIPVEBattleView)
+
+        SceneHelper.ChangeSceneToPreScene()
+    end
+    self:closeAni(cb)
+end
+
+return M

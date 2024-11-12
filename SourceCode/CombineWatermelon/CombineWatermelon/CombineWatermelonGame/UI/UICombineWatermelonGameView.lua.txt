@@ -1,0 +1,544 @@
+---@class UICombineWatermelonGameView : UIPanel
+local UICombineWatermelonGameView = class("UICombineWatermelonGameView", UIPanel)
+local M = UICombineWatermelonGameView
+require "GameLogic.CombineWatermelon.CWBallType"
+local CWBallItem = require "GameLogic.CombineWatermelon.CombineWatermelonGame.Item.CWBallItem"
+local CWGameEnd = require "GameLogic.CombineWatermelon.CombineWatermelonGame.Item.CWGameEnd"
+local ChatShareEvent = require "GameLogic.Chat.ChatShare.ChatShareEvent"
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/CombineWatermelon/CombineWatermelonGameView.prefab"
+end
+
+function M:getConfigLayerType()
+    return UILayerType.UIResourcePopUp
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    if params then
+
+    end
+end
+
+function M:onAddListener()
+    self._closeBtn:addEventListener(ButtonEvent.CLICK, self.onClickCloseBtn, self)
+    self._itemBg1:addEventListener(ButtonEvent.CLICK, self.onClickItemBtn1, self)
+    self._itemBg2:addEventListener(ButtonEvent.CLICK, self.onClickItemBtn2, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GameEnd, self.gameOverCallBack, self)
+    BroadcastEvent.subscribe(ChatShareEvent.CHAT_SHARE_SUCCEED, self.shareSuccess, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_ContinueChallengeGame, self.continueChallengeGame, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GameListReady, self.gameListReady, self)
+end
+function M:onRemoveListener()
+    self._closeBtn:removeEventListener(ButtonEvent.CLICK, self.onClickCloseBtn, self)
+    self._itemBg1:removeEventListener(ButtonEvent.CLICK, self.onClickItemBtn1, self)
+    self._itemBg2:removeEventListener(ButtonEvent.CLICK, self.onClickItemBtn2, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GameEnd, self.gameOverCallBack, self)
+    BroadcastEvent.unsubscribe(ChatShareEvent.CHAT_SHARE_SUCCEED, self.shareSuccess, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_ContinueChallengeGame, self.continueChallengeGame, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GameListReady, self.gameListReady, self)
+end
+
+function M:onCreate()
+    local uiMain = CS.LuaUtil.GetUIForm("Assets/Main/Prefabs/UI/UIMain.prefab")
+    if uiMain then
+        self.uiMainRectTransform = uiMain:GetRectTransform()
+        self.uiMainRectTransform.anchoredPosition = Vector2(1000, 1000)
+    end
+    self.isGameOver = false
+    self.blasting = false --是否处于爆炸中
+    ---当前总分数
+    self.sumScore = 0
+    self.bombScore = 0 --爆炸得分
+    ---@type table<number, CWBallItem>
+    self.ballDic = {}
+    self.ballList = CombineWatermelonModel.getBallList()
+    ---小球list的索引id（正常生成新的掉落小球 ++）
+    self.listIndex = 1
+    self.dropListIndex = 1
+    ---场上小球的索引id（生成新的掉落小球、合成新的小球、生成道具小球 ++）
+    self.ballIndex = 1
+    ---当前掉落小球
+    ---@type CWBallItem
+    self.curDropBall = nil
+    self.deathLinePosY = self._line.position.y --死亡线
+    self.warningLine = self.deathLinePosY - 80 --警戒线
+    self.colorBallCount = 0
+    self.blastBallCount = 0
+    
+    --Item相关
+    --下落前在这个节点
+    self.dropPoint = UIWidget.new()
+    self.dropPoint:bind(self._dropPoint)
+    --下落后改到这个节点
+    self.ballsRoot = UIWidget.new()
+    self.ballsRoot:bind(self._ballsRoot)
+    --End弹窗
+    self.endNode = CWGameEnd.new()
+    self.endNode:bind(self._endNode)
+    self._line.gameObject:SetActiveEx(false)
+    
+    
+    --绑定事件、点击相关
+    self.isClickDown = false
+    self.isCanClick = false
+    self.eventTrigger = CS.EventTriggerListener.Get(self._bg)
+    self.eventTrigger.enabled = true
+    self.eventTrigger.onDown = function(eventData)
+        if not self.isGameOver and not self.blasting and self.isCanClick then
+            self.isCanClick = false
+            self.isClickDown = true
+            self:onClickDown()
+        end
+    end
+    --self.eventTrigger.onDrag = function(eventData)
+    --    print_error("eventData:"..eventData.delta.x.."  "..eventData.delta.y)
+    --end
+    self.eventTrigger.onUp = function(eventData)
+        if not self.isGameOver and not self.blasting and self.isClickDown then
+            self.isClickDown = false
+            self:onClickUp()
+        end
+    end
+    --timer
+    self.timer = Timer.new(0, 0.7, true, false, self.onUpdate, self)
+    self.timer:stop()
+    
+    self:initItemInfo()
+    self:createDrop()
+end
+
+--region Create模块
+---@param ballId number 小球Id
+---@param ballType CWBallType 小球类型
+---@param createType CWBallCreateType 创建方式
+---@param parent UIWidget 创建节点
+---@param pos  Vector 初始化坐标
+---@param loadCallBack function 加载完成回调 
+function M:createBall(listIndex, ballId, ballType, createType, parent, pos, loadCallBack)
+    local data = {}
+    data.index = self.ballIndex
+    data.listIndex = listIndex
+    data.ballId = ballId
+    data.ballType = ballType
+    data.ballCreateType = createType
+    data.callBackSelf = self
+    data.combineCallBack = self.onCombineBall
+    data.triggerCallBack = self.onFirstTrigger
+    local ui = CWBallItem.new(data)
+    ui:setParent(parent)
+    ui:load(nil, function()
+        if createType == CWBallCreateType.Combine and pos ~= nil then
+            if ui._rectTransform then
+                ui._rectTransform.position = pos
+                ui._rectTransform.localScale = Vector3.New(0,0,1)
+            end
+        end
+        if loadCallBack then
+            loadCallBack(ui)
+        end
+    end)
+    self.ballDic[self.ballIndex] = ui
+    self.ballIndex = self.ballIndex + 1 --创建小球，索引+1
+    
+    return ui
+end
+
+function M:createDrop()
+    if self.ballList and self.ballList[self.listIndex] then
+        --print_error("创建小球")
+        local ballId = self.ballList[self.listIndex]
+        self:createBall(self.listIndex, ballId, CWBallType.Ball, CWBallCreateType.Drop, self.dropPoint, nil, function(ui)
+            self.curDropBall = ui
+            self.isCanClick = true
+        end)
+
+        if (#self.ballList - self.listIndex) < 10 then
+            CombineWatermelonModel.InitInfoCommand(true, true)
+        end
+        
+        --设置拖拽属性
+        local size = CombineWatermelonModel:getBallSize(ballId)
+        self.dropPoint:getRectTransform().sizeDelta = Vector2.New(size, size)
+        self._dragBallCtrl:SetDefault()
+    end
+end
+
+function M:createCombineBall(ballIndex, ballId, pos)
+    --设置合并特效
+    self:showEffect(pos)
+    --创建合并小球
+    self:createBall(ballIndex, ballId, CWBallType.Ball, CWBallCreateType.Combine, self.ballsRoot, pos, nil)
+end
+
+function M:createItemBall(ballId, ballType)
+    if self.curDropBall then
+        --替换成item
+        self.curDropBall:changeToItem(ballId, ballType)
+    else
+        --创建item
+        self.timer:stopAndReset()
+        self:createBall(-1, ballId, ballType, CWBallCreateType.Drop, self.dropPoint, nil, function(ui)
+            self.curDropBall = ui
+            self.isCanClick = true
+        end)
+    end
+end
+
+function M:showEffect(pos)
+    self._combineSpine.transform.position = pos
+    self._combineSpine.gameObject:SetActiveEx(true)
+    self._combineSpine.Skeleton:SetToSetupPose()
+    self._combineSpine.AnimationState:ClearTracks()
+    self._combineSpine.AnimationState:SetAnimation(0, "animation", false)
+end
+--endregion
+
+function M:onClickDown()
+    self._dragBallCtrl:Begin(self.curDropBall:getBallSize())
+end
+function M:onClickUp()
+    self:onBeginDrop()
+    self._dragBallCtrl:SetDefault()
+    if self.curDropBall:getBallType() == CWBallType.Ball then
+        self.listIndex = self.listIndex + 1 --小球掉落，list索引+1
+    end
+    self.curDropBall = nil
+    self.timer:start()
+end
+
+---小球准备掉落
+function M:onBeginDrop()
+    if self.curDropBall then
+        --print_error("index:"..self.listIndex) --重要log
+        if self.curDropBall:getListIndex() > 0 then
+            self.dropListIndex = self.curDropBall:getListIndex()
+        end
+        local ballType = self.curDropBall:getBallType()
+        if ballType ~= CWBallType.Ball then
+            local gameInfo = {}
+            local data = {}
+            data.ball1 = 0
+            data.ball2 = 0
+            data.sore = 0
+            if ballType == CWBallType.Color then
+                data.other = 1
+                table.insert(gameInfo, data)
+                CombineWatermelonModel.SubmitScore(gameInfo, self.dropListIndex, self.sumScore)
+                self.colorBallCount = self.colorBallCount - 1
+                self:updateItemCount(CWBallType.Color)
+            elseif ballType == CWBallType.Blast then
+                data.other = 2
+                table.insert(gameInfo, data)
+                CombineWatermelonModel.SubmitScore(gameInfo, self.dropListIndex, self.sumScore)
+                self.blastBallCount = self.blastBallCount - 1
+                self:updateItemCount(CWBallType.Blast)
+            end
+        end
+        
+        self.curDropBall:setParent(self.ballsRoot)
+        self.curDropBall:dropAfterSetting()
+        self.curDropBall:AddForceDown()
+    end
+end
+
+---掉落的小球第一次触碰，表示可以加载下一个了。
+function M:onUpdate()
+    if self.isGameOver then return end
+    if not self.blasting then --爆炸的时候不检测
+        --检测小球是否碰线
+        if self:checkDeathLine() then
+            return
+        end
+    end
+    
+    self:createDrop()
+    self.timer:stop()
+end
+
+---两个小球合并
+---@param lowBallIndex number 正常小球、道具球。道具球只会在lowBallIndex
+---@param highBallIndex number 正常小球、或者没有（lowBallIndex是爆炸球撞到底边时）
+function M:onCombineBall(lowBallIndex, highBallIndex, posX, posY)
+    local ballIndex = -1
+    local newBallid = 1
+    local other = -1 --1：彩球。 2：炸弹。
+    local ball1 = self.ballDic[lowBallIndex]
+    local ball2 = self.ballDic[highBallIndex]
+
+    if ball1 and ball2 then
+        local ball1ListIndex = ball1:getListIndex()
+        local ball2ListIndex = ball2:getListIndex()
+        if ball1:getBallType() == CWBallType.Color then --彩球合并
+            ball1:dispose()
+            newBallid = ball2:getNextBallId()
+            ballIndex = ball2:getListIndex()
+            ball2:dispose()
+            self.ballDic[lowBallIndex] = nil
+            self.ballDic[highBallIndex] = nil
+            other = 1
+        elseif ball1:getBallType() == CWBallType.Blast then --炸弹球不需要合并
+            ball1:dispose()
+            self.ballDic[lowBallIndex] = nil
+            other = 2
+            self:addBallsUpForce()
+            return
+        else
+            --取id较小的赋给新合成的球。
+            if ball1ListIndex < ball2ListIndex then
+                ballIndex = ball1ListIndex
+            else
+                ballIndex = ball2ListIndex
+            end
+            newBallid = ball1:getNextBallId()
+            ball1:dispose()
+            ball2:dispose()
+            self.ballDic[lowBallIndex] = nil
+            self.ballDic[highBallIndex] = nil
+        end
+
+        self:createCombineBall(ballIndex, newBallid, Vector2.New(posX, posY))
+
+        local addScore = CombineWatermelonModel.getBallScore(newBallid)
+        self:AddScore(addScore)
+        --发送合并数据
+        local data = {}
+        data.ball1 = ball1ListIndex
+        data.ball2 = ball2ListIndex
+        data.sore = addScore
+        data.other = other
+        local gameInfo = {}
+        table.insert(gameInfo, data)
+        CombineWatermelonModel.SubmitScore(gameInfo, self.dropListIndex, self.sumScore)
+    else
+        if ball1:getBallType() == CWBallType.Blast then
+            ball1:dispose()
+            self.ballDic[lowBallIndex] = nil
+            self:addBallsUpForce()
+        end
+        return
+    end
+end
+
+function M:addBallsUpForce()
+    self.blasting = true
+    for _, v in pairs(self.ballDic) do
+        if v and v:isDropBall() then
+            v:AddForceUp()
+        end
+    end
+    local blastTimer
+    blastTimer = Timer.new(0, 2, false, false, function()
+        self.blasting = false
+    end)
+    blastTimer:start()
+end
+
+function M:AddScore(score)
+    self.sumScore = self.sumScore + score
+    self._scoreLabel.text = self.sumScore
+end
+
+function M:initItemInfo()
+    local colorId = CombineWatermelonModel.getColorItemId()
+    local goodsTable = GameGlobal.GameEntry.DataTable:GetDataRow("goods", colorId)
+    local colorImage = goodsTable:GetString("icon")
+    GameGlobal.GameEntry.Resource:SetSpriteOfImage(self._itemIcon1,"ItemIcons", colorImage)
+    local colorItem = GameGlobal.GameEntry.Data.Item:GetItemById(colorId)
+    if colorItem then
+        self.colorBallCount = colorItem.count
+    else
+        self.colorBallCount = 0
+        print_error("not have color iteminfo   id:"..tostring(colorId))
+    end
+    self._itemCount1.text = self.colorBallCount
+    
+    local blastId = CombineWatermelonModel.getBlastItemId()
+    local goodsTable2 = GameGlobal.GameEntry.DataTable:GetDataRow("goods", blastId)
+    local blastImage = goodsTable2:GetString("icon")
+    GameGlobal.GameEntry.Resource:SetSpriteOfImage(self._itemIcon2,"ItemIcons", blastImage)
+    local blastInfo = GameGlobal.GameEntry.Data.Item:GetItemById(blastId)
+    if blastInfo then
+        self.blastBallCount = blastInfo.count
+    else
+        self.blastBallCount = 0
+        print_error("not have blast iteminfo   id:"..tostring(blastId))
+    end
+    self._itemCount2.text = self.blastBallCount
+end
+
+function M:updateItemCount(itemType)
+    if itemType == CWBallType.Color then
+        self._itemCount1.text = self.colorBallCount
+    elseif itemType == CWBallType.Blast then
+        self._itemCount2.text = self.blastBallCount
+    end
+end
+
+---点击彩球
+function M:onClickItemBtn1()
+    if not self.isGameOver then
+        if self.colorBallCount <= 0 then
+            GameGlobal.GameEntry.Localization:GetString("5600047")
+            return
+        end
+        local colorId = CombineWatermelonModel.getColorItemId()
+        self:createItemBall(colorId, CWBallType.Color)
+    end
+end
+---点击炸弹球
+function M:onClickItemBtn2()
+    if not self.isGameOver then
+        if self.blastBallCount <= 0 then
+            GameGlobal.GameEntry.Localization:GetString("5600047")
+            return
+        end
+        local blastId = CombineWatermelonModel.getBlastItemId()
+        self:createItemBall(blastId, CWBallType.Blast)
+    end
+end
+
+---检查是否结束
+---@return boolean true:游戏结束  false:安全
+function M:checkDeathLine()
+    local isDie = false
+    local isWarning = false
+    for _, v in pairs(self.ballDic) do
+        local ballY = v:getBallTopPointY()
+        if self.deathLinePosY < ballY then
+            isDie = true
+        end
+        if self.warningLine < ballY then
+            isWarning = true
+        end
+    end
+    if isWarning then
+        self._line.gameObject:SetActiveEx(true)
+    else
+        self._line.gameObject:SetActiveEx(false)
+    end
+    if isDie then
+        self:gameOver()
+    end
+    
+    return isDie
+end
+
+function M:gameOver()
+    self.isGameOver = true
+    ---@type CWBallItem[]
+    local balls = {}
+    for _, v in pairs(self.ballDic) do
+        if v:isDropBall() then
+            v:setRigidbody2DStatic()
+            table.insert(balls, v)
+        end
+    end
+    table.sort(balls, function(a, b)
+        return a:getPositionY() > b:getPositionY()
+    end)
+    self.bombScore = 0
+    local count = #balls
+    local curIndex = 1
+    local tempTimer
+    tempTimer = Timer.new(0, 0.25, true, false, function()
+        if curIndex <= count then
+            if balls[curIndex] then
+                local item = balls[curIndex]
+                self.bombScore = self.bombScore + CombineWatermelonModel.getBallScore(item:getBallId())
+                self:showEffect(item:getPosition())
+                item:dispose()
+            end
+        else
+            tempTimer:stop()
+            --print_error("client score:"..self.sumScore.."  bombScore:"..self.bombScore.."  index:"..self.dropListIndex)
+            --这里发给服务器的posIndex 要-1
+            CombineWatermelonModel.EndCommand(self.dropListIndex - 1, self.sumScore, self.bombScore)
+            self:AddScore(self.bombScore)
+        end
+        curIndex = curIndex + 1
+    end)
+    tempTimer:start()
+    
+end
+
+---继续挑战
+function M:continueChallengeGame()
+    CombineWatermelonModel.requestEnterGame() --发送请求
+end
+
+function M:gameListReady()
+    if self.isGameOver then
+        --继续挑战
+        self.isGameOver = false
+        self.endNode:hide()
+        self:resetData()
+        self.ballList = CombineWatermelonModel.getBallList()
+        self:createDrop()
+    end
+end
+
+---分享成功回调
+function M:shareSuccess(type)
+    CombineWatermelonModel.ShareCommand(type + 1)
+end
+
+function M:gameOverCallBack(data)
+    CombineWatermelonModel.GetTaskCommand() --请求一次task数据
+    CombineWatermelonModel.GetRankCommand() --请求一次rank数据
+    
+    self.endNode:show(data)
+end
+
+function M:resetData()
+    for _, v in pairs(self.ballDic) do
+        if v and v:hasGameObject() then
+            v:dispose()
+        end
+    end
+    
+    self.timer:stopAndReset()
+    self.isGameOver = false
+    self.sumScore = 0
+    self.bombScore = 0
+    self.ballDic = {}
+    self.ballList = {}
+    self.listIndex = 1
+    self.ballIndex = 1
+    self.curDropBall = nil
+    self.colorBallCount = 0
+    self.blastBallCount = 0
+    
+    self._scoreLabel.text = 0
+    self._line.gameObject:SetActiveEx(false)
+    self.endNode:hide()
+    self:initItemInfo()
+end
+
+function M:onClickCloseBtn()
+    if self.isGameOver then
+        UIManager.panel:close(UIPanelType.UICombineWatermelonGameView)
+        return
+    end
+    CS.UIUtils.NewShowMessage(GameGlobal.GameEntry.Localization:GetString("5600216"), function()
+        UIManager.panel:close(UIPanelType.UICombineWatermelonGameView)
+    end, function()
+        
+    end,
+    "300032",
+    "300033")
+end
+
+function M:onClose()
+    if self.uiMainRectTransform then
+        self.uiMainRectTransform.anchoredPosition = Vector2.zero
+    end
+    self:resetData()
+    self.timer:dispose()
+end
+
+return M

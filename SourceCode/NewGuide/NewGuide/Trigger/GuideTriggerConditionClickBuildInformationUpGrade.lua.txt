@@ -1,0 +1,13 @@
+---@class GuideTriggerConditionClickBuildInformationUpGrade : GuideTriggerCondition
+local GuideTriggerConditionClickBuildInformationUpGrade = class("GuideTriggerConditionClickBuildInformationUpGrade", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionClickBuildInformationUpGrade
+
+function M:equals(param)
+    local result = false
+    if param == self.triggerParam then
+        result = true
+    end
+    return result
+end
+
+return M

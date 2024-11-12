@@ -1,0 +1,35 @@
+---@class GuideTriggerConditionCityBuildingUpgrade : GuideTriggerCondition
+local GuideTriggerConditionCityBuildingUpgrade = class("GuideTriggerConditionCityBuildingUpgrade", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionCityBuildingUpgrade
+
+function M:equals(param)
+    local result = false
+    if GuideManager.ifStepHasExecuted(self.id) then
+        return result
+    end
+    local paramList = string.split(param,"_")
+    if #paramList ~= 2 then
+        print_error("checkOnBuildUpgrade param count is wrong")
+        return false
+    end
+
+    local type = paramList[1]
+    local level = paramList[2]
+    local cityBuilding = GameSceneManager.getActor(SceneType.City).building
+    local buildInfoTable = cityBuilding:getBuildInfosByType(tonumber(type))
+    if  GameUtils.TableLength(buildInfoTable) > 1 and tonumber(level) == 1 then
+        print("buildInfoTable num > 1")
+        return false
+    end
+    local configTable = string.split(self.triggerParam,"_")
+    result = (configTable[1] == type and configTable[2] == level)
+    return result
+end
+
+function M:ifStepActionComplete(stepInfo)
+    local param = stepInfo.triggerParam
+    local result = self:equals(param)
+    return result
+end
+
+return M

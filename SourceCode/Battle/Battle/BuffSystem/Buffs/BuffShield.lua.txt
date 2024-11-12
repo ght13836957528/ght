@@ -1,0 +1,82 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:52:05 星期一
+----------------------------------------------------------------------
+---- 护盾
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local ConfigHandler = ConfigHandler
+---@class BuffShield:BasePersistentBuff
+local BuffShield = class("BuffShield", BasePersistentBuff)
+local M = BuffShield
+function M:_onInitialize()
+    self._canRemove = false
+end
+
+--- buff创建开始生效前的处理
+function M:_onEnter()
+    self:_initShield()
+    self:_doModify()
+end
+
+function M:_onUpdate(deltaTime)
+
+end
+
+function M:_onExit()
+    self.result = 0
+    self.Max = 0
+    self.hostCharacter:GetBaseAtt():RemoveShieldEff(self)
+end
+
+function M:_initShield()
+    local fromCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.fromId)
+    ---- 兵力 * k:
+    local ns = self:GetNumericalStrength(fromCharacter)
+    BattleLogger.logNumerical("兵力 * k: ", ns)
+    --- 攻击力
+    local attValue = fromCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_ATK_2)
+    BattleLogger.logNumerical("攻击力 : ", attValue)
+    --- 护盾系数
+    local k = self:skillCoefficient(fromCharacter, self.buffParams)
+    BattleLogger.logNumerical("护盾系数 : ", k)
+    ---- 玩法护盾系数
+    local play_k = self:IsPlayType(1) and
+        ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Shield_Formula_World_Param") or 1
+    BattleLogger.logNumerical("玩法护盾系数 : ", play_k)
+
+    local result = ns * attValue * k * play_k
+    BattleLogger.logNumerical("护盾效果 : ", result)
+    self.result = result
+    self.Max = result
+end
+
+function M:_doModify()
+    self.hostCharacter:GetBaseAtt():AddShieldEff(self, self.fromId)
+    ---- todo  通知渲染层
+end
+
+function M:GetResultValue()
+    return self.result
+end
+
+function M:GetMaxValue()
+    return self.Max
+end
+
+function M:ChangeResultValue(value)
+    self.result = value
+end
+
+function M:MulValue(value)
+    self.result = self.result - value
+    self.result = self.result <= 0 and 0 or self.result
+    --- todo  <=0 移除buff
+    self._canRemove = self.result <= 0
+end
+
+function M:isCanRemove()
+    return self._canRemove
+end
+
+return M

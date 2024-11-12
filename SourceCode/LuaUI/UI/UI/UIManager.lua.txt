@@ -1,0 +1,169 @@
+require "Framework.UI.UIConfig"
+--require "Framework.UI.Base.UINodeType"
+UINode                = require("Framework.UI.Base.UINode")
+UIRoot                = require("Framework.UI.Base.UIRoot")
+UILayer               = require("Framework.UI.Base.UILayer")
+UIWidget              = require("Framework.UI.Base.UIWidget")
+UIPanel               = require("Framework.UI.Base.UIPanel")
+--UIPanelAnimated       = require("Framework.UI.Base.UIPanelAnimated")
+--UIPanelDynamic        = require("Framework.UI.Base.UIPanelDynamic")
+
+UIButton              = require("Framework.UI.Common.UIButton")
+
+---@class UIManager UI管理器
+UIManager = {}
+local M = UIManager
+
+local GameObject = CS.UnityEngine.GameObject
+
+local _camera = nil
+local _cameraRT = nil
+---@type UIRoot
+local _root = nil
+---@type UIRoot
+local _panelRoot = nil
+
+local _eventSystem = nil
+local _block = nil
+local _layers = {}
+---@type UnityEngine.Canvas
+local _canvas_uiRoot = nil
+---@type UnityEngine.UI.CanvasScaler
+local CanvasScaler = nil
+
+
+function M.Init()
+    M._initRoot()
+    M._initCamera()
+    M._initEventSystem()
+    M._initLayers()
+    M._initBlock()
+    M.InitMatchWidthOrHeight()
+    M.panel = require("Framework.UI.Panel.UIPanelManager").new()
+
+    print("ui manager initialized")
+end
+
+function M.GetCamera()
+    return _camera
+end
+
+---@return UILayer
+function M.GetLayer(layerName)
+    return _layers[layerName]
+end
+
+function M.GetRootRectTransform()
+    return _root:GetRectTransform()
+end
+
+function M.GetBlock()
+    return _block
+end
+
+function M.GetRoot()
+    return _root
+end
+
+function M.GetPanelRoot()
+    return _panelRoot
+end
+
+function M.GetRootCanvas()
+    return _canvas_uiRoot
+end
+
+function M._initRoot()
+    local rootGo = GameObject.Find("GameFramework/UI")
+    _root = UIRoot.new(rootGo)
+
+    local panelRootGo = GameObject.Find("GameFramework/UI/UIContainer")
+   
+    _canvas_uiRoot = panelRootGo.transform:GetComponent("Canvas")
+    CanvasScaler = panelRootGo.transform:GetComponent("CanvasScaler")
+   
+    _panelRoot = UIRoot.new(panelRootGo)
+    _panelRoot:SetParent(_root)
+end
+function M.InitMatchWidthOrHeight()
+    -- 如果屏幕宽高比小于1.5,那么适配方法改为固定宽度来适配高度
+    local max = Mathf.Max(Screen.width, Screen.height);
+    local min = Mathf.Min(Screen.width, Screen.height);
+    local screenRate = 1 * max / min;
+    local aspectRatio = 1.778;
+    if (screenRate <= aspectRatio)then
+        CanvasScaler.matchWidthOrHeight = 0
+    end
+end
+
+function M._initCamera()
+    local gameObject = GameObject.Find("GameFramework/UI/GUICamera")
+    local camera = gameObject:GetComponent(UnityType.Camera)
+
+    camera.depth = 2
+    camera.farClipPlane = 3000 * camera.orthographicSize / 568
+    _camera = camera
+    _cameraRT = gameObject:GetComponent(UnityType.RectTransform)
+end
+
+function M._initEventSystem()
+    local go     = GameObject.Find("GameFramework/UI/EventSystem")
+    _eventSystem = go:GetComponent("EventSystem")
+end
+
+function M._initLayers()
+    local length = #UILayers
+    for i = length, 1, -1 do
+        local index = i
+        local name = UILayers[i]
+        -- local distance = (length - index - 1) * UILayerConfig.LayerDistance
+        local order    = (index - 1) * UILayerConfig.LayerSortingLayerInterval
+        local layer = UILayer.new(name, index, UILayerConfig.LayerDistance, order)
+        layer:SetParent(_panelRoot)
+        _layers[name] = layer
+    end
+end
+
+function M._initBlock()
+end
+
+---获取SafeArea据左右的边距
+function M:GetAdaptOffsetX()
+
+    if CS.PlatformUtils.IsEditor() then 
+        return self.TestIphoneX and 50 or 0
+    elseif CS.PlatformUtils.IsAndroidPlatform() then 
+        return 0
+    elseif CS.PlatformUtils.IsIOSPlatform() then 
+        -- return isIphoneX() == 1 and 50 : 0
+        return 0
+    else 
+        return 0
+    end 
+end 
+
+--- 激活屏幕输入
+function M.EnableInput()
+    if _eventSystem ~= nil then
+        _eventSystem.enabled = true
+    end
+end
+
+--- 屏蔽屏幕输入
+function M.DisableInput()
+    if _eventSystem ~= nil then
+        _eventSystem.enabled = false
+    end
+end
+
+function M.OnTick(elapsedTime, realElapsedTime)
+    M.panel:OnTick(elapsedTime, realElapsedTime)
+end
+
+function M.AddUICameraCullingMask(layer)
+end
+
+function M.RemoveUICameraCullingMask(layer)
+end
+ 
+return M

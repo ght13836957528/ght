@@ -1,0 +1,19 @@
+---@class GuideTriggerConditionChapterTask:GuideTriggerCondition
+local GuideTriggerConditionChapterTask = class("GuideTriggerConditionChapterTask", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionChapterTask
+
+function M:equals(param)
+    local result = false
+    if not self.notTriggerOnce then
+        if  GuideManager.ifStepHasExecuted(self.id) then
+            return result
+        end
+    end
+    local taskId = tonumber(param)
+    if  taskId == tonumber(self.triggerParam)  then
+        result = true
+    end
+    return result
+end
+
+return M

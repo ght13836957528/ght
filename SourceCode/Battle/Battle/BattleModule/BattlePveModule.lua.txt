@@ -1,0 +1,37 @@
+---- pve  module  可操作
+----
+----
+local BattleManager = require "GameLogic.Battle.BattleManager"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local BattleDataHandler = require "GameLogic.Battle.BattleModel.BattleDataHandler"
+
+---@class BattlePveModule
+local BattlePveModule = class("BattlePveModule")
+
+function BattlePveModule:Ctor()
+
+end
+
+function BattlePveModule:OnEnter()
+
+end
+
+function BattlePveModule:OnExit(callback)
+
+end
+
+function BattlePveModule:ResetStart()
+
+end
+
+function BattlePveModule:onStartFight()
+
+end
+
+function BattlePveModule:onEndFight()
+
+end
+
+function BattlePveModule:handleEndFight()
+
+end

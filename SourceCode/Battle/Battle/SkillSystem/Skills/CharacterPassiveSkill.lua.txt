@@ -1,0 +1,544 @@
+----------------------------------------------------------------------
+--------- 2023年01月31日 18:21:31 星期二
+----------------------------------------------------------------------
+
+--[[
+    被动技能：对应Skill_Passive表
+    当在Skill_Base中type标记为6时，表明技能时被动技能，在这里处理
+]]
+local PassiveArtAction       = require "GameLogic.Battle.SkillSystem.Actions.PlayArtAction"
+local PassiveSoundAction     = require "GameLogic.Battle.SkillSystem.Actions.PlaySoundAction"
+local PassiveCastAction      = require "GameLogic.Battle.SkillSystem.Actions.SkillPlayCastAction"
+local PassiveAnimationAction = require "GameLogic.Battle.SkillSystem.Actions.PlayAnimationAction"
+
+local CharacterSkillBase     = require "GameLogic.Battle.SkillSystem.Skills.CharacterSkillBase"
+
+local PassiveConditionType   = require "GameLogic.Battle.SkillSystem.Skills.PassiveConditionType"
+local BattleConstant         = require "GameLogic.Battle.BattleConstant"
+local ActionContext          = require "GameLogic.Battle.SkillSystem.Actions.ActionContext"
+local BattleHelper           = require "GameLogic.Battle.BattleHelper"
+local ConfigHandler          = ConfigHandler
+local BattleEnum             = require "GameLogic.Battle.BattleEnum"
+---@class CharacterPassiveSkill
+local CharacterPassiveSkill  = class("CharacterPassiveSkill")
+local M                      = CharacterPassiveSkill
+---@param battleContext BattleContext
+---@param character BattleCharacter
+function M:Ctor(skillData, character, battleContext)
+    -- 技能需要的数据  Skill_Passive
+    self.skillData = skillData
+    self.limitCount = skillData.triggerLimit or 0
+    self.triggerTimeType = skillData.triggerTime[1]
+    -- 使用角色属性数据，技能计算过程中会需要
+    self.hostCharacter = character
+    self.battleContext = battleContext -- battleContext范围比actionContext大, actionContext只在技能的action之间使用
+    -- self.actionContext = ActionContext.new()
+    self.skillNumber = {}
+    self.actions = {}
+    -- 触发次数
+    self.triggerCount = 0
+    self.triggerFrame = -1
+    self.triggerFrame_updateTimes = 0
+    self.triggerFrame_curr = 0
+    self:_initBaseData_start(skillData)
+    self:_initBaseData_updateTimes(skillData)
+    self:_parseSkillData()
+end
+
+function M:_initBaseData_start(skillData)
+    if self.triggerTimeType == BattleEnum.TriggerTime.OnBattleStart_12 then
+        local time = skillData.triggerTime[2] or 0
+        time = time * 1000
+        self.triggerFrame = time // BattleConstant.LogicDeltaTime
+    end
+end
+
+function M:_initBaseData_updateTimes(skillData)
+    if self.triggerTimeType == BattleEnum.TriggerTime.Time_Update_18 then
+        local time = skillData.triggerTime[2] or 0
+        time = time * 1000
+        self.triggerFrame_updateTimes = time // BattleConstant.LogicDeltaTime
+    end
+end
+
+function M:Clear()
+    self:_clearTriggerTimeListener()
+    self.skillNumber = {}
+end
+
+function M:OnUpdate(fDeltaTime)
+    local isCheck = false
+    if (self.triggerCount < self.limitCount or self.limitCount == -1) then
+        if self.triggerTimeType == BattleEnum.TriggerTime.OnBattleStart_12 then
+            isCheck = self.triggerFrame == self.battleContext:GetFrameControl()._frameCount
+        elseif self.triggerTimeType == BattleEnum.TriggerTime.Time_Update_18 then
+            if self.triggerFrame_curr <= 0 then
+                isCheck = true
+                self.triggerFrame_curr = self.triggerFrame_updateTimes
+            else
+                isCheck = false
+                self.triggerFrame_curr = self.triggerFrame_curr - 1
+            end
+        else
+            isCheck = false
+        end
+    end
+    if isCheck then
+        local checkTriggerConIsOk = self:_checkTriggerCondition()
+        if checkTriggerConIsOk then
+            self:_handleTrigger(true)
+        else
+            local triggerLogicFalse = self.skillData.triggerLogicFalse or 0
+            if triggerLogicFalse == 1 then
+                self:_handleTrigger(false)
+            end
+        end
+    end
+end
+
+----------------------------------------------------------------------
+function M:_parseSkillData()
+    -- self:_parseActions()
+    self:_onInitTriggerEvent()
+    self:_parseTriggerSkill()
+end
+
+--- 表现action
+function M:_parseActions()
+    local artSrc = self.skillData.src
+    if not string.isNilOrEmpty(artSrc) then
+        local artAction = PassiveArtAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+        artAction:Initialize({ effectName = artSrc, root = nil })
+        table.insert(self.actions, artAction)
+    end
+
+    local soundKey = self.skillData.sound
+    if not string.isNilOrEmpty(soundKey) then
+        local soundAction = PassiveSoundAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+        soundAction:Initialize({ soundKey = soundKey })
+        table.insert(self.actions, soundAction)
+    end
+
+    local castSrc = self.skillData.cast
+    if not string.isNilOrEmpty(castSrc) then
+        local castAction = PassiveCastAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+        castAction:Initialize({ voiceKey = castSrc })
+        table.insert(self.actions, castAction)
+    end
+
+    local animSrc = self.skillData.ani
+    if not string.isNilOrEmpty(animSrc) then
+        local animAction = PassiveAnimationAction.new(self.hostCharacter, self.battleContext, self.actionContext)
+        animAction:Initialize({ animationName = animSrc })
+        table.insert(self.actions, animAction)
+    end
+end
+
+function M:_onInitTriggerEvent()
+    local triggerTime = self.skillData.triggerTime or {}
+    local triggerType = triggerTime[1]
+    if triggerType then
+        local eventType = BattleHelper:getTriggerEventIdByType(triggerType)
+        if eventType then
+            self.eventType = eventType
+            self:_addTriggerTimeListener(eventType)
+        end
+    end
+end
+
+function M:_addTriggerTimeListener(eventType)
+    BroadcastEvent.subscribe(eventType, self._onEventTrigger, self)
+end
+
+function M:_clearTriggerTimeListener()
+    if self.eventType then
+        BroadcastEvent.unsubscribe(self.eventType, self._onEventTrigger, self)
+    end
+end
+
+--- 先学习可能会触发的技能
+function M:_parseTriggerSkill()
+    local triggerSkill = self.skillData.triggerSkill or 0
+    if triggerSkill > 0 then
+        local baseSkillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Base, triggerSkill)
+        if baseSkillData ~= nil then
+            self.passiveTriggerSkill = CharacterSkillBase.new(baseSkillData, self.hostCharacter, self.battleContext, true)
+            if self.skillData.ani then
+                self.passiveTriggerSkill:AddPassiveAni(self.skillData.ani)
+                self.hostCharacter:GetSkillManager():AddPassiveSkill(self.passiveTriggerSkill)
+            end
+        end
+    end
+
+    local triggerSkillFalse = self.skillData.triggerSkillFalse or 0
+    if triggerSkillFalse > 0 then
+        local baseSkillData = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Base, triggerSkillFalse)
+        if baseSkillData ~= nil then
+            self.passiveTriggerSkillFalse = CharacterSkillBase.new(baseSkillData, self.hostCharacter, self.battleContext,
+                true)
+            if self.skillData.ani then
+                self.passiveTriggerSkillFalse:AddPassiveAni(self.skillData.ani)
+                self.hostCharacter:GetSkillManager():AddPassiveSkill(self.passiveTriggerSkillFalse)
+            end
+        end
+    end
+end
+
+----------------------------------------------------------------------
+function M:_onEventTrigger(params)
+    local tmpParams = params or {}
+    local characterId = tmpParams.entityId or -1
+
+    if characterId == -1 or characterId == self.hostCharacter:GetBattleId()
+        or self.triggerTimeType == BattleEnum.TriggerTime.OnOtherDied_11
+        or self.triggerTimeType == BattleEnum.TriggerTime.CharacterNumberChange_15
+        or self.triggerTimeType == BattleEnum.TriggerTime.PosChange_16 then
+        -- if self.skillData.id == 8001011 then
+        --     BattleLogger.log("8001011")
+        -- end
+        local limitCount = self.skillData.triggerLimit or 0
+        if self.triggerCount < limitCount or limitCount == -1 then
+            local checkTriggerTimeIsOk = self:_checkToTrigger(params)
+            if checkTriggerTimeIsOk then
+                local checkTriggerConIsOk = self:_checkTriggerCondition(params)
+                if checkTriggerConIsOk then
+                    self:_handleTrigger(true)
+                else
+                    local triggerLogicFalse = self.skillData.triggerLogicFalse or 0
+                    if triggerLogicFalse == 1 then
+                        self:_handleTrigger(false)
+                    end
+                end
+            end
+        end
+    end
+end
+
+--- 检查是否触发被动技能
+function M:_checkToTrigger(params)
+    local triggerTime = self.skillData.triggerTime or {}
+    local type = triggerTime[1]
+    if type == BattleEnum.TriggerTime.EnterBattle_1 then
+        return true
+    elseif type == BattleEnum.TriggerTime.OutputDamage_2 or type == BattleEnum.TriggerTime.InputDamage_3 then
+        local hitType = params.param1 or 0
+        local hitTypeCon = triggerTime[2] or 0
+        return hitTypeCon == BattleEnum.HitType.Normal or hitType == hitTypeCon
+    elseif type == BattleEnum.TriggerTime.OutputCure_4 then
+        return true
+    elseif type == BattleEnum.TriggerTime.InputCure_5 then
+        return true
+    elseif type == BattleEnum.TriggerTime.GetBuff_6 or type == BattleEnum.TriggerTime.RemoveBuff_7 then
+        local buffType = params.param1 or 0
+        local buffTypeCon = triggerTime[2] or 0
+        return buffTypeCon == BattleEnum.BuffGainType.Normal or buffType == buffTypeCon
+    elseif type == BattleEnum.TriggerTime.OnOneSDeathbed_8 then
+        return true
+    elseif type == BattleEnum.TriggerTime.OnDied_9 then
+        return true
+    elseif type == BattleEnum.TriggerTime.Kill_10 then
+        return true
+    elseif type == BattleEnum.TriggerTime.OnOtherDied_11 then
+        local camp = params.param1 or 0
+        local campCon = triggerTime[2] or 0
+        local campMatch = false
+        if campCon == BattleEnum.TriggerCampType.All then
+            campMatch = campCon == BattleEnum.TriggerCampType.All
+        else
+            if campCon == BattleEnum.TriggerCampType.CSelf then
+                local selfCamp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+                campMatch = selfCamp == camp
+            else
+                local selfCamp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+                campMatch = selfCamp ~= camp
+            end
+        end
+        if campMatch then
+            local characterType = self.hostCharacter:GetCharacterType()
+            local needType = triggerTime[3] or 0
+            return needType == 0 or characterType == needType
+        else
+            return false
+        end
+    elseif type == BattleEnum.TriggerTime.OnBattleStart_12 then
+        return true
+    elseif type == BattleEnum.TriggerTime.HpChange_13 then
+        return true
+    elseif type == BattleEnum.TriggerTime.PlaySkill_14 then
+        return true
+    elseif type == BattleEnum.TriggerTime.CharacterNumberChange_15 then
+        return true
+    elseif type == BattleEnum.TriggerTime.PosChange_16 then
+        return true
+    elseif type == BattleEnum.TriggerTime.DischargeSkill_17 then
+        return true
+    elseif type == BattleEnum.TriggerTime.Time_Update_18 then
+        return true
+    else
+        BattleLogger.log_error("未处理得被动类型！！！", type)
+    end
+end
+
+function M:_checkTriggerCondition(params)
+    local conditionParams = self.skillData.triggerCon
+    local conditionParamCount = table_GetMapLength(conditionParams)
+    if conditionParamCount <= 0 then
+        -- 没有条件配置，直接判定为TRUE
+        return true
+    end
+
+    return self:_doCheckCondition(conditionParams, params)
+end
+
+function M:_handleTrigger(isTrigger)
+    -- -- 被动技能触发的效果显示
+    -- for i, v in ipairs(self.actions) do
+    --     if v ~= nil then
+    --         v:Execute()
+    --     end
+    -- end
+    ---@type CharacterSkillBase
+    local triggerSkill = nil      -- isTrigger and self.passiveTriggerSkill or self.passiveTriggerSkillFalse
+    ---@type CharacterSkillBase
+    local triggerSkillFalse = nil -- isTrigger and self.passiveTriggerSkillFalse or self.passiveTriggerSkill
+
+
+    local triggerBuffs = nil      -- isTrigger and self.skillData.triggerBuff or self.skillData.triggerBuffFalse
+    local triggerBuffsFalse = nil -- isTrigger and self.skillData.triggerBuffFalse or self.skillData.triggerBuff
+    if isTrigger then
+        triggerSkill = self.passiveTriggerSkill
+        triggerSkillFalse = self.passiveTriggerSkillFalse
+        triggerBuffs = self.skillData.triggerBuff
+        triggerBuffsFalse = self.skillData.triggerBuffFalse
+    else
+        triggerSkill = self.passiveTriggerSkillFalse
+        triggerSkillFalse = self.passiveTriggerSkill
+        triggerBuffs = self.skillData.triggerBuffFalse
+        triggerBuffsFalse = self.skillData.triggerBuff
+    end
+
+    -- 触发其他技能
+    if triggerSkill ~= nil then
+        if self.skillData.ani ~= nil then
+            triggerSkill:SetIsTriggerPassive(true)
+        else
+            triggerSkill:Initialize()
+            triggerSkill:TryStartSkill()
+            triggerSkill:Update(BattleConstant.LogicDeltaTime)
+            triggerSkill:_onSkillEnd()
+        end
+    end
+    if triggerSkillFalse ~= nil then
+        if self.skillData.ani ~= nil then
+            triggerSkillFalse:SetIsTriggerPassive(false)
+        else
+            triggerSkill:Initialize()
+            triggerSkillFalse:TryStartSkill()
+            triggerSkillFalse:Update(BattleConstant.LogicDeltaTime)
+            triggerSkillFalse:_onSkillEnd()
+        end
+    end
+    -- 触发Buff
+
+    if triggerBuffs ~= nil then
+        for _, v in ipairs(triggerBuffs) do
+            self:_addBuff(v)
+        end
+    end
+    if triggerBuffsFalse ~= nil then
+        for _, v in ipairs(triggerBuffsFalse) do
+            self:_removeBuff(v)
+        end
+    end
+
+
+    self.triggerCount = self.triggerCount + 1
+end
+
+function M:_addBuff(buffId)
+    self.hostCharacter:GetBuffManager():AddBuff(self.hostCharacter:GetBattleId(), buffId, nil)
+end
+
+function M:_removeBuff(buffId)
+    self.hostCharacter:GetBuffManager():RemoveBuff(buffId)
+end
+
+function M:_doCheckCondition(conditionParams, params)
+    local conditionType = conditionParams[1] or 0
+    if conditionType == BattleEnum.TriggerCon.HpPercentage_1 then
+        local cond = conditionParams[2]
+        local targetValue = conditionParams[3]
+        local value = self.hostCharacter:GetBaseAtt():GetHpRate()
+        return self:_compareCon(cond, value, targetValue * 0.01)
+    elseif conditionType == BattleEnum.TriggerCon.SceneHeroCount_2 then
+        local camp = conditionParams[2]
+        local cond = conditionParams[3]
+        local targetValue = conditionParams[4]
+
+        if camp == BattleEnum.TriggerCampType.All then
+            local liveCharacters = self.battleContext:GetCharacterManager():GetAllCanCheckCharacters() or {}
+            local value = #liveCharacters
+            return self:_compareCon(cond, value, targetValue)
+        elseif camp == BattleEnum.TriggerCampType.CSelf then
+            local liveCharacters = self.battleContext:GetCharacterManager():GetAllCanCheckCharacters() or {}
+            local selfCamp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+            local len = 0
+            for _, tmpCharacter in pairs(liveCharacters) do
+                if tmpCharacter:GetCharacterContext():GetBattleCamp() == selfCamp then
+                    len = len + 1
+                end
+            end
+            return self:_compareCon(cond, len, targetValue)
+        elseif camp == BattleEnum.TriggerCampType.CEnemy then
+            local liveCharacters = self.battleContext:GetCharacterManager():GetAllCanCheckCharacters() or {}
+            local selfCamp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+            local len = 0
+            for _, tmpCharacter in pairs(liveCharacters) do
+                if tmpCharacter:GetCharacterContext():GetBattleCamp() ~= selfCamp then
+                    len = len + 1
+                end
+            end
+            return self:_compareCon(cond, len, targetValue)
+        else
+            return false
+        end
+    elseif conditionType == BattleEnum.TriggerCon.TheHalfSceneHeroCount_3 then
+        return self:HandleTheHalfSceneHeroCount(conditionParams)
+    elseif conditionType == BattleEnum.TriggerCon.AroundHeroNum_4 then
+        return self:HandleAroundHeroNum(conditionParams)
+    elseif conditionType == BattleEnum.TriggerCon.SkillNum_5 then
+        return self:HandleSkillHeroNum(conditionParams, params)
+    else
+        BattleLogger.log_error("??? 未处理类型 ！！！ ")
+        return false
+    end
+end
+
+function M:HandleTheHalfSceneHeroCount(conditionParams)
+    local scene_camp = conditionParams[2]
+    local hero_camp = conditionParams[3]
+    local self_camp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+    local selfScene_camp = self.hostCharacter:GetTransform().initRotate
+    local scene_x = self.hostCharacter:GetBattleContext():GetMapController().mapSize_x
+    local center = scene_x / 2
+    local liveCharacters = self.battleContext:GetCharacterManager():GetAllCanCheckCharacters() or {}
+    for _, tmpCharacter in pairs(liveCharacters) do
+        if hero_camp == 1 then
+            if tmpCharacter:GetCharacterContext():GetBattleCamp() ~= self_camp then
+                local x, z = tmpCharacter:GetTransform():GetLogicGridIndexXZ()
+                if selfScene_camp == BattleEnum.InitRotate.Left then
+                    if scene_camp == 1 then
+                        if x <= center then
+                            return false
+                        end
+                    else
+                        if x > center then
+                            return false
+                        end
+                    end
+                else
+                    if scene_camp == 1 then
+                        if x > center then
+                            return false
+                        end
+                    else
+                        if x <= center then
+                            return false
+                        end
+                    end
+                end
+            end
+        else
+            if tmpCharacter:GetCharacterContext():GetBattleCamp() == self_camp then
+                local x, z = tmpCharacter:GetTransform():GetLogicGridIndexXZ()
+                if selfScene_camp == BattleEnum.InitRotate.Left then
+                    if scene_camp == 1 then
+                        if x <= center then
+                            return false
+                        end
+                    else
+                        if x > center then
+                            return false
+                        end
+                    end
+                else
+                    if scene_camp == 1 then
+                        if x > center then
+                            return false
+                        end
+                    else
+                        if x <= center then
+                            return false
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return true
+end
+
+function M:HandleAroundHeroNum(conditionParams)
+    local dis_grid_count = conditionParams[2]
+    local hero_camp = conditionParams[3]
+    local liveCharacters = self.battleContext:GetCharacterManager():GetAllCanCheckCharacters() or {}
+    local selfCamp = self.hostCharacter:GetCharacterContext():GetBattleCamp()
+    for _, tmpCharacter in pairs(liveCharacters) do
+        if hero_camp == 1 then
+            if tmpCharacter:GetCharacterContext():GetBattleCamp() ~= selfCamp then
+                local tmpDis = self.hostCharacter:GetSearcher():Distance(tmpCharacter:GetBattleId(),
+                    self.hostCharacter:GetBattleId())
+                if tmpDis <= dis_grid_count + 1 then
+                    return false
+                end
+            end
+        else
+            if tmpCharacter:GetCharacterContext():GetBattleCamp() == selfCamp then
+                local tmpDis = self.hostCharacter:GetSearcher():Distance(tmpCharacter:GetBattleId(),
+                    self.hostCharacter:GetBattleId())
+                if tmpDis <= dis_grid_count + 1 then
+                    return false
+                end
+            end
+        end
+    end
+    return true
+end
+
+function M:HandleSkillHeroNum(conditionParams, params)
+    params = params or {}
+    local skill_type = conditionParams[2]
+    local count = conditionParams[3]
+    local playSkillType = params.param1
+    if skill_type and playSkillType and skill_type == playSkillType then
+        self.skillNumber[playSkillType] = self.skillNumber[playSkillType] or 0
+        self.skillNumber[playSkillType] = self.skillNumber[playSkillType] + 1
+        if self.skillNumber[playSkillType] >= count then
+            self.skillNumber[playSkillType] = 0
+            return true
+        else
+            return false
+        end
+    else
+        BattleLogger.log_error("??? 被动技能触发次数类型 技能类型参数不能为 nil")
+        return false
+    end
+end
+
+function M:_compareCon(con, l, r)
+    if con == BattleEnum.TriggerCalculate.greaterThan_1 then
+        return l > r
+    elseif con == BattleEnum.TriggerCalculate.lessThan_2 then
+        return l < r
+    elseif con == BattleEnum.TriggerCalculate.equal_3 then
+        return l == r
+    elseif con == BattleEnum.TriggerCalculate.greaterThan_equal_4 then
+        return l >= r
+    elseif con == BattleEnum.TriggerCalculate.lessThan_equal_5 then
+        return l <= r
+    else
+        return false
+    end
+end
+
+return M

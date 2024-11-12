@@ -1,0 +1,15 @@
+---@class GuideStepInfoIfSucceedUnlockStage:GuideStepBaseInfo
+---@field public failId number 失败的ID  
+---@field public successId number 成功过关执行的ID  
+---@field public stageId string 关卡ID  
+local base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfoIfSucceedUnlockStage = class("GuideStepInfoIfSucceedUnlockStage", base)
+local M = GuideStepInfoIfSucceedUnlockStage
+
+function M:onParse(params)
+    self.failId = tonumber(params.failId)
+    self.successId = tonumber(params.successId)
+    self.stageId = params.stageId
+end
+
+return M

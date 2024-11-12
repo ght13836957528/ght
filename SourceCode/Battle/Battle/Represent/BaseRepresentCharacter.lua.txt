@@ -1,0 +1,53 @@
+----------------------------------------------------------------------
+--------- 2023年02月07日 21:07:37 星期二
+----------------------------------------------------------------------
+
+---@class BaseRepresentCharacter
+local BaseRepresentCharacter = class("BaseRepresentCharacter")
+local M = BaseRepresentCharacter
+
+function M:Ctor(battleId)
+
+end
+
+function M:Initialize(csBattleCharacter)
+  
+end
+
+function M:PlayAnimation(strAnimationName,isRest)
+   
+end
+
+function M:PlayEffect(strEffectName, strRoot)
+    
+end
+
+function M:PlaySound(strSoundName)
+    
+end
+
+function M:MoveTo(pos)
+   
+end
+
+function M:LookRotation(pos)
+    
+end
+
+function M:UpdateHpDisplay(fChangeValue, fCurrentValue, fMaxValue)
+  
+end
+
+function M:UpdateRageDisplay(fMaxRage, fCurrentRage)
+  
+end
+
+function M:OnDied()
+   
+end
+
+function M:Clear()
+    
+end
+
+return M

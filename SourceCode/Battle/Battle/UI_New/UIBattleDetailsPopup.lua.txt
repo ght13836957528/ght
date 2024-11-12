@@ -1,0 +1,112 @@
+----------------------------------------------------------------------
+--------- 2023年01月04日 10:55:52 星期三
+----------------------------------------------------------------------
+
+---@class UIBattleDetailsPopup
+local UIBattleDetailsPopup = class("UIBattleDetailsPopup", UIPanel)
+local UIBattleDetailsPanel = require "GameLogic.Battle.UI_New.UIBattleDetailsPanel"
+local M = UIBattleDetailsPopup
+
+function M:GetConfigAssetPath()
+    return "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UIBattleDetailsPopup.prefab"
+end
+
+function M:GetPanelConfig()
+    return UIPanelConfig.Default_Dialog
+end
+
+------UIPanel生命周期 start------
+-- { customId = self.battleData.targetId, battleContext = self.battleContext })
+function M:OnParse(params)
+    self._data = params
+    ---@type UnityEngine.Animation
+    self._main = nil
+    ---@type UnityEngine.UI.Button
+    self._BtnClose = nil
+    ---@type UnityEngine.GameObject
+    self._UIBattleDetailsCell = nil
+    ---@type UnityEngine.UI.Image
+    self._imgResult = nil
+    ---@type UnityEngine.UI.Button
+    self._btnReplay = nil
+end
+
+function M:OnCreate()
+
+end
+
+function M:OnAddListener()
+    self._BtnClose.onClick:AddListener(function() self:_onClickClose() end)
+    self._btnReplay.onClick:AddListener(function() self:_onClickReplay() end)
+    -- BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_LoadFinish, self.LoadFinish, self)
+end
+
+function M:OnRemoveListener()
+    self._BtnClose.onClick:RemoveAllListeners()
+    self._btnReplay.onClick:RemoveAllListeners()
+    -- BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_LoadFinish, self.LoadFinish, self)
+end
+
+function M:_onClickClose()
+    UIManager.panel:Close(UIPanelType.UIBattleDetailsPopup)
+end
+
+function M:_onClickReplay()
+    UIManager.panel:Close(UIPanelType.UIDailyArenaRecordPanel)
+    UIManager.panel:Close(UIPanelType.UIPVEBattleResultDefeat)
+    UIManager.panel:Close(UIPanelType.UIPVEBattleResultWin)
+    UIManager.panel:Close(UIPanelType.UIPVEBattleResultWinArena)
+    UIManager.panel:Close(UIPanelType.UIPVEBattleResultDefeatArena)
+    UIManager.panel:Close(UIPanelType.UIBattleDetailsPopup)
+    Game.BusinessManager.BattleTeamManager:SwitchReplayScene(self._data.battleInfo)
+   
+end
+
+------UIPanel生命周期 end------
+function M:OnShow()
+
+end
+
+---销毁前清理
+function M:OnDispose()
+
+end
+
+function M:OnRefresh()
+    self:Init()
+end
+
+function M:Init()
+    self:ShowDetailsPanel()
+    self:SetVOrDImg()
+end
+
+function M:SetVOrDImg()
+    local result = self._data.battleResult.result
+    UIUtils:setImage2(result == 1 and "uibatte_tex_victory" or "uibatte_tex_defeat", self._imgResult)
+end
+
+function M:ShowDetailsPanel()
+    if self._panel_des == nil then
+        self._panel_des = UIBattleDetailsPanel.new({
+            battleInfo = self._data.battleInfo,
+            battleResult = self._data.battleResult
+        })
+        self._panel_des:Bind(self._UIBattleDetailsCell)
+    else
+        self._panel_des:Refresh({
+            battleInfo = self._data.battleInfo,
+            battleResult = self._data.battleResult
+        })
+    end
+end
+
+function M:OnOpen()
+    self:OpenAni()
+end
+
+function M:OpenAni()
+    -- self._Main:Play("UIBattleOpening")
+end
+
+return M

@@ -1,0 +1,39 @@
+---@class Point
+local Point = class("Point")
+function Point:Ctor(x, z)
+    self._x = x
+    self._z = z
+
+    self._isObstacle = false
+    self._GCost = 0
+    self._HCost = 0
+    self._Priority = 0
+    self._Parent = nil
+end
+
+function Point:GCost()
+    return self._GCost
+end
+
+function Point:HCost()
+    return self._HCost
+end
+
+function Point:FCost()
+    return self._GCost + self._HCost
+end
+
+function Point:SetPriority(value)
+    self._Priority = value
+end
+
+function Point:SetObstacle(isObstacle)
+    self._isObstacle = isObstacle
+end
+
+---@param targetPoint Point
+function Point:Equal(targetPoint)
+    return self._x == targetPoint._x and self._z == targetPoint._z
+end
+
+return Point

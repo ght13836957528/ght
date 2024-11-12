@@ -1,0 +1,9 @@
+---@class GuideStepInfoRecordTowerDefenseOver : GuideStepBaseInfo @记录塔防小游戏结束
+local GuideStepInfoRecordTowerDefenseOver = class("GuideStepInfoRecordTowerDefenseOver", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoRecordTowerDefenseOver
+
+function M:onParse(params)
+
+end
+
+return M

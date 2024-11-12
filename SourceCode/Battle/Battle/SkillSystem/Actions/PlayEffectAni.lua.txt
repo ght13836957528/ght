@@ -1,0 +1,62 @@
+----------------------------------------------------------------------
+--------- 2023年01月31日 16:01:28 星期二
+----------------------------------------------------------------------
+
+--[[
+    处理美术效果 AnimationClip
+]]
+local BaseAction = require "GameLogic.Battle.SkillSystem.Actions.BaseAction"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class PlayEffectAni:BaseAction
+local PlayEffectAni = class("PlayEffectAni", BaseAction)
+local M = PlayEffectAni
+
+----------------------------------------------------------------------
+
+--- 初始化, self.actionData = {effectName = "effectName", root = "root"}
+function M:_onInitialize()
+    local data       = self.actionData or {}
+    self.effClipName = data.effClipName
+end
+
+function M:_onExecute(...)
+    local param = { ... }
+    local effClipName = self.effClipName or ""
+    if effClipName == "" then
+        BattleLogger.log_error("没有对应的动画效果名，请检查配置!!")
+        return
+    end
+
+
+    local targetEntityId = param[1]
+    self.targetEntityId = targetEntityId
+    self:_playEffect(effClipName, targetEntityId)
+end
+
+function M:_onClear()
+    -- -- log_Error("destroy eff ", self.effectName)
+    -- if self.targetEntityId then
+    --     BattleEventUtils:DisPath_PlayEffAni(self.targetEntityId, self.effectName, self.root)
+    -- else
+    --     BattleEventUtils:DisPath_PlayEffAni(self.hostCharacter:GetBattleId(), self.effectName, self.root)
+    -- end
+end
+
+function M:_onExit()
+   
+end
+----------------------------------------------------------------------
+
+function M:_playEffect(effClipName, targetEntityId)
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+
+    if targetEntityId then
+        BattleEventUtils:DisPath_PlayEffAni(targetEntityId, effClipName, aniSpeed)
+    else
+        BattleEventUtils:DisPath_PlayEffAni(self.hostCharacter:GetBattleId(), effClipName, aniSpeed)
+    end
+
+    -- BattleLogger.log_error("实例化特效 ")
+end
+
+return M

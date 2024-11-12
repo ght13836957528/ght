@@ -1,0 +1,10 @@
+---@class GuideStepInfoUnlockWorldMap : GuideStepBaseInfo
+local Base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfoUnlockWorldMap = class("GuideStepInfoUnlockWorldMap", Base)
+local M = GuideStepInfoUnlockWorldMap
+
+function M:onParse()
+
+end
+
+return M

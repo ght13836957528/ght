@@ -1,0 +1,74 @@
+----------------------------------------------------------------------
+--------- 2023年01月17日 14:51:06 星期二
+----------------------------------------------------------------------
+
+---@class BaseSkillStepAction
+local BaseSkillStepAction = class("BaseSkillStepAction")
+local M = BaseSkillStepAction
+
+--- 构造函数
+--- @param hostCharacter BattleCharacter 处理技能的角色
+--- @param battleContext BattleContext 战斗内容上下文
+--- @param stepContext StepContext step间处理内容的上下文
+--- @param stepHandler SkillStepHandler 处理step的Handler，用于具体action需要调用stepHandler中的API的情形
+function M:Ctor(hostCharacter, battleContext, stepContext)
+    self.hostCharacter  = hostCharacter
+    self.battleContext  = battleContext
+    self.stepContext    = stepContext
+    self.inheritList    = {}
+end
+
+function M:SetEntityId(index)
+   self.entityId = index
+end
+
+function M:GetEntityId()
+   return self.entityId
+end
+
+function M:Initialize(stepActionData,findRootId,baseRootId)
+    self.stepActionData = stepActionData
+    self.findRootId = findRootId
+    self.baseRootId = baseRootId
+    self:_onInitialize()
+end
+
+--- 开始当前行为
+--- @param prevTargetList table 从前一个step传承过来的list，用于本次筛选
+function M:StartAction()
+    self:_updateInheritList()
+    self:_onStartAction()
+end
+
+function M:OnUpdate(fDeltaTime)
+    self:_onUpdate()
+end
+
+function M:Clear()
+    self:_onClear()
+end
+-------------------------------------
+
+function M:_updateInheritList()
+  
+end
+
+
+----------------------------------------------------------------------
+function M:_onInitialize()
+    --
+end
+
+function M:_onStartAction()
+    
+end
+
+function M:_onUpdate(fDeltaTime)
+    
+end
+
+function M:_onClear()
+    
+end
+
+return M

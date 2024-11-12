@@ -1,0 +1,16 @@
+---@class GuideTriggerConditionGetTaskRewardComplete:GuideTriggerCondition
+local GuideTriggerConditionGetTaskRewardComplete = class("GuideTriggerConditionGetTaskRewardComplete", require("GameLogic.NewGuide.Trigger.GuideTriggerCondition"))
+local M = GuideTriggerConditionGetTaskRewardComplete
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+
+function M:equals(param)
+    local complete = false
+    if param  then
+        if tonumber(param) == tonumber(self.triggerParam) then -- 判断是否是配置要求的任务ID
+            complete = true
+        end
+    end
+    return complete
+end
+
+return M

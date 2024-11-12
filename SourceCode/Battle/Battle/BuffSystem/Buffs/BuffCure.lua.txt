@@ -1,0 +1,94 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 11:30:16 星期一
+----------------------------------------------------------------------
+--- 治疗
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BaseBuff = require "GameLogic.Battle.BuffSystem.BaseBuff"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+---@class BuffCure:BaseBuff
+local BuffCure = class("BuffCure", BaseBuff)
+local M = BuffCure
+
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+    self:_doModify()
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+
+end
+
+----------------------------------------------------------------------
+function M:_doModify()
+    local fromCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.fromId)
+
+    --- 攻击力
+    local attValue = fromCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_ATK_2)
+    BattleLogger.logNumerical("攻击力 : ", attValue)
+    --- 兵力*系数
+    local soldiers_k = self:GetNumericalStrength(fromCharacter)
+    BattleLogger.logNumerical("兵力*系数 : ", soldiers_k)
+    --- 技能系数
+    local skill_k = self:skillCoefficient(fromCharacter, self.buffParams)
+    BattleLogger.logNumerical("技能系数 : ", skill_k)
+    --- 治疗效果提升
+    local p1 = fromCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_CurePrompt_31) * 0.01
+    BattleLogger.logNumerical("治疗效果提升 : ", p1)
+    --- 生命恢复效果加成
+    local p2 = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_HPRecoverAdd_30) * 0.01
+    BattleLogger.logNumerical("生命恢复效果加成 : ", p2)
+    --- 玩法治疗系数
+    local play_k = self:IsPlayType(1) and
+        ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Heal_Formula_World_Param") or 1
+    BattleLogger.logNumerical("玩法治疗系数 : ", play_k)
+    --- 威力百分比
+    local power_k = self.buffParams[3] or 100
+    power_k = power_k * 0.01
+    BattleLogger.logNumerical("威力百分比 : ", power_k)
+
+    local result = soldiers_k * attValue * skill_k * p1 * p2 * play_k * power_k
+    result = FixedCalculateHandler:keepPoint(result, 0)
+    result = result <= 0 and 1 or result
+
+    local param4 = self.buffParams[4] or 0
+    if param4 == 1 then
+        local hpRate = self.hostCharacter:GetBaseAtt():GetHpRate()
+        local bmShM = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleLessSelfHpMoreHealParam")
+        local rate_k = 1 + (1 - hpRate) * 100 * bmShM
+        result = result * rate_k
+        BattleLogger.logNumerical("血量越低治疗加强 : ", result)
+    end
+    local param5 = self.buffParams[5] or 0
+    local tmpResult = result + self.hostCharacter:GetBaseAtt():GetCurrentHpValue()
+    local hpBase = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_HP_1)
+    if param5 == 1 and self.buffParams[6] and tmpResult > hpBase then
+        local shield_p = self:CureCoefficient(fromCharacter, self.buffParams[6])
+        local turnValue = tmpResult - hpBase
+        local shieldValue = turnValue * shield_p
+        self.hostCharacter:GetBaseAtt():AddShieldStaticValue(shieldValue, self.fromId)
+        BattleLogger.logNumerical("超出治疗量转化护盾 : ", shieldValue)
+    end
+    local isSummon = self.hostCharacter:GetCharacterContext():GetIsSummon()
+    if isSummon then
+        result = BattleHelper:ModifiedSummonEffValue_Cure(result)
+    end
+    BattleLogger.logNumerical("最终治疗 : ", result)
+    self.hostCharacter:GetLogicHandle():AddHp(self.fromId, result)
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_OutputCure_4, self.fromId)
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_InputCure_5, self.hostCharacter:GetBattleId())
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_HpChange_13, self.hostCharacter:GetBattleId())
+end
+
+return M

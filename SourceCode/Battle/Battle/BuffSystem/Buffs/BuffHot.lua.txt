@@ -1,0 +1,90 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:52:45 星期一
+--------- HOT
+----------------------------------------------------------------------
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local TriggerTimeType = require "GameLogic.Battle.Common.TriggerTimeType"
+-- local BattleEventId = require "GameLogic.Battle.BattleEvent.BattleEventId"
+---@class BuffHot:BasePersistentBuff
+local BuffHot = class("BuffHot", BasePersistentBuff)
+local M = BuffHot
+
+function M:_onInitialize()
+    -- 其他初始化
+    self.timeCounter = 0
+
+    self.result = 0
+end
+
+--- buff创建开始生效前的处理
+function M:_onEnter()
+    self:_initDotAtt()
+    self:_doModify()
+end
+
+function M:_onUpdate(deltaTime)
+    self.timeCounter = self.timeCounter + deltaTime
+    if self.timeCounter >= BattleConstant.BuffDotOrHotInterval then
+        self:_doModify()
+        self.timeCounter = 0
+    end
+end
+
+function M:_onExit()
+    self.result = 0
+end
+
+function M:_initDotAtt()
+    local fromCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.fromId)
+
+    --- 攻击力
+    local attValue = fromCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_ATK_2)
+    BattleLogger.logNumerical("攻击力 : ", attValue)
+    --- 兵力*系数
+    local soldiers_k = self:GetNumericalStrength(fromCharacter)
+    BattleLogger.logNumerical("兵力*系数 : ", soldiers_k)
+    --- 技能系数
+    local skill_k = self:skillCoefficient(fromCharacter, self.buffParams)
+    BattleLogger.logNumerical("技能系数 : ", skill_k)
+    --- 治疗效果提升
+    local p1 = fromCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_CurePrompt_31) * 0.01
+    BattleLogger.logNumerical("治疗效果提升 : ", p1)
+    --- 生命恢复效果加成
+    local p2 = self.hostCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_HPRecoverAdd_30) * 0.01
+    BattleLogger.logNumerical("生命恢复效果加成 : ", p2)
+    --- 玩法治疗系数
+    local play_k = self:IsPlayType(1) and
+        ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Heal_Formula_World_Param") or 1
+    BattleLogger.logNumerical("玩法治疗系数 : ", play_k)
+
+    local result = soldiers_k * attValue * skill_k * p1 * p2 * play_k
+    result = FixedCalculateHandler:keepPoint(result, 0)
+    result = result <= 0 and 1 or result
+
+    BattleLogger.logNumerical("最终治疗 : ", result)
+    local isSummon = self.hostCharacter:GetCharacterContext():GetIsSummon()
+    if isSummon then
+        result = BattleHelper:ModifiedSummonEffValue_Cure(result)
+    end
+    self.result = result
+end
+
+function M:_doModify()
+    -- self.hostCharacter:GetLogicHandle():AcceptDamage(self.fromId,self.result)
+    --- 造成伤害时的事件
+    -- BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_TRIGGER_EVENT, TriggerTimeType.TriggerTime_OnHurt)
+
+    BattleLogger.log("每秒治疗：", self.result)
+
+    self.hostCharacter:GetLogicHandle():AddHp(self.fromId, self.result)
+    ---- 造成伤害时的事件
+    -- BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_TRIGGER_EVENT, TriggerTimeType.TriggerTime_OnAcceptCure)
+end
+
+return M

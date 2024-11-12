@@ -1,0 +1,81 @@
+--[[
+    技能状态
+    目前是所有技能逻辑统一走这个 SkillSystem 状态
+    主要逻辑去 CharacterSkillSystem 中处理
+]]
+--
+local BaseBehaviorState        = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+local BehaviorStateType        = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEnum               = require "GameLogic.Battle.BattleEnum"
+---@class SkillSystemBehaviorState:BaseBehaviorState
+local SkillSystemBehaviorState = class("ProfoundBehaviorState", BaseBehaviorState)
+local M                        = SkillSystemBehaviorState
+
+-----------------生命周期-------------------
+
+-- @param ... 切换场景时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    self.super.OnInit(self, ...)
+end
+
+-- 进入场景
+function M:OnEnter(...)
+    -- BattleLogger.log("In SkillSystem: " .. tostring(self:_getCharacterBattleId()))
+    self:_checkToPlaySkill()
+end
+
+function M:OnUpdate(fDeltaTime)
+
+end
+
+-- 退出场景
+function M:OnExit(callback)
+    if callback ~= nil then
+        callback()
+    end
+end
+
+-----------------helpers-------------------
+function M:_checkToPlaySkill()
+    -- if self.hostCharacter.characterBattleId == 6 then
+    --     BattleLogger.log("_checkToPlaySkill")
+    -- end
+    -- 检查条件前先确认是否在处理动作，比如正在释放技能，正在释放技能时不处理条件检查
+    local skillId, skillTargets = self.hostCharacter.skillManager:CheckAvailableSkill()
+    -- log_Error(result)
+    -- if self.hostCharacter.characterBattleId == 3 or self.hostCharacter.characterBattleId == 2 then
+    --     skillId = -1
+    -- end
+    if BattleStatic.isBattleDebug then
+        local id = self.hostCharacter.characterBattleId
+        local group = BattleStatic.debugEntityIDs
+        for _, entityID in pairs(group) do
+            if id == entityID then
+                skillId = -1
+                break
+            end
+        end
+    end
+
+    if skillId ~= -1 then
+        BattleLogger.log("SkillSystem: check => true - ",
+            tostring(self:_getCharacterBattleId()), "    skillid == ", skillId)
+
+        self._stateManager:Switch(BehaviorStateType.PerformSkill,
+            { fromState = BehaviorStateType.SkillSystem, skillId = skillId, skillTargets = skillTargets })
+    else
+        if self.hostCharacter:GetCharacterType() == BattleEnum.BattleCharacterType.Gun then
+            -- 检查后续条件
+            BattleLogger.log("SkillSystem: check => false - ", self:_getCharacterBattleId())
+            self._stateManager:Switch(BehaviorStateType.Idle,
+                { fromState = BehaviorStateType.SkillSystem, searchTarget = 0 })
+        else
+            -- 检查后续条件
+            BattleLogger.log("SkillSystem: check => false - ", self:_getCharacterBattleId())
+            self._stateManager:Switch(BehaviorStateType.Search,
+                { fromState = BehaviorStateType.SkillSystem, searchTarget = 0 })
+        end
+    end
+end
+
+return M

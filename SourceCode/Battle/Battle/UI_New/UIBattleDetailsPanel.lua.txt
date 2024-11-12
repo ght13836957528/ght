@@ -1,0 +1,344 @@
+local GameObjectUtil           = require "Framework.Common.GameObjectUtil"
+local BattleEnum               = require "GameLogic.Battle.BattleEnum"
+local BattleDataHandler        = require "GameLogic.Battle.BattleModel.BattleDataHandler"
+local GameObject               = CS.UnityEngine.GameObject
+---@class UIBattleDetailsPanel:UIWidget
+local UIBattleDetailsPanel     = class("UIBattleDetailsPanel", UIWidget)
+local M                        = UIBattleDetailsPanel
+local UIBattleDetailsItem      = require "GameLogic.Battle.UI_New.UIBattleDetailsItem"
+local UIBattleDetailsItemRobot = require "GameLogic.Battle.UI_New.UIBattleDetailsItemRobot"
+local BattleHelper             = require "GameLogic.Battle.BattleHelper"
+---处理参数
+---@param params any 传入的任意参数
+function M:OnParse(params)
+    if params == nil then
+        return
+    end
+    self._battleInfo = params.battleInfo
+    self._battleResult = params.battleResult
+    ---@type FinishBattlePush
+    self._battleFinishPushData = params.battleResult
+    ---@type UIBattleDetailsItem[]
+    self._list_leftHero = {}
+    ---@type UIBattleDetailsItem[]
+    self._list_rightHero = {}
+
+    self:handleDenominator()
+end
+
+---创建逻辑
+function M:OnCreate()
+    -- self._campBuffCell_l = UICampFetterCell.new()
+    -- self._campBuffCell_l:Bind(self._LeftCampAdd.gameObject)
+    -- self._campBuffCell_r = UICampFetterCell.new()
+    -- self._campBuffCell_r:Bind(self._RightCampAdd.gameObject)
+end
+
+---显示逻辑
+function M:OnShow()
+end
+
+---隐藏逻辑
+function M:OnHide()
+
+end
+
+---添加事件监听
+function M:OnAddListener()
+    -- self._Btn_Return.onClick:AddListener(function()
+    --     self:onSoldierClick_l()
+    -- end)
+end
+
+---移除事件监听
+function M:OnRemoveListener()
+    -- self._Btn_Return.onClick:RemoveAllListeners()
+end
+
+-- ---添加动态事件监听
+-- function M:onAddDynamicListener()
+-- end
+
+-- ---移除动态事件监听
+-- function M:onRemoveDynamicListener()
+-- end
+
+function M:openAni()
+    if self._Main then
+        self._Main:Play("UIBattleDetailsCellOpen")
+    end
+end
+
+function M:closeAni()
+    if self._Main then
+        self._Main:Play("UIBattleDetailsCellOut")
+    end
+end
+
+---刷新逻辑
+function M:OnRefresh()
+    self:setLeftPlayerData(self._battleResult.battlefieldReport.left,
+        self._battleInfo.left, true)
+    if BattleHelper:getLogicTypeByBattleType(self._battleInfo.battleType) == BattleEnum.BattleLogicType.PVE then
+        self:setRightEnemyData()
+    else
+        self:setLeftPlayerData(self._battleResult.battlefieldReport.right,
+            self._battleInfo.right, false)
+    end
+end
+
+---销毁前清理
+function M:OnDispose()
+
+end
+
+---@param left StatisticData
+---@param resultLeft BattleLineUpData
+function M:setLeftPlayerData(left, resultLeft, isLeft)
+    resultLeft = resultLeft or {}
+    local playerInfo = resultLeft.battlePlayerInfo or {}
+    self:setPlayerData(left, resultLeft, isLeft)
+    local power = playerInfo.power or resultLeft.power or 0
+    local powerTxt = isLeft and self._TexFlameL or self._TexFlameR
+    powerTxt.text = CommonUtils.GetThousandSeparatorNum(power)
+    self:refreshTeamSet_l(left, resultLeft, isLeft)
+end
+
+function M:setPlayerData(left, resultLeft, isLeft)
+    local playerInfo = resultLeft.battlePlayerInfo or {}
+    if not isLeft and self._battleInfo.battleType and self._battleInfo.battleType == BattleEnum.BattlePlayType.SecretArea then
+        self:setMazePlayerData(left, resultLeft, isLeft)
+    else
+        local headImg = isLeft and self._HeadImgL or self._HeadImgR
+        --UIUtils:setImage2(UIUtils:GetPlayerHeadPic(playerInfo.pic), self._HeadImgL)
+        UIUtils:SetPlayerHead(playerInfo.pic, headImg)
+        local nameTxt = isLeft and self._TexNameL or self._TexNameR
+        nameTxt.text = playerInfo.name or ""
+    end
+end
+
+function M:setMazePlayerData(left, resultLeft, isLeft)
+    local heroInfo = nil
+    for pos, info in pairs(resultLeft.posInfo) do
+        heroInfo = info.heroInfo
+        break
+    end
+    if heroInfo then
+        local heroId = heroInfo.heroId
+        local heroShowCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, heroId)
+        if heroShowCon == nil then
+            log_Error("Hero_Show_Info 查无此将 ！！ ", heroId)
+            return
+        end
+        UIUtils:setImage2(heroShowCon.icon, self._HeadImgR)
+        local nameTxt = isLeft and self._TexNameL or self._TexNameR
+        nameTxt.text = _lang(heroShowCon.name)
+    end
+end
+
+---@param leftStatisticData StatisticData
+---@param resultLeft BattleLineUpData
+function M:refreshTeamSet_l(leftStatisticData, resultLeft, isLeft)
+    local index = 1
+    local heroList = isLeft and self._list_leftHero or self._list_rightHero
+    local go_item = isLeft and self._UIBattleDetailsItemL or self._UIBattleDetailsItemR
+    local go_root = isLeft and self._VerticalLeft or self._VerticalRight
+    local maxValue = -1
+    local maxIndex = -1
+    if resultLeft.posInfo == nil then
+        return
+    end
+    for pos, info in pairs(resultLeft.posInfo) do
+        local data = {}
+        data.info = info
+        data.statisticData = leftStatisticData.posStatisticData[tostring(pos)] or {}
+        data.isLeftUI = isLeft
+        data.index = index
+        data.denominatorMap = {
+            hitMax = self._hitMax,
+            cureMax = self._cureMax,
+            shieldMax = self._shieldMax,
+            damageMax = self._damageMax,
+        }
+        if data.statisticData.allHarm and data.statisticData.allHarm > maxValue then
+            maxValue = data.statisticData.allHarm
+            maxIndex = index
+        end
+        if heroList[index] == nil then
+            local obj = GameObjectUtil.createItem(go_item, go_root)
+            local item = UIBattleDetailsItem.new(data)
+            item:Bind(obj)
+            heroList[index] = item
+        else
+            heroList[index]:Refresh(data)
+        end
+
+        index = index + 1
+    end
+    if maxIndex > 0 and heroList[maxIndex] then
+        heroList[maxIndex]:showMvp()
+    end
+    --- 别问 毁灭吧 sb们
+    if resultLeft and resultLeft.cabinGun then
+        local posIndex = 100
+        for _, info in pairs(resultLeft.cabinGun) do
+            posIndex = posIndex + 1
+            local data = {}
+            data.isGun = true
+            data.info = info
+            data.statisticData = leftStatisticData.posStatisticData[tostring(posIndex)] or {}
+            data.isLeftUI = isLeft
+            data.index = index
+            data.denominatorMap = {
+                hitMax = self._hitMax,
+                cureMax = self._cureMax,
+                shieldMax = self._shieldMax,
+                damageMax = self._damageMax,
+            }
+            if data.statisticData.allHarm and data.statisticData.allHarm > maxValue then
+                maxValue = data.statisticData.allHarm
+                maxIndex = index
+            end
+            if heroList[index] == nil then
+                local obj = GameObjectUtil.createItem(go_item, go_root)
+                local item = UIBattleDetailsItem.new(data)
+                item:Bind(obj)
+                heroList[index] = item
+            else
+                heroList[index]:Refresh(data)
+            end
+
+            index = index + 1
+        end
+    end
+
+
+    local len = index
+    for i = len, #heroList do
+        if heroList[i] then
+            heroList[i]:setActive(false)
+        end
+    end
+end
+
+---@param battleFinishPushData FinishBattlePush
+function M:setRightEnemyData()
+    local targetId = self._battleInfo.targetId
+    local con_strike = ConfigHandler:GetEntry(GameDefine.TableName.Strike_Pirate_Enemy, targetId)
+    if con_strike == nil then
+        con_strike = ConfigHandler:GetEntry(GameDefine.TableName.Newbies_Points_Enemy, targetId)
+        if con_strike == nil then
+            self:setLeftPlayerData(self._battleResult.battlefieldReport.right,
+                self._battleInfo.right, false)
+            return
+        end
+    end
+    local con_stage = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, con_strike.stageBattle)
+    local enemyInfoId = con_stage.enemyInfo or 11
+    local con_hero = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, enemyInfoId)
+    UIUtils:setImage2(con_hero.icon, self._HeadImgR)
+    self._TexNameR.text = _lang(con_hero.name)
+
+
+    local rightTeamList = BattleDataHandler:packEnemyRobotDataList_normal(targetId)
+    local combat = 0
+    for _, robot in pairs(rightTeamList) do
+        combat = combat + robot._combat
+    end
+    self._TexFlameR.text = CommonUtils.GetThousandSeparatorNum(combat)
+    self:refreshTeamSet_r_robot(rightTeamList, self._battleResult.battlefieldReport.right)
+end
+
+---@param rightTeamList BattleCharacterRobotModel[]
+---@param leftStatisticData StatisticData
+function M:refreshTeamSet_r_robot(rightTeamList, leftStatisticData)
+    local index = 1
+    local maxValue = -1
+    local maxIndex = -1
+    for i = 1, 5 do
+        local robot = rightTeamList[i]
+        if robot then
+            local data = {}
+            data.info = robot
+            data.statisticData = leftStatisticData.posStatisticData[tostring(i)]
+            data.isLeftUI = false
+            data.index = i
+            data.denominatorMap = {
+                hitMax = self._hitMax,
+                cureMax = self._cureMax,
+                shieldMax = self._shieldMax,
+                damageMax = self._damageMax,
+            }
+            if data.statisticData.allHarm and data.statisticData.allHarm > maxValue then
+                maxValue = data.statisticData.allHarm
+                maxIndex = index
+            end
+            if self._list_rightHero[index] == nil then
+                local obj = GameObjectUtil.createItem(self._UIBattleDetailsItemR, self._VerticalRight)
+                local item = UIBattleDetailsItemRobot.new(data)
+                item:Bind(obj)
+                self._list_rightHero[index] = item
+            else
+                self._list_rightHero[index]:Refresh(data)
+            end
+            index = index + 1
+        end
+    end
+    if maxIndex > 0 and self._list_rightHero[maxIndex] then
+        self._list_rightHero[maxIndex]:showMvp()
+    end
+    local len = index
+    for i = len, #self._list_rightHero do
+        if self._list_rightHero[i] then
+            self._list_rightHero[i]:setActive(false)
+        end
+    end
+end
+
+function M:handleDenominator()
+    self._hitMax = 0
+    self._cureMax = 0
+    self._shieldMax = 0
+    self._damageMax = 0
+    local ks = BattleEnum.NumericalTypeToString or {}
+    local leftStatic = self._battleResult.battlefieldReport.left.posStatisticData
+    for _, posData in pairs(leftStatic) do
+        local harm = posData[ks[BattleEnum.NumericalType.AllHarm]] or 0
+        if harm > self._hitMax then
+            self._hitMax = harm
+        end
+        local cure = posData[ks[BattleEnum.NumericalType.AllCure]] or 0
+        if cure > self._cureMax then
+            self._cureMax = cure
+        end
+        -- local shield = statisticalData[BattleEnum.NumericalType.AllShield] or 0
+        -- if shield > self._shieldMax then
+        --     self._shieldMax = shield
+        -- end
+        local damage = posData[ks[BattleEnum.NumericalType.AllTakeDamage]] or 0
+        if damage > self._damageMax then
+            self._damageMax = damage
+        end
+    end
+    local rightStatic = self._battleResult.battlefieldReport.right.posStatisticData
+    for _, posData in pairs(rightStatic) do
+        local harm = posData[ks[BattleEnum.NumericalType.AllHarm]] or 0
+        if harm > self._hitMax then
+            self._hitMax = harm
+        end
+        local cure = posData[ks[BattleEnum.NumericalType.AllCure]] or 0
+        if cure > self._cureMax then
+            self._cureMax = cure
+        end
+        -- local shield = statisticalData[BattleEnum.NumericalType.AllShield] or 0
+        -- if shield > self._shieldMax then
+        --     self._shieldMax = shield
+        -- end
+        local damage = posData[ks[BattleEnum.NumericalType.AllTakeDamage]] or 0
+        if damage > self._damageMax then
+            self._damageMax = damage
+        end
+    end
+end
+
+return M

@@ -1,0 +1,367 @@
+---@class CombineWatermelonModel
+CombineWatermelonModel = {}
+local M = CombineWatermelonModel
+local _AwardData = require "GameLogic.CoinBattle.CoinBattleMain.Data.CoinBattleAwardData"
+local _RankListData = require "GameLogic.CoinBattle.CoinBattleMain.Data.CoinBattleRankListData"
+
+CombineWatermelonModel.Event_GetAward = "CombineWatermelonModel_Event_GetAward" --任务数据更新
+CombineWatermelonModel.Event_GetDailyAward = "CombineWatermelonModel_Event_GetDailyAward" --每日任务数据更新
+CombineWatermelonModel.Event_GetRankData = "CombineWatermelonModel_Event_GetRankData" --排行榜数据
+CombineWatermelonModel.Event_GameReady = "CombineWatermelonModel_Event_GameReady" --游戏数据初始化完毕
+CombineWatermelonModel.Event_GameListReady = "CombineWatermelonModel_Event_GameListReady" --游戏list数据初始化完毕
+CombineWatermelonModel.Event_GameEnd = "CombineWatermelonModel_Event_GameEnd" --游戏结束，服务器返回数据
+CombineWatermelonModel.Event_OpenMainViewReward = "CombineWatermelonModel_Event_OpenMainViewReward" --打开主界面的领取奖励界面
+CombineWatermelonModel.Event_OpenMainViewRule = "CombineWatermelonModel_Event_OpenMainViewRule" --打开主界面的规则界面
+CombineWatermelonModel.Event_ContinueChallengeGame = "CombineWatermelonModel_Event_ContinueChallengeGame" --继续挑战
+
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+local ActivityController = CS.ActivityController.Instance
+local ActivityData
+---@type CoinBattleAwardData
+---奖励数据
+local awardData
+---@type CoinBattleRankListData
+local rankData
+
+local challengeCurNum = 0
+local challengeMaxNum = 0
+local scoreData = {} --小球对应的分数
+local ballSize = {} --小球对应的大小
+local colourBallId = 0 --彩色球的id
+local blastBallId = 0 --爆炸球的id
+local ballList = {}
+
+function M.init()
+    ActivityData = nil
+    awardData = _AwardData.new()
+    rankData = _RankListData.new()
+    
+    challengeCurNum = 0
+    challengeMaxNum = 0
+    colourBallId = 0
+    blastBallId = 0
+    scoreData = {}
+    ballSize = {}
+    ballList = {}
+end
+
+function M.initCoinActivityData()
+    ActivityData = ActivityController:GetActObjByType(106) --CS.ActivityType.Type106
+end
+
+---活动数据
+function M.getCoinActivityData()
+    return ActivityData
+end
+
+---活动结束时间
+function M.getActivityEndTime()
+    return ActivityData and ActivityData.endTime or 0
+end
+
+---活动剩余时间
+function M.getActivityLastTime()
+    local nowTime = GameGlobal.GameEntry.Timer:GetServerTime()
+    local lastTime = CombineWatermelonModel.getActivityEndTime() - nowTime
+    return lastTime
+end
+
+---请求进入游戏
+function M.requestEnterGame()
+    if challengeCurNum >= challengeMaxNum then
+        CS.UIUtils.ShowTips("5505042") --日挑战次数已达上限，挑战次数每日重置。
+        return
+    end
+    if M.getActivityLastTime() > 0 then
+        CombineWatermelonModel.InitInfoCommand(true, false)
+    end
+end
+
+---@return CoinBattleAwardData
+function M.getCoinAwardData()
+    return awardData
+end
+---获取我的分数
+function M.getMyScore()
+    return rankData.score
+end
+---获取我的排名
+function M.getMyRank()
+    return rankData.myRank
+end
+
+function M.getDailyAwardRedPoint()
+    return awardData.isShowDailyRedPoint
+end
+
+function M.getTaskScoreRedPoint()
+    return awardData.isShowTaskScoreRedPoint
+end
+
+---@return CBDailyAward[]
+function M.getDailyTask()
+    return awardData.dailyAward
+end
+---@return CBTaskScoreData[]
+function M.getScoreTask()
+    return awardData.taskScores
+end
+---@return CBRankReward
+function M.getRankTask()
+    return awardData.rankReward
+end
+---获取排行榜的数据
+function M.getRankList()
+    return rankData.rankInfo
+end
+
+function M.getBallList()
+    return ballList
+end
+
+function M.getChallengeMaxNum()
+    return challengeMaxNum
+end
+
+function M.getChallengeCurNum()
+    return challengeCurNum
+end
+
+function M.getColorItemId()
+    return colourBallId
+end
+
+function M.getBlastItemId()
+    return blastBallId
+end
+
+---获取小球大小
+function M.getBallSize(ballId)
+    if ballSize[ballId] then
+        local size = ballSize[ballId] * 0.8
+        return size
+    end
+end
+
+---获取小球积分值
+---@param ballId number 传入合成目标球的id
+function M.getBallScore(ballId)
+    if scoreData[ballId] then
+        return scoreData[ballId]
+    end
+    return 0
+end
+
+function M.refreshCombineWatermelonConfigData()
+    challengeMaxNum = GameEntry.DataConfig:GetInt("Big_watermelon","k1")
+    scoreData = {}
+    table.insert(scoreData, 0) --第一个小球没有分数
+    for i = 2, 11 do
+        local key = "k"..i
+        local value = GameEntry.DataConfig:GetInt("Big_watermelon", key)
+        table.insert(scoreData, tonumber(value))
+    end
+    local k16 = GameEntry.DataConfig:GetStr("Big_watermelon","k16")
+    local sizeStr = string.split(k16, "|")
+    for i, v in ipairs(sizeStr) do
+        table.insert(ballSize, tonumber(v))
+    end
+
+    colourBallId = tonumber(GameEntry.DataConfig:GetInt("Big_watermelon","k14"))
+    blastBallId = tonumber(GameEntry.DataConfig:GetInt("Big_watermelon","k15"))
+end
+
+
+function M.getRandomNum(min, max)
+    math.randomseed(tonumber(tostring(os.time()):reverse():sub(1, 7)))
+    return math.random(min, max)
+end
+
+---task数据（积分奖励、排名奖励的数据）
+function M.GetTaskCommand()
+    M.GetDailyTaskCommand()
+    local msg = Protocol.WatermelonGetTaskCommond:new()
+    Network.send(msg, M.SCGetTaskCommand)
+end
+function M.SCGetTaskCommand(errorCode, response, request)
+    if not string.isNilOrEmpty(errorCode) then
+        print_error("Watermelon SCGetTaskCommand errorCode is"..errorCode)
+        return
+    end
+    if response then
+        awardData:refreshData(response)
+        BroadcastEvent.dispatch(CombineWatermelonModel.Event_GetAward)
+    end
+end
+---每日任务数据（参与奖励的数据）
+function M.GetDailyTaskCommand()
+    local msg = Protocol.WatermelonDailyTaskCommond:new()
+    Network.send(msg, M.SCGetDailyTaskCommand)
+end
+function M.SCGetDailyTaskCommand(errorCode, response, request)
+    if not string.isNilOrEmpty(errorCode) then
+        print_error("Watermelon SCGetDailyTaskCommand errorCode is"..errorCode)
+        return
+    end
+    if response then
+        awardData:refreshDailyTaskData(response)
+        BroadcastEvent.dispatch(CombineWatermelonModel.Event_GetDailyAward)
+    end
+end
+
+---领取每日任务奖励
+function M.GetDailyTaskRewardCommand(taskId)
+    local msg = Protocol.WatermelonDailyTaskRewardCommond:new()
+    msg.id = taskId
+    Network.send(msg, M.SCGetDailyTaskRewardCommand)
+end
+function M.SCGetDailyTaskRewardCommand(errorCode, response, request)
+    if not string.isNilOrEmpty(errorCode) then
+        print_error("Watermelon SCGetDailyTaskRewardCommand errorCode is"..errorCode)
+        return
+    end
+    if response and response.rewardInfo then
+        local itemData = {}
+        for i, v in ipairs(response.rewardInfo) do
+            local item = {}
+            item.itemId = v.value.itemId
+            item.itemNum = v.value.rewardAdd
+            item.itemType = v.type
+            table.insert(itemData, item)
+            GameGlobal.GameEntry.Data.Item:UpdateItem(response._raw:GetSFSArray("rewardInfo"):GetSFSObject(i - 1):GetSFSObject("value"))
+        end
+        if #itemData > 0 then
+            CS.UIPreAdd.OpenUICommonRewardAnimation(itemData)    
+        end
+        M.GetTaskCommand()
+    end
+end
+
+---领取积分任务奖励
+function M.GetTaskRewardCommand(type, index)
+    local msg = Protocol.WatermelonTaskRewardCommond:new()
+    msg.type = type
+    msg.index = index
+    Network.send(msg, M.SCGetTaskRewardCommand)
+end
+function M.SCGetTaskRewardCommand(errorCode, response, request)
+    if not string.isNilOrEmpty(errorCode) then
+        print_error("Watermelon SCGetTaskRewardCommand errorCode is"..errorCode)
+        return
+    end
+    if response and response.rewardInfo then
+        local itemData = {}
+        for i, v in ipairs(response.rewardInfo) do
+            local item = {}
+            item.itemId = v.value.itemId
+            item.itemNum = v.value.rewardAdd
+            item.itemType = v.type
+            table.insert(itemData, item)
+            GameGlobal.GameEntry.Data.Item:UpdateItem(response._raw:GetSFSArray("rewardInfo"):GetSFSObject(i - 1):GetSFSObject("value"))
+        end
+        if #itemData > 0 then
+            CS.UIPreAdd.OpenUICommonRewardAnimation(itemData)
+        end
+        M.GetTaskCommand()
+    end
+end
+
+---rank数据
+function M.GetRankCommand()
+    local msg = Protocol.WatermelonRankCommond:new()
+    Network.send(msg, M.SCGetRankCommand)
+end
+function M.SCGetRankCommand(errorCode, response, request)
+    if not string.isNilOrEmpty(errorCode) then
+        print_error("Watermelon SCGetRankCommand errorCode is"..errorCode)
+        return
+    end
+    if response then
+        rankData:refreshData(response)
+        BroadcastEvent.dispatch(CombineWatermelonModel.Event_GetRankData)
+    end
+end
+
+---开启新的挑战，参数必须为true
+---@param isStartGame boolean false：可能是需要挑战次数的数据
+---@param keep boolean true：list用完后继续请求新的list
+function M.InitInfoCommand(isStartGame, keep)
+    keep = keep or false
+    if not keep then
+        ballList = {}
+    end
+    local msg = Protocol.WatermelonStartGameCommond:new()
+    msg.keep = keep
+    msg.isStartGame = isStartGame
+    Network.send(msg, M.SCInitInfoCommand)
+end
+function M.SCInitInfoCommand(errorCode, response, request)
+    if not string.isNilOrEmpty(errorCode) then
+        print_error("Watermelon SCInitInfoCommand errorCode is"..errorCode)
+        return
+    end
+    if response then
+        challengeCurNum = tonumber(response.gamenum)
+        BroadcastEvent.dispatch(CombineWatermelonModel.Event_GameReady)
+        if response.list then
+            for _, v in ipairs(response.list) do
+                table.insert(ballList, v)
+            end
+            BroadcastEvent.dispatch(CombineWatermelonModel.Event_GameListReady)
+        end
+    end
+end
+
+---1、合并时给服务发消息。2、使用道具时也要发消息。
+function M.SubmitScore(gameInfo, posIndex, totalScore)
+    local msg = Protocol.WatermelonSubmitScoreCommond:new()
+    msg.gameinfo = gameInfo
+    msg.posIndex = posIndex
+    msg.totalScore = totalScore
+    Network.send(msg, M.SCSubmitScore)
+end
+function M.SCSubmitScore(errorCode, response, request)
+    if not string.isNilOrEmpty(errorCode) then
+        CS.UIUtils.ShowTips(GameGlobal.GameEntry.Localization:GetString("82001052"))
+        print_error("Watermelon SCSubmitScore errorCode is"..errorCode)
+        return
+    end
+    if response then
+        --print_error("server add:"..response.scoreAdd.."  sum:"..response.scoreTotal)
+    end
+end
+
+
+---挑战结束
+function M.EndCommand(posIndex, score, bombScore)
+    local msg = Protocol.WatermelonEndGameCommond:new()
+    msg.posIndex = posIndex
+    msg.score = score
+    msg.bombScore = bombScore
+    Network.send(msg, M.SCEndCommand)
+end
+function M.SCEndCommand(errorCode, response, request)
+    if not string.isNilOrEmpty(errorCode) then
+        CS.UIUtils.ShowTips(GameGlobal.GameEntry.Localization:GetString("82001052"))
+        print_error("Watermelon SCEndCommand errorCode is"..errorCode)
+        return
+    end
+    if response then
+        BroadcastEvent.dispatch(CombineWatermelonModel.Event_GameEnd, response)
+    end
+end
+---分享
+function M.ShareCommand(roomtype)
+    local msg = Protocol.WatermelonShareCommond:new()
+    msg.roomtype = tostring(roomtype)
+    Network.send(msg, M.SCShareCommand)
+end
+function M.SCShareCommand(errorCode, response, request)
+    if not string.isNilOrEmpty(errorCode) then
+        print_error("Watermelon SCShareCommand errorCode is"..errorCode)
+        return
+    end
+    
+end
+
+return M

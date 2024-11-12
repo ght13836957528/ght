@@ -1,0 +1,280 @@
+----------------------------------------------------------------------
+--------- 2022年12月15日 20:34:55 星期四
+----------------------------------------------------------------------
+local BattleEventUtils          = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BaseBehaviorState         = require "GameLogic.Battle.BehaviorDecision.BehaviorStates.BaseBehaviorState"
+local BehaviorStateType         = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEnum                = require "GameLogic.Battle.BattleEnum"
+local BattleConstant            = require "GameLogic.Battle.BattleConstant"
+local ConfigHandler             = ConfigHandler
+---@class BeControlledBehaviorState:BaseBehaviorState
+local BeControlledBehaviorState = class("BeControlledBehaviorState", BaseBehaviorState)
+local M                         = BeControlledBehaviorState
+
+-- @param ... 切换场景时携带的参数(self, hostCharacter(BattleCharacter))
+function M:OnInit(...)
+    self.super.OnInit(self, ...)
+    self._controllerMap = {}
+    self._controlType = nil
+    self._ctrEntityId_ani = 0
+    self._ctrEntityIds_eff = {}
+    self._ctrEffArtOrder = 0
+end
+
+-- 进入场景
+function M:OnEnter(...)
+    BattleLogger.log("in idle: ", tostring(self:_getCharacterBattleId()))
+    local param = ...
+    self:AddControlPack(param[2], param[3])
+    -- self._controlType = controllType
+    -- if controllType == BattleEnum.BuffType.Buff_Repel then
+    --     self:_handleControllEnter_Repel(param)
+    -- elseif controllType == BattleEnum.BuffType.Buff_KnockDown then
+    --     self:_handleControllEnter_KnockDown(param)
+    -- elseif controllType == BattleEnum.BuffType.Buff_Stun then
+    --     self:_handleControllEnter_Stun()
+    -- elseif controllType == BattleEnum.BuffType.Buff_Frozen then
+    --     self:_handleControllEnter_Frozen()
+    -- elseif controllType == BattleEnum.BuffType.Buff_Exile then
+    --     self:_handleControllEnter_Exile()
+    -- else
+    --     BattleLogger.log_error("新增控制类型 ！！！ ", tostring(controllType))
+    -- end
+    self.hostCharacter:GetSkillManager():SetCanPlayerSuperSkill(false)
+    BattleEventUtils:DisPath_SkillCanPlay(self.hostCharacter:GetBattleId(), false)
+end
+
+function M:AddControlPack(conEntityId, pack)
+    self._controllerMap[conEntityId] = pack
+    self:handleAni(conEntityId)
+    self:handleArt(conEntityId)
+end
+
+function M:handleAni(newEntityId)
+    local pack = self._controllerMap[newEntityId]
+    if self._ctrEntityId_ani == nil then
+        if pack.ani then
+            self._ctrEntityId_ani = newEntityId
+            pack.ani()
+        end
+    else
+        local currentCtrPack_ani = self._controllerMap[self._ctrEntityId_ani]
+        if currentCtrPack_ani then
+            local currentType = currentCtrPack_ani.type
+            local con = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Status_Param, currentType)
+            local newCon = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Status_Param, pack.type)
+            if newCon and con and newCon.actOrder and con.actOrder and newCon.actOrder > con.actOrder then
+                if pack.ani then
+                    self._ctrEntityId_ani = newEntityId
+                    pack.ani()
+                end
+            end
+        else
+            if pack.ani then
+                self._ctrEntityId_ani = newEntityId
+                pack.ani()
+            end
+        end
+    end
+end
+
+function M:handleArt(newEntityId)
+    local pack = self._controllerMap[newEntityId]
+    local con = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Status_Param, pack.type)
+    if con == nil then
+        return 
+    end
+    if next(self._ctrEntityIds_eff) == nil then
+        if pack.effOpen then
+            pack.effOpen()
+            table.insert(self._ctrEntityIds_eff, newEntityId)
+            self._ctrEffArtOrder = con.effOrder
+        end
+    else
+        local effOrder = con.effOrder or 0
+        if effOrder > self._ctrEffArtOrder then
+            for _, entity in ipairs(self._ctrEntityIds_eff) do
+                local tmpPack = self._controllerMap[entity]
+                if tmpPack and tmpPack.effClose then
+                    tmpPack.effClose()
+                end
+            end
+            self._ctrEntityIds_eff = {}
+            if pack.effOpen then
+                pack.effOpen()
+                table.insert(self._ctrEntityIds_eff, newEntityId)
+                self._ctrEffArtOrder = effOrder
+            end
+        elseif effOrder == self._ctrEffArtOrder then
+            if pack.effOpen then
+                pack.effOpen()
+                table.insert(self._ctrEntityIds_eff, newEntityId)
+            end
+        else
+            -- nothing to do
+        end
+    end
+end
+
+function M:RemoveControlPack(conEntityId)
+    local removePack = self._controllerMap[conEntityId]
+    self._controllerMap[conEntityId] = nil
+    if next(self._controllerMap) == nil then
+        self:_handleOnRelieve()
+        return
+    end
+
+    if conEntityId == self._ctrEntityId_ani then
+        local order = 0
+        local targetId = -1
+        for id, pack in pairs(self._controllerMap) do
+            local con = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Status_Param, pack.type)
+            if con.actOrder > order then
+                order = con.actOrder
+                targetId = id
+            end
+        end
+        if targetId > 0 then
+            local pack = self._controllerMap[targetId]
+            if pack.ani then
+                self._ctrEntityId_ani = targetId
+                pack.ani()
+            end
+        end
+    end
+    local con = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Status_Param, removePack.type)
+    if con.effOrder == self._ctrEffArtOrder then
+        if removePack.effClose then
+            removePack.effClose()
+        end
+        table.removebyvalue(self._ctrEntityIds_eff, conEntityId)
+        if next(self._ctrEntityIds_eff) == nil and next(self._controllerMap) ~= nil then
+            local order = 0
+            for id, pack in pairs(self._controllerMap) do
+                local con = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Status_Param, pack.type)
+                if con.actOrder > order then
+                    self._ctrEntityIds_eff = {}
+                    order = con.actOrder
+                    table.insert(self._ctrEntityIds_eff, id)
+                elseif con.actOrder == order then
+                    table.insert(self._ctrEntityIds_eff, id)
+                else
+                    -- nothing to do
+                end
+            end
+
+            for _, id in pairs(self._ctrEntityIds_eff) do
+                local pack = self._controllerMap[id]
+                if pack.effOpen then
+                    pack.effOpen()
+                end
+            end
+        end
+    end
+end
+
+function M:GetControlType()
+    local pack = self._controllerMap[self._ctrEntityId_ani]
+    if pack then
+        return pack.type
+    end
+end
+
+function M:IsCanAdd(type)
+    local ctrType = self:GetControlType()
+    if ctrType then
+        local con = ConfigHandler:GetEntry(GameDefine.TableName.Battle_Status_Param, ctrType) or {}
+        local noAffect = con.noAffect or {}
+        for _, tmpType in pairs(noAffect) do
+            if type == tmpType then
+                return false
+            end
+        end
+        return true
+    else
+        return true
+    end
+end
+
+function M:OnUpdate(fDeltaTime)
+    -- if self:_checkIsBeControlled() then
+
+    -- else
+    --     -- BattleLogger.log_error(" 0003 ", self.hostCharacter:GetCharacterContext():GetBeControlledTime())
+    --     self:_handleOnRelieve()
+    -- end
+end
+
+-- 退出场景
+function M:OnExit(callback)
+    self._controllerMap = {}
+    self._controlType = nil
+    self._ctrEntityId_ani = 0
+    self._ctrEntityIds_eff = {}
+    self._ctrEffArtOrder = 0
+
+    if callback ~= nil then
+        callback()
+    end
+end
+
+function M:_handleControllEnter_Repel(param)
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+
+    BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Knock01, aniSpeed)
+    -- self.hostCharacter:GetRender():SetAnimationSpeed(aniSpeed)
+    -- self.hostCharacter:GetRender():PlayAnimation(BattleEnum.AnimationClip.Hit2)
+    -- BattleLogger.log_error(" 0001 ", self.hostCharacter:GetCharacterContext():GetBeControlledTime())
+    self.hostCharacter:GetFindPathManager():RepelTo(param[1], BattleConstant.RepelTime_1, param[4], function()
+        -- BattleLogger.log_error(" 0002 ", self.hostCharacter:GetCharacterContext():GetBeControlledTime())
+
+        BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Knock02, aniSpeed)
+    end)
+end
+
+function M:_handleControllEnter_KnockDown(param)
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    --    self.hostCharacter:GetRender():SetAnimationSpeed(aniSpeed)
+    --    self.hostCharacter:GetRender():PlayAnimation(BattleEnum.AnimationClip.Beatback_start)
+    BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Blow_01, aniSpeed)
+    self.hostCharacter:GetFindPathManager():RepelTo(param[1], BattleConstant.BlowTime_1, param[4], function()
+        -- BattleLogger.log_error(" 0002 ", self.hostCharacter:GetCharacterContext():GetBeControlledTime())
+
+        BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Blow_02, aniSpeed)
+    end)
+end
+
+function M:_handleControllEnter_Stun()
+    -- self:_setRenderAnimationSpeed(0)
+end
+
+function M:_handleControllEnter_Frozen()
+    -- self:_setRenderAnimationSpeed(0)
+end
+
+function M:_handleControllEnter_Exile()
+    -- self:_setRenderAnimationSpeed(0)
+end
+
+function M:_handleOnRelieve()
+    -- log_Error("**********GetBeControlledTime :",self.hostCharacter:GetCharacterContext():GetBeControlledTime() )
+    self.hostCharacter:GetFindPathManager():StopMove()
+    local aniSpeed = self.hostCharacter:GetBattleContext():GetBattleSpeed()
+    self:_setRenderAnimationSpeed(aniSpeed)
+    BattleEventUtils:DisPath_PlayEffAni(self.hostCharacter:GetBattleId(), "BodyEff_Battle_Default", aniSpeed)
+    self._stateManager:Switch(BehaviorStateType.SkillSystem, nil)
+end
+
+function M:_setRenderAnimationSpeed(speed)
+    --  self.hostCharacter:GetRender():SetAnimationSpeed(speed)
+    -- BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), BattleEnum.AnimationClip.Knock02, speed)
+end
+
+function M:_checkIsBeControlled()
+    -- -- 去查询玩家身上的 控制时间
+    -- local time = self.hostCharacter:GetCharacterContext():GetBeControlledTime()
+    -- local isBecontrol = self.hostCharacter:GetBuffManager():CheckAbnormalForAll()
+    -- return time > 0 or isBecontrol
+end
+
+return M

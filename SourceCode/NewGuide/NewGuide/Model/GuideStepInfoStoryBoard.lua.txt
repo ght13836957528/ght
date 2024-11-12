@@ -1,0 +1,11 @@
+---@class GuideStepInfoStoryBoard: GuideStepBaseInfo
+---@field storyId number 故事板ID
+local Base = require("GameLogic.NewGuide.Model.GuideStepBaseInfo")
+local GuideStepInfoStoryBoard = class("GuideStepInfoStoryBoard", Base)
+local M = GuideStepInfoStoryBoard
+
+function M:onParse(params)
+    self.storyId = params.storyId
+end
+
+return M

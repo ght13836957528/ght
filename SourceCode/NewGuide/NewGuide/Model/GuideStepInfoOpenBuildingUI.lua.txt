@@ -1,0 +1,11 @@
+---@class GuideStepInfoOpenBuildingUI:GuideStepBaseInfo 打开建筑建造界面
+---@field public buildType string 建筑类型ID
+local GuideStepInfoOpenBuildingUI = class("GuideStepInfoOpenBuildingUI", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoOpenBuildingUI
+
+function M:onParse(params)
+    self.buildType = params.buildType
+end
+
+
+return M

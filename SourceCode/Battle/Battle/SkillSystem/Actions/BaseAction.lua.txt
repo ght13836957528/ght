@@ -1,0 +1,59 @@
+----------------------------------------------------------------------
+--------- 2023年01月31日 15:45:55 星期二
+----------------------------------------------------------------------
+
+--[[
+    1. 技能以时间轴为基础从0向前推进，按帧处理技能内容。
+    2. 比如在技能释放后，需要播放动画，特效，音效，或者是触发处理其他内容，这里都可以一帧
+    处理完毕，于是抽象出来用BaseAction，以供技能释放中处理。
+    3. 这里局限于在技能中使用
+]]
+
+---@class BaseAction
+local BaseAction = class("BaseAction")
+local M = BaseAction
+---@param hostCharacter BattleCharacter
+---@param battleContext BattleContext
+---@param actionContext ActionContext
+function M:Ctor(hostCharacter, battleContext, actionContext)
+    self.hostCharacter = hostCharacter
+    self.battleContext = battleContext
+    self.actionContext = actionContext
+end
+
+function M:Initialize(actionData)
+    self.actionData = actionData
+
+    self:_onInitialize()
+end
+
+function M:Execute(...)
+    self:_onExecute(...)
+end
+
+function M:Exit()
+    self:_onExit()
+end
+
+function M:Clear()
+    self:_onClear()
+end
+
+----------------------------------------------------------------------------------
+function M:_onInitialize()
+    --
+end
+
+function M:_onExecute(...)
+
+end
+
+function M:_onExit()
+    
+end
+
+function M:_onClear()
+    
+end
+
+return M

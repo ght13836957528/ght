@@ -1,0 +1,18 @@
+---@class GuideStepInfoSoft : GuideStepBaseInfo @引导步骤软引导类型数据结构
+---@field public time number 等待时间
+local GuideStepInfoSoft = class("GuideStepInfoSoft", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoSoft
+
+function M:onParse(params)
+    self.softPanelName = params.softPanelName
+    self.handAndArrowAngle = params.handAndArrowAngle
+    self.handMoveTime = params.handMoveTime
+    self.softType = params.softType
+    self.handMoveType = params.handMoveType
+    self.handAndArrowStartPosType = params.handAndArrowStartPosType
+    self.handAndArrowStartNode = params.handAndArrowStartNode
+    self.handAndArrowEndPosType = params.handAndArrowEndPosType
+    self.handAndArrowEndNode = params.handAndArrowEndNode
+end
+
+return M

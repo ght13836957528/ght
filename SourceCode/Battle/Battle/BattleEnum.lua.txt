@@ -1,0 +1,556 @@
+----------------------------------------------------------------------
+
+---@class BattleEnum
+local BattleEnum = {}
+
+BattleEnum.BattleSpeedType = {
+    One = 1,
+    Double = 2,
+    Quadruple = 4,
+    Half = -1,
+}
+
+BattleEnum.BattleOperationType = {
+    CanOperation = 1, -- 可操作
+    NoOperation = 2,  -- 不可操作
+}
+--- 战斗逻辑类型
+BattleEnum.BattleLogicType = {
+    PVP = 1,
+    PVE = 2,
+}
+--- 战斗玩法类型
+BattleEnum.BattlePlayType = {
+    Normal = 1,        -- 推图
+    Explore = 2,       -- 探索
+    Arena = 3,         -- 竞技场
+    MoreTeamArena = 4, -- 多队竞技场
+    World_Pve = 5,     -- 世界pve
+    SecretArea = 6,    -- 秘境
+    TopOfTheHour = 7,  -- 时光之颠
+    World_Pvp = 8,     -- 世界pvp
+    Guide_Pve = 9,
+    World_Pve_Boss = 10,     -- World_Pve_boss  这个叫联盟boss
+    World_Pve_Mass = 11,     -- 世界pve
+    World_Pve_Port = 12,     -- 世界pve
+    World_Pve_BigWorld = 13, -- 世界pve
+    PVE_Common = 14, -- 通用得pve 编队是 推图得
+
+    World_Pve_Boss_Win = 16, -- 世界boss 新的 无论结果一定胜利
+    
+    Mowing = 17, -- 割草rpg
+    Mowing_Card = 18,   -- 割草卡牌
+}
+
+BattleEnum.BattleCharacterType = {
+    Character = 1,
+    Summoner = 2,
+    Gun = 3,
+}
+
+--- 布阵类型
+BattleEnum.TeamType = {
+    NormalTeam_one       = 1, --- 普通布阵单队
+    Explore_team         = 2, ---  探索
+    WorldTeam            = 3, --- 世界布阵多队
+    ArenaTeam_Attack     = 4, --- 竞技场进攻阵容
+    ArenaTeam_Defend     = 5, --- 竞技场防守阵容
+    MoreTeamArena_Attack = 6, --- 多队竞技场进攻
+    MoreTeamArena_Defend = 7, --- 多队竞技场防守
+    Mystery_team         = 8, --- 秘境（继承）
+    TopOfTime_team       = 9, --- 时光之颠 (继承)
+    Guide_Team           = 10,
+    Mowing               = 11,  -- 割草队伍
+}
+
+BattleEnum.InitRotate = {
+    Left = 1,
+    Right = 2,
+}
+
+BattleEnum.BattleCamp = {
+    Normal = 0,
+    Attack = 1,
+    Defend = 2,
+}
+
+BattleEnum.SkillBlackOut = {
+    Open = 1,
+    Close = 2,
+}
+
+BattleEnum.SkillType = {
+    NormalAttack = 1,
+    Skill1       = 2,
+    Skill2       = 3,
+    Skill3       = 4,
+    SkillSuper   = 5,
+    SkillPassive = 6,
+}
+
+BattleEnum.AnimationClip = {
+    Idie = "Battle_Idle",             --- 站
+    Attack = "Battle_Attack",         --- 普攻
+    Blow_01 = "Battle_Blow01",        --- 击飞1
+    Blow_02 = "Battle_Blow02",        --- 击飞2
+    Hited = "Battle_Hited",           --- 受伤
+    Die = "Battle_Die",               --- 死亡
+    Knock01 = "Battle_Knock01",       --- 击退1
+    Knock02 = "Battle_Knock02",       --- 击退2
+    Run = "Battle_Run",               --- 跑
+    Skill = "Battle_Skill",           ---  小技能
+    Stun = "Battle_Stun",             --- 晕眩
+    UltraSkill = "Battle_UltraSkill", --- 大招
+    Victory = "Battle_Victory",       --- 胜利
+    Skill2 = "Battle_Skill02",
+    Skill3 = "Battle_Skill03",
+
+    -- 一些特殊动画名称，先都放这吧
+    Battle_FaDou = "Battle_FaDou",    --- 发抖
+}
+
+BattleEnum.AnimationClipContinueSuffix = {
+    Start = "_Start",
+    Loop = "_Loop",
+    EndIng = "_End"
+}
+
+BattleEnum.SkillCostType = {
+    Anger = 1,
+    HPPercent = 2,
+    Buff = 3,
+}
+
+BattleEnum.SkillTargetType = {
+    Enemy = 1,
+    Myself = 2,
+    FriendNoSelf = 3,
+    Friend = 4
+}
+
+BattleEnum.SkillRangeType = {
+    None = 0,          --
+    FullScreen = 1,    -- 全屏
+    Circle = 2,        -- 周围圆形
+    Sector = 3,        -- 前方扇形
+    Rectangle = 4,     -- 前方线
+    RectangleMore = 5, -- 前方矩形
+    Rectangle_f = 6,   -- 后方线
+}
+
+BattleEnum.StepFiltParamType = {
+    Hatred       = 1,   -- 仇恨规则
+    Nearest      = 2,   -- 最近得
+    Headmost     = 3,   -- 最靠前
+    Vis_A_Vis    = 4,   -- 对位得
+    Farthest     = 5,   -- 最远得
+    AttackMax    = 6,   -- 攻击力最高得
+    HPRatioMin   = 7,   -- 血量百分比最低得
+    DefenseMin   = 8,   -- 防御最低
+    FrontRow     = 9,   -- 前排
+    BackRow      = 10,  -- 后排
+    Random       = 11,  -- 随机
+    Random_RD    = 12,  -- 随机排重
+    All          = 13,  -- 所有
+    ShortRange   = 14,  -- 近程
+    FarRange     = 15,  -- 远程
+    HPMax        = 16,  -- 血量最高
+    HPMin        = 17,  -- 血量最低
+    Intelligence = 18,  -- 智力
+    Agility      = 19,  -- 敏捷
+    Strength     = 20,  -- 力量
+    Race_1       = 21,  --=自由联盟[排重]
+    Race_2       = 22,  --=天理星辰[排重]
+    Race_3       = 23,  --=变革之风[排重]
+    Race_4       = 24,  --=复仇之血[排重]
+    Summons      = 25,  --=召唤物s
+    Masters      = 26,  --=召唤师s
+}
+
+BattleEnum.BulletMoveType = {
+    None = 0,              -- 不动
+    FindCharater = 1,      -- 找人
+    MoveForward = 2,       -- 向前移动
+    BindTarget = 3,        -- 挂身上
+    FindCharacterBack = 4, -- 找人回旋
+}
+
+BattleEnum.BulletCreatePosType = {
+    SelfBindPoint = 1,
+    Target = 2,
+    ScenePoint = 3,
+}
+
+
+BattleEnum.BulletScenePoint = {
+    SelfBindPoint = 1,
+    Target = 2,
+    ScenePoint = 3,
+}
+
+BattleEnum.BulletTriggerType = {
+    FrameTrigger = 1,
+    OnTriggerEnter = 2,
+}
+
+BattleEnum.BuffType = {
+    Buff_None                    = 0,
+    --------------------------------------------------------------------------------------------
+    --- 瞬时Buff
+    Buff_Harm                    = 1,  -- 伤害                           -- 1
+    Buff_Cure                    = 2,  -- 治疗                           -- 1
+    Buff_IncreaseAnger           = 3,  -- 增加怒气
+    Buff_DecreaseAnger           = 4,  -- 减少怒气
+    Buff_CurrentPercentageDamage = 11, -- 当前百分比伤害                  -- 1
+    Buff_MaxPercentageDamage     = 12, -- 最大百分比伤害                  -- 1
+    Buff_SacredDamage            = 13, -- 神圣伤害，不读取防御的伤害       -- 1
+    Buff_CurrentHPPercentageCure = 14, -- 自身血量百分比治疗              -- 1
+    Buff_TargetHPPercentageCure  = 15, -- 目标血量百分比治疗              -- 1
+    Buff_Purify                  = 16, -- 去掉不好的buff
+    Buff_Pollute                 = 17, -- 污染
+    Buff_BreakShield             = 18, -- 破盾
+    Buff_Repel                   = 21, -- 击退                           -- 1
+    Buff_KnockDown               = 22, -- 击倒
+    Buff_Dash                    = 23, -- 冲撞
+    Buff_PressOnward             = 24, -- 突刺
+    Buff_Teleport                = 25, -- 瞬移闪现
+    --------------------------------------------------------------------------------------------
+    --- 持续Buff
+    Buff_Shield                  = 101, -- 护盾                          -- 1
+    Buff_ShieldOfSelfPercentage  = 102, -- 自身百分比产生护盾             -- 1
+    Buff_Stun                    = 103, -- 眩晕                          -- 1
+    Buff_HOT                     = 104, -- HOT                           -- 1
+    Buff_DOT                     = 105, -- DoT                           -- 1
+    Buff_Dominant                = 106, -- 霸体
+    Buff_Exile                   = 107, -- 放逐
+    Buff_Silence                 = 108, -- 沉默
+    Buff_AngerNoDecrease         = 109, -- 怒气不降
+    Buff_AngerNoIncrease         = 110, -- 怒气不增
+    Buff_KeepPurify              = 111, -- 持续净化
+    Buff_KeepPollute             = 112, -- 持续污染
+    Buff_Invincible              = 113, -- 无敌
+    Buff_NotDie                  = 114, -- 不死
+    Buff_Frozen                  = 115, -- 冰冻
+    Buff_CanNotBeFind            = 116, -- 不可选中
+    Buff_Hot_Hp                  = 117, -- Hot 血量
+    Buff_Dot_Hp                  = 118, -- Dot 血量
+    Buff_AOT_Anger               = 119, -- AOT 怒气
+    Buff_NoEffect                = 120, -- 无效果其他逻辑
+    Buff_TotalInjured            = 121, -- 累计受到得伤害
+    Buff_Summons                 = 122, -- 召唤物
+    Buff_Sneer                   = 123, -- 嘲讽 
+    Buff_ChangeAttribute         = 200, -- 属性变化，【枚举，属性枚举，算法，量】 -- 1
+
+
+    Buff_NoReturn = 300, -- 不转向
+}
+--- 注意 这个是战斗  初始化   需要计算的属性  是从养成等数据中获取得数据计算出来的  不是战斗中得所有属性
+BattleEnum.BattleAttribute = {
+    AttributeType_HP_1           = 1,  -- 生命
+    AttributeType_ATK_2          = 2,  -- 攻击
+    AttributeType_DEF_3          = 3,  -- 防御
+    AttributeType_MDEF_4         = 4,  -- 法防
+    AttributeType_Crit_11        = 11, -- 暴击
+    AttributeType_Hit_12         = 12, -- 命中
+    AttributeType_Dodge_13       = 13, -- 闪避
+    AttributeType_ADSubDamage_14 = 14, -- 物理减伤
+    AttributeType_APSubDamage_15 = 15, -- 法术减伤
+    AttributeType_Rapid_16       = 16, -- 急速
+    AttributeType_Suck_17        = 17, -- 吸血
+}
+---- 战斗中用得所有属性
+BattleEnum.BuffChangeAttributeType =
+{
+    AttributeType_HP_1                    = 1,  -- 生命
+    AttributeType_ATK_2                   = 2,  -- 攻击
+    AttributeType_DEF_3                   = 3,  -- 防御
+    AttributeType_MDEF_4                  = 4,  -- 法防
+
+    AttributeType_HP_LOSS_5               = 5,  -- 血量损失百分比
+    AttributeType_SP_LOSS_6               = 6,  -- 怒气损失百分比
+
+    AttributeType_Crit_11                 = 11, -- 暴击
+    AttributeType_Hit_12                  = 12, -- 命中
+    AttributeType_Dodge_13                = 13, -- 闪避
+    AttributeType_ADSubDamage_14          = 14, -- 物理减伤
+    AttributeType_APSubDamage_15          = 15, -- 法术减伤
+    AttributeType_Rapid_16                = 16, -- 急速
+    AttributeType_Suck_17                 = 17, -- 吸血
+    AttributeType_CritEffect_21           = 21, -- 暴击效果
+    AttributeType_AgainstCrit_22          = 22, -- 抗暴
+    AttributeType_ADAddDamage_23          = 23, -- 物理增伤
+    AttributeType_APAddDamage_24          = 24, -- 法术增伤
+    AttributeType_AttackSpeed_25          = 25, -- 攻击速度
+    AttributeType_CDAccelerate_26         = 26, -- 冷却加速
+    AttributeType_MoveSpeed_27            = 27, -- 移动速度
+    AttributeType_AttackRageRecover_28    = 28, -- 攻击怒气回复速度
+    AttributeType_HitRageRecover_29       = 29, -- 受击怒气回复速度
+    AttributeType_HPRecoverAdd_30         = 30, -- 生命恢复效果加成
+    AttributeType_CurePrompt_31           = 31, -- 治疗效果提升
+    AttributeType_PhaseickCoefficientA_32 = 32, -- 相克额外系数A
+    AttributeType_PhaseickCoefficientB_33 = 33, -- 相克额外系数B
+    AttributeType_PhaseickCoefficientC_34 = 34, -- 相克额外系数C
+}
+
+BattleEnum.AttSystem = {
+    TeamSet = 1,
+
+}
+
+BattleEnum.BattleAttName = {
+    [1] = "生命",
+    [2] = "攻击",
+    [3] = "防御",
+    [4] = "法防",
+    [11] = "暴击",
+    [12] = "命中",
+    [13] = "闪避",
+    [14] = "物理减伤",
+    [15] = "法术减伤",
+    [16] = "急速",
+    [17] = "吸血",
+    [21] = "暴击效果",
+    [22] = "抗暴",
+    [23] = "物理增伤",
+    [24] = "法术增伤",
+    [25] = "攻击速度",
+    [26] = "冷却加速",
+    [27] = "移动速度",
+    [28] = "攻击怒气回复速度",
+    [29] = "受击怒气回复速度",
+    [30] = "生命恢复效果加成",
+    [31] = "治疗效果提升",
+    [32] = "相克额外系数A",
+    [33] = "相克额外系数B",
+    [34] = "相克额外系数C",
+
+}
+
+BattleEnum.MapGridOrientation = {
+    Top = 1,
+    Down = 2,
+    LT = 3,
+    LD = 4,
+    RT = 5,
+    RD = 6,
+}
+--- 渲染对象实例
+BattleEnum.EntityRenderType = {
+    RenderCharacter = 1,
+    RenderScene = 2,
+    RenderBullet = 3,
+    RenderAttack = 4,
+    RenderHud = 5,
+    RenderSummonCharacter = 6,
+}
+
+BattleEnum.BufferOverlayType = {
+    S_TimeReset = 1,   --- 自身不可叠加=重置时间
+    SSS_TimeAlone = 2, --- 2=自身可叠加=互相独立时间
+    SSS_TimeReset = 3, --- 3=自身可叠加=重置时间一起结束
+}
+
+BattleEnum.BufferPersistentType = {
+    TimePersistent = 1,          --- 1= 时间计算
+    AttackCountPersistent = 2,   --- 2= 攻击次数
+    BeAttackCountPersistent = 3, --- 3= 被攻击次数
+}
+
+BattleEnum.BuffApplyType = {
+    Momentary = 1,  -- 瞬间作用（永久得）
+    Continuous = 2, --  持续的 （有时间限制得）
+}
+
+BattleEnum.AttCalculateType = {
+    Add = 1,           -- 加法
+    Multiply = 2,      -- 乘法
+    AddOrMultiply = 3, -- 同类加异类乘
+}
+
+BattleEnum.HitSpecialType = {
+    MustCritical = 1,       --- 必暴击
+    Hemophagia = 2,         --- 吸血
+    HpHToHitH = 3,          --- 生命越多伤害越高
+    HpLToHitH = 4,          --- 受伤越多伤害越高
+    HpHToHitH_S = 5,        --- 自身生命越多伤害越高
+    HpLToHitH_S = 6,        --- 自身受伤越多伤害越高
+    NoShield = 7,           --- 透过护盾的伤害
+    DoubleOnShield = 8,     --- 对护盾有额外加倍的伤害
+    AccumulatedInjured = 9, --- 累计伤害额外计算
+}
+--- 武将阵营
+BattleEnum.HeroRace = {
+    Race1 = 1, ---
+    Race2 = 2,
+    Race3 = 3,
+    Race4 = 4,
+    Race5 = 5,
+    Race6 = 6,
+    Race7 = 7,
+}
+BattleEnum.DataType = {
+    Player = 1,      --- 玩家
+    EnemyPlayer = 2, --- 敌人
+    EnemyRobot = 3,   --- 机器人
+    GunRobot = 4,   --- 炮台
+}
+BattleEnum.BaseProperty = {
+    Hp = 1,
+    Rage = 2,
+    Shield = 3,
+}
+
+BattleEnum.JumpWorldType =
+{
+    Damage = 1,      --  普通伤害
+    Crit = 2,        --  暴击伤害
+    ShieldAdd = 3,   -- 护盾 +
+    ShieldMinus = 4, --  护盾 -
+    Cure = 5,        -- 治疗
+    AngerAdd = 6,    --  怒气 +
+    AngerMinus = 7,  --  怒气 -
+
+
+    Miss = 8,                -- 闪避
+    Immune = 9,              --   //  免疫
+    Parry = 10,              -- 格挡
+    AttAdd = 11,             --  增伤
+    AttMinus = 12,           --  减伤
+    PhysicsDefAdd = 13,      --        //  物防+
+    PhysicsDefSub = 14,      --      //  物防-
+    MagicDefAdd = 15,        --     // 法防 +
+    MagicDefSub = 16,        --   // 法防 -
+    AttSpeedAdd = 17,        --   // 急速 +
+    AttSpeedSub = 18,        --  // 急速 -
+
+    MissRight = 19,          --        //  闪避   敌方
+    ImmuneRight = 20,        --   //  免疫 敌方
+    ParryRight = 21,         -- 格挡 敌方
+    AttAddRight = 22,        --  //  增伤 敌方
+    AttMinusRight = 23,      --  //  减伤敌方
+    PhysicsDefAddRight = 24, --     //  物防+敌方敌方
+    PhysicsDefSubRight = 25, --    //  物防-敌方
+    MagicDefAddRight = 26,   --   // 法防 +敌方
+    MagicDefSubRight = 27,   --    // 法防 -敌方
+    AttSpeedAddRight = 28,   --   // 急速 +敌方
+    AttSpeedSubRight = 29,   --   // 急速 -敌方
+}
+
+--- 浮点数计算符号枚举
+BattleEnum.CalculateType = {
+    Addition = 1,       -- 加法
+    Subtraction = 2,    -- 减法
+    Multiplication = 3, -- 乘法
+    Division = 4,       -- 除法
+}
+-- 被动触发点
+BattleEnum.TriggerTime = {
+    EnterBattle_1 = 1,             -- 进入战斗
+    OutputDamage_2 = 2,            -- 造成伤害
+    InputDamage_3 = 3,             -- 受到伤害
+    OutputCure_4 = 4,              -- 造成治疗
+    InputCure_5 = 5,               -- 受到治疗
+    GetBuff_6 = 6,                 -- 获得buff
+    RemoveBuff_7 = 7,              -- 移除buff
+    OnOneSDeathbed_8 = 8,          -- 濒死
+    OnDied_9 = 9,                  -- 死亡
+    Kill_10 = 10,                  -- 击杀
+    OnOtherDied_11 = 11,           -- 有单位阵亡时
+    OnBattleStart_12 = 12,         -- 战斗开始得第几秒
+    HpChange_13 = 13,              -- 自身血量变化
+    PlaySkill_14 = 14,             -- 放大招触发
+    CharacterNumberChange_15 = 15, -- 场上单位数量改变时
+    PosChange_16 = 16,             -- 位置变化
+    DischargeSkill_17 = 17,        -- 释放技能
+    Time_Update_18 = 18,           -- 每隔多少秒触发
+}
+-- 被动触发条件检查
+BattleEnum.TriggerCon = {
+    HpPercentage_1 = 1,
+    SceneHeroCount_2 = 2,
+    TheHalfSceneHeroCount_3 = 3,
+    AroundHeroNum_4 = 4,
+    SkillNum_5 = 5,
+}
+-- 触发计算符号
+BattleEnum.TriggerCalculate = {
+    greaterThan_1 = 1,       -- 大于
+    lessThan_2 = 2,          -- 小于
+    equal_3 = 3,             -- 等于
+    greaterThan_equal_4 = 4, -- 大于等于
+    lessThan_equal_5 = 5,    -- 小于等于
+}
+-- 伤害类型
+BattleEnum.HitType = {
+    Normal = 0, --
+    Physics = 1,
+    Magic = 2,
+}
+
+-- 伤害类型
+BattleEnum.BuffGainType = {
+    Normal = 0, --
+    Good = 1,
+    Bad = 2,
+}
+
+BattleEnum.TriggerCampType = {
+    All = 0, --
+    CSelf = 2,
+    CEnemy = 1,
+}
+
+BattleEnum.NumericalType = {
+    Kill_Character = 1,    -- 击杀非召唤物单位
+    Kill_Summoner = 2,     -- 击杀召唤物单位
+    AllHarm = 3,           -- 伤害
+    AllCure = 4,           -- 治疗
+    AllShield = 5,         -- 护盾
+    AllTakeDamage = 6,     -- 承受伤害
+    AllUniqueSkillNum = 7, -- 大招次数
+    AllSkillNum = 8,       -- 小技能次数
+    AllNormalSkillNum = 9, -- 普攻次数
+    MinorWound = 10,       -- 轻伤
+    SevereWound = 11,      -- 重伤
+}
+
+BattleEnum.NumericalTypeToString = {
+    [1] = "killCharacter",     -- 击杀非召唤物单位
+    [2] = "killSummoner",      -- 击杀召唤物单位
+    [3] = "allHarm",           -- 伤害
+    [4] = "allCure",           -- 治疗
+    [5] = "allShield",         -- 护盾
+    [6] = "allTakeDamage",     -- 承受伤害
+    [7] = "allUniqueSkillNum", -- 大招次数
+    [8] = "allSkillNum",       -- 小技能次数
+    [9] = "allNormalSkillNum", -- 普攻次数
+    [10] = "minorWoundValue",  -- 轻伤
+    [11] = "severeWoundValue", -- 重伤
+}
+
+BattleEnum.BattleDataCounterType = {
+    Attack_Numerical = 1,   -- 攻击次数
+    BeAttack_Numerical = 2, -- 被攻击次数
+}
+
+BattleEnum.BattleCommonEffAniClip = {
+    CommonHurt = "BodyEff_Battle_Hited",
+}
+
+BattleEnum.BattleIsAuto = {
+    manual = 1, -- 手动
+    auto = 2,   -- 自动
+}
+
+BattleEnum.ScenePointPosEnum = {
+    Left_Out = "1",
+    Left_In = "2",
+    Center = "3",
+    Right_Out = "4",
+    Right_In = "5",
+}
+
+BattleEnum.SummonsPosType = {
+    AttackTarget = 1,
+}
+return BattleEnum

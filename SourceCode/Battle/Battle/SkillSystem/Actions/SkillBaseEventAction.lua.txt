@@ -1,0 +1,161 @@
+----------------------------------------------------------------------
+--------- 2023年01月31日 16:10:40 星期二
+----------------------------------------------------------------------
+
+--[[
+    处理Skill_Base配置对应的Event(eventTimeline)
+]]
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BaseAction = require "GameLogic.Battle.SkillSystem.Actions.BaseAction"
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local ConfigHandler = ConfigHandler
+---@class SkillBaseEventAction:BaseAction
+local SkillBaseEventAction = class("SkillBaseEventAction", BaseAction)
+local M = SkillBaseEventAction
+
+----------------------------------------------------------------------
+
+--- 初始化，数据self.actionData = {eventType = intType, eventParam = intParam}
+--- eventType = 1(跳转step), 2(黑屏), 3(特殊逻辑参数索引), 4(位移逻辑参数索引)
+function M:_onInitialize()
+    local data      = self.actionData or {}
+    self.eventType  = data.eventType
+    self.eventParam = data.eventParam
+end
+
+function M:SetInitTarget(list)
+    self._targetList = list or {}
+end
+
+function M:_onExecute(...)
+    local type = self.eventType or 0
+    if type == 1 then
+        self:_handleStep()
+    elseif type == 2 then
+        self:_handleBlackScreen()
+    elseif type == 3 then
+        self:_handleMoveLogic()
+    elseif type == 4 then
+        self:_handleShockScene()
+    elseif type == 5 then
+        self:_handClientBehavior()
+    elseif type == 99 then
+        self:_handlePlayAni()
+    end
+end
+
+function M:_onClear()
+    if self.stepHelper ~= nil then
+        self.stepHelper:Clear()
+        self.stepHelper = nil
+    end
+
+    if self.moveHandler ~= nil then
+        self.moveHandler:Clear()
+        self.moveHandler = nil
+    end
+end
+
+
+function M:_onExit()
+    if self.stepHelper ~= nil then
+        self.stepHelper:Clear()
+        self.stepHelper = nil
+    end
+
+    if self.moveHandler ~= nil then
+        self.moveHandler:Clear()
+        self.moveHandler = nil
+    end
+end
+
+----------------------------------------------------------------------
+
+--- eventType = 1的处理
+function M:_handleStep()
+    local stepId = self.eventParam
+    if stepId == nil then
+        BattleLogger.log_error("[handle step] stepId为空，请检查配置！")
+        return
+    end
+
+    local stepConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Step, stepId)
+    if stepConfig == nil then
+        BattleLogger.log_error("[[handle step] stepId没有对应的配置，请检查配置！ ---- stepId = " , tostring(stepId))
+        return
+    end
+
+    self:_doHandleStep(stepConfig)
+end
+
+--- eventType = 2的处理
+function M:_handleBlackScreen()
+    if not self.hostCharacter:GetLogicHandle():CanPlaySkillBlackScreen() then
+        -- 割草角色技能 屏蔽一下黑屏效果
+        return
+    end
+    
+    -- 处理黑屏结束
+    -- self.battleContext:SetBlackScreenStatus(false)
+    if self.battleContext:isCanOperation() then
+        if not self.hostCharacter:IsRobot() then
+            self.battleContext:SetBlackScreenStatus(false, self.hostCharacter:GetBattleId())
+            BattleEventUtils:DisPath_BlackOut(self.hostCharacter:GetBattleId(), BattleEnum.SkillBlackOut.Close,
+                self.battleContext:GetBlackScreenStatus())
+        end
+    else
+        self.battleContext:SetBlackScreenStatus(false, self.hostCharacter:GetBattleId())
+        BattleEventUtils:DisPath_BlackOut(self.hostCharacter:GetBattleId(), BattleEnum.SkillBlackOut.Close,
+            self.battleContext:GetBlackScreenStatus())
+    end
+end
+
+--- eventType = 3的处理
+function M:_handleMoveLogic()
+    local moveParamIndex = self.eventParam or 0
+    if moveParamIndex <= 0 then
+        return
+    end
+
+    local paramData = self.actionContext:GetMoveParamByIndex(moveParamIndex)
+    if paramData == nil then
+        return
+    end
+
+    local moveType = paramData.moveType or 0
+    local targetType = paramData.targetType or 0
+    if self.moveHandler == nil then
+        local TeleportLogicHandler = require "GameLogic.Battle.SkillSystem.Handlers.TeleportLogicHandler"
+        self.moveHandler = TeleportLogicHandler.new(self.hostCharacter, self.battleContext)
+    end
+    self.moveHandler:HandleMoveLogic(moveType, targetType)
+end
+---@desc 震屏
+function M:_handleShockScene()
+    BattleEventUtils:DisPath_ShockScene()
+end
+
+function M:_handlePlayAni()
+    local eventParam = self.eventParam or {}
+    local aniClipName = eventParam.eventAniClipName
+    local aniSpeed = eventParam.eventAniSpeed
+    if aniClipName and aniSpeed then
+        BattleEventUtils:DisPath_PlayAni(self.hostCharacter:GetBattleId(), aniClipName, aniSpeed, true)
+    end
+end
+
+function M:_handClientBehavior()
+    local eventParam = self.eventParam or {}
+    if ClientBehaviorUtils then
+        ClientBehaviorUtils:ExecuteBehavior(eventParam)
+    end
+end
+
+----------------------------------------------------------------------
+--- internals
+function M:_doHandleStep(stepConfig)
+    self.battleContext:GetSkillStepHandler():StartHandleStep(stepConfig, self._targetList,
+        self.hostCharacter:GetBattleId())
+end
+
+return M

@@ -1,0 +1,111 @@
+----------------------------------------------------------------------
+--------- 2023年01月17日 17:15:04 星期二
+----------------------------------------------------------------------
+
+--[[
+    处理过滤目标
+]]
+
+local BattleEnum                   = require "GameLogic.Battle.BattleEnum"
+local ConfigHandler                = ConfigHandler
+---@class SkillStepActionFilterTargets
+local SkillStepActionFilterTargets = class("SkillStepActionFilterTargets")
+local M                            = SkillStepActionFilterTargets
+
+----------------------------------------------------------------------
+---@param battleContext BattleContext
+function M:Ctor(battleContext)
+    self.battleContext = battleContext
+end
+
+function M:StartAction(stepActionData, findRootId, baseRootId, stepContext)
+    local targetList, findRoot = self:_doFindTargets(stepActionData, findRootId, baseRootId)
+    self:_tryGoToNextStep(stepActionData, stepContext, targetList, baseRootId, findRoot)
+end
+
+----------------------------------------------------------------------
+
+function M:_isNeedFilter()
+    local isReset = self.stepActionData and
+        (self.stepActionData.front == nil or (self.stepActionData.isResetList and self.stepActionData.isResetList == 1))
+    return isReset
+end
+
+function M:_doFindTargets(stepActionData, findRootId, baseRootId)
+    self.stepActionData = stepActionData
+    
+    local findRoot = findRootId
+    if self:_isNeedFilter() then
+        findRoot = baseRootId
+    end
+    -- 先在范围内查找目标，然后根据条件过滤
+    local config = stepActionData or {}
+
+    local findRootCharacter = self.battleContext:GetCharacterManager():GetCharacterById(findRoot)
+    if findRootCharacter == nil then
+        return
+    end
+    local baseCharacter = self.battleContext:GetCharacterManager():GetCharacterById(baseRootId)
+    if baseCharacter == nil then
+        return
+    end
+    local searcher = findRootCharacter:GetSearcher()
+    -- 找到的列表都放在targetList中保存
+    local tmpResult = searcher:SearchByRange(config.rangeType, config.rangeParam)
+
+    if tmpResult == nil then
+        return
+    end
+
+    local tmpTargetList = {}
+    
+    -- 过滤
+    local priorityType = config.priorityType or 0
+    if priorityType > 0 then
+        local priorityParams = config.priorityParam
+        local rangeResult = baseCharacter:GetSearcher():_filterTargetByType(tmpResult, priorityType)
+        tmpTargetList = searcher:_filterTargets(priorityType, priorityParams, rangeResult, findRootCharacter)
+    end
+    if #tmpTargetList <= 0 then
+        -- 没有优先目标条件，使用基础目标条件
+        local targetType = config.targetType or 0
+        if targetType > 0 then
+            local rangeResult = baseCharacter:GetSearcher():_filterTargetByType(tmpResult, targetType)
+            local targetParams = config.targetParam
+            tmpTargetList = searcher:_filterTargets(targetType, targetParams, rangeResult, findRootCharacter)
+        end
+    end
+    -- 过滤掉KickTargetList中的角色 TODO:
+    return tmpTargetList, findRoot
+end
+
+---------------------------------------------------------------------------------------
+
+function M:_tryGoToNextStep(stepActionData, stepContext, targetList, baseRootId, findRoot)
+    if targetList == nil then
+        return
+    end
+    
+    local targetCount = table_GetMapLength(targetList)
+    if targetCount <= 0 then
+        -- 如果list为空则不用再往下走流程了，本技能释放完毕，不必产生其他结果
+        return
+    end
+
+    -- 如果有next，则获取next的配置项
+    local nextStepId = stepActionData.next
+    if nextStepId == nil then
+        return
+    end
+
+    local nextStepConfig = ConfigHandler:GetEntry(GameDefine.TableName.Skill_Step, nextStepId)
+    if nextStepConfig == nil then
+        print_error("[Filter next] 没有对应的step配置 === " .. tostring(nextStepId))
+        return
+    end
+
+    -- 处理下一个step的逻辑
+    self.battleContext:GetSkillStepHandler():DoHandleStep(nextStepConfig, targetList, baseRootId, stepContext, findRoot)
+end
+
+return M

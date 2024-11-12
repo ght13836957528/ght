@@ -1,0 +1,173 @@
+----------------------------------------------------------------------
+--------- 2022年12月02日 17:29:36 星期五
+--------- 慢慢得主要处理 AI状态机得逻辑
+----------------------------------------------------------------------
+
+local DecisionStateManager = require "GameLogic.Battle.BehaviorDecision.DecisionStateManager"
+local BehaviorStateType    = require "GameLogic.Battle.BehaviorDecision.BehaviorStateType"
+local BattleEventUtils     = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class CharacterController
+local CharacterController  = class("CharacterController")
+local M                    = CharacterController
+
+function M:Ctor()
+
+end
+
+---@param character BattleCharacter
+function M:Initialize(character)
+    
+    
+    self.hostCharacter           = character
+    ---@type DecisionStateManager
+    self.behaviorDecisionManager = DecisionStateManager.new(self.hostCharacter)
+    self.name = "self == "..self.hostCharacter.__cname
+end
+
+function M:OnStartFight()
+    self:StartAI()
+end
+
+function M:Clear()
+    self.hostCharacter = nil
+    self.behaviorDecisionManager:Clear()
+end
+
+function M:OnUpdate(fDeltaTime)
+    self:PerformAI(fDeltaTime)
+end
+
+function M:OnUpdateSpecial(fDeltaTime)
+    -- local isUpdateSpecial = self:_checkSpecial()
+    -- if isUpdateSpecial then
+    --     self:PerformAI(fDeltaTime)
+    -- end
+end
+
+function M:_testLog(str, id)
+    if id == 3 then
+        -- BattleLogger.log_error(str, id)
+    end
+   
+end
+
+function M:_checkSpecial()
+    local currentId = self.behaviorDecisionManager:GetCurrentStateID()
+    local currentSkill = self.hostCharacter:GetSkillManager().currentExecutingSkill
+    if currentId == BehaviorStateType.PerformSkill then
+        if currentSkill ~= nil and self.hostCharacter:GetSkillManager():IsUltraSkill(currentSkill:GetSkillId()) then
+            self:_testLog("0000000000000 : ", self.hostCharacter:GetBattleId())
+            BattleEventUtils:DisPath_SetAniSpeed(self.hostCharacter:GetBattleId(), self.hostCharacter:GetBattleContext():GetBattleSpeed())
+            return true
+        else
+            local isCanBreak = currentSkill == nil or
+                self.hostCharacter:GetSkillManager():CheckCanBreakByUltra(currentSkill:GetSkillId())
+            if isCanBreak then
+                local skillID, targets = self.hostCharacter:GetSkillManager():CheckUltraSkill()
+                if skillID > 0 then
+                    local currentState = self.behaviorDecisionManager.currentState
+                    if currentState.SwitchSkill then
+                        currentState:SwitchSkill(skillID, targets)
+                        self:_testLog("1111111111111 : ", self.hostCharacter:GetBattleId())
+                    else
+                        self:_testLog("????  不是PerformSkill 状态？？？")
+                    end
+                    return true
+                else
+                    self:_testLog("22222222222222 : ", self.hostCharacter:GetBattleId())
+                    return false
+                end
+            else
+                self:_testLog("3333333333333333333 : ", self.hostCharacter:GetBattleId())
+                return false
+            end
+        end
+    else
+        local isCanBreak = currentSkill == nil or
+            self.hostCharacter:GetSkillManager():CheckCanBreakByUltra(currentSkill:GetSkillId())
+        if isCanBreak then
+            local skillID, targets = self.hostCharacter:GetSkillManager():CheckUltraSkill()
+            if skillID > 0 then
+                self:_testLog("4444444444444444444 : ", self.hostCharacter:GetBattleId())
+                self.behaviorDecisionManager:Switch(BehaviorStateType.PerformSkill,
+                    { fromState = BehaviorStateType.SkillSystem, skillId = skillID, skillTargets = targets })
+                return true
+            else
+                self:_testLog("5555555555555555 : ", self.hostCharacter:GetBattleId())
+                return false
+            end
+        else
+            self:_testLog("66666666666666 : ", self.hostCharacter:GetBattleId())
+            return false
+        end
+    end
+end
+
+function M:StartAI()
+    --self.behaviorDecisionManager:Switch(BehaviorStateType.Profound)
+    -- 先等待
+    -- self.behaviorDecisionManager:Switch(BehaviorStateType.Wait, { fromState = BehaviorStateType.None, toState = BehaviorStateType.SkillSystem })
+    self.behaviorDecisionManager:Switch(BehaviorStateType.SkillSystem, nil)
+end
+
+function M:PerformAI(fDeltaTime)
+    --local canPerform = self:_checkCanPerformAI()
+    local canPerform = true
+
+    if canPerform then
+        self.behaviorDecisionManager:OnUpdate(fDeltaTime)
+    end
+end
+
+function M:InterruptToProfound()    
+    self.hostCharacter:GetSkillManager():SetIsClickProfoundSkill(true)
+    self.hostCharacter:SetBrevityLogic(true)
+    local currentStateId = self.behaviorDecisionManager:GetCurrentStateID()
+    if currentStateId == nil or currentStateId ~= BehaviorStateType.SkillSystem then
+        -- self.behaviorDecisionManager:Switch(BehaviorStateType.SkillSystem, nil)
+    end
+end
+
+function M:OnDied()
+    if self.behaviorDecisionManager then
+        self.behaviorDecisionManager:Switch(BehaviorStateType.Died, nil)
+    end
+end
+
+function M:OnVictory()
+    if self.behaviorDecisionManager then
+        self.behaviorDecisionManager:Switch(BehaviorStateType.Victory, nil)
+    end
+end
+
+function M:OnBeControl(...)
+    if self.behaviorDecisionManager then
+        self.behaviorDecisionManager:Switch(BehaviorStateType.BeControlled, { ... })
+    end
+end
+
+function M:GetBehaviorDecisionMan()
+    return self.behaviorDecisionManager    
+end
+
+function M:_checkCanPerformAI()
+    -- if self.behaviorDecisionManager == nil then
+    --     return false
+    -- end
+
+    -- if self.hostCharacter == nil or self.hostCharacter:CheckIsDied() then
+    --     return false
+    -- end
+
+    return not self.hostCharacter:CheckIsDied()
+end
+
+function M:_getControlCharacterBattleId()
+    if self.hostCharacter == nil then
+        return 0
+    end
+
+    return self.hostCharacter:GetBattleId()
+end
+
+return M

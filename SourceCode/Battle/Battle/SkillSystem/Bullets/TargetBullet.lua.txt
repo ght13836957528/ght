@@ -1,0 +1,146 @@
+----------------------------------------------------------------------
+--------- 2023年01月17日 16:15:27 星期二
+----------------------------------------------------------------------
+
+--[[
+    追人得飞行子弹
+]]
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattleEnum       = require "GameLogic.Battle.BattleEnum"
+local BulletBase       = require "GameLogic.Battle.SkillSystem.Bullets.BulletBase"
+local BattleConstant   = require "GameLogic.Battle.BattleConstant"
+---@class TargetBullet:BulletBase
+local TargetBullet     = class("TargetBullet", BulletBase)
+local M                = TargetBullet
+
+function M:_onInitialize(targetList)
+    self.moveLogic = self.config.moveLogic
+    self.moveSpeed = self.config.missleSpd
+    self.moveTimeFrame = self.config.missleTime or 0
+    self.moveTimeFrame = math.ceil(self.moveTimeFrame * BattleConstant.FPS / BattleConstant.LogicBaseFPS)
+    self.frameMoveDic = self:_initFrameMoveDic()
+    -- BattleLogger.log_error(self.frameMoveDic)
+    -- self.frameMoveDic = 1
+    self.isCanUpdate = true
+    self.lastMoveVec = nil
+    self:_createRenderBullet()
+end
+
+function M:_createRenderBullet()
+    if self.findRoot and self.findRoot ~= self.hostCharacter:GetBattleId() then
+        BattleEventUtils:DisPath_CreateFlyTargetEff_bind(self:GetEntityId(), self.findRoot, self.targetId, self.hostCharacter:GetTransform():GetScale(), self.hostCharacter:GetTransform():GetInitRootOffset())
+    else
+        BattleEventUtils:DisPath_CreateFlyTargetEff_bind(self:GetEntityId(), self.hostCharacter:GetBattleId(), self.targetId, self.hostCharacter:GetTransform():GetScale(), self.hostCharacter:GetTransform():GetInitRootOffset())
+    end
+   
+end
+
+--- 处理每帧的位置
+function M:_onUpdate(deltaTime)
+    if self.isCanUpdate then
+        self:_handleMove()
+        self:_handleEvent()
+    end
+end
+
+function M:_handleEvent()
+    local triggerType = self.config.triggerType
+    if triggerType == nil then
+        return
+    end
+    if triggerType == BattleEnum.BulletTriggerType.FrameTrigger then
+        self:_executeActionsOnFrame(self.frameCount)
+    elseif triggerType == BattleEnum.BulletTriggerType.OnTriggerEnter then
+        -- self:_executeActionsOnTrigger(self.frameCount)
+    else
+
+    end
+end
+
+function M:_onClear()
+
+end
+
+----------------------------------------------------------------------
+---
+
+function M:_initFrameMoveDic()
+    if self.moveSpeed > 0 then
+        local sizeMin = self.hostCharacter:GetBattleContext():GetMapController().cellSizeMin
+        local dis = 2 * sizeMin
+        dis = dis * self.moveSpeed
+        return dis / self.hostCharacter:GetBattleContext():GetBattleManager():GetLogicFPS()
+    else
+        if self.moveTimeFrame > 0 then
+            local targetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self
+                .targetId)
+            if targetCharacter then
+                if not targetCharacter:CheckIsDied() then
+                    local selfPos = self.position
+                    local targetPos = targetCharacter:GetTransform():GetRenderPos()
+                    local dis = Vector3.Distance(targetPos, selfPos)
+                    return dis / self.moveTimeFrame
+                else
+                    self.hostCharacter:GetStepManager():RemoveBullet(self)
+                end
+            else
+                self.hostCharacter:GetStepManager():RemoveBullet(self)
+            end
+        else
+            Battle.log_Error("非法 速度参数  ", self.config.skillId)
+        end
+    end
+
+    --    self.moveVec = Vector3.Normalize(self._targetWorldPos - _pos) * self.frameSpeed
+end
+
+function M:_handleMove(deltaTime)
+    self:_updateToTarget(deltaTime)
+end
+
+function M:_updateToTarget(deltaTime)
+    local tragetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.targetId)
+    if tragetCharacter then
+        if not tragetCharacter:CheckIsDied() then
+            local selfPos = self.position
+            local targetPos = tragetCharacter:GetTransform():GetRenderPos() 
+            local dis = Vector3.Distance(targetPos, selfPos)
+            if dis <= 0.1 then
+                self:_executeActionsOnTrigger()
+                self.isCanUpdate = false
+                self.hostCharacter:GetStepManager():RemoveBullet(self)
+            else
+                local nomalVec = Vector3.Normalize(targetPos - selfPos)
+                self.lastMoveVec = nomalVec
+                local frameVec = nomalVec * self.frameMoveDic
+                local newPos = selfPos + frameVec
+                if dis < self.frameMoveDic then
+                    newPos = targetPos
+                end
+                self.position = newPos
+                --- todo  临时数据
+                -- local renderPos = self.position + Vector3(0, 0.5, 0)
+                -- BattleEventUtils:DisPath_SynsRotate(self:GetEntityId(), newPos)
+                -- BattleEventUtils:DisPath_SynsPos(self:GetEntityId(), newPos)
+            end
+        else
+            local nomalVec = self.lastMoveVec
+            if nomalVec == nil then
+                self.hostCharacter:GetStepManager():RemoveBullet(self)
+            else
+                local selfPos = self.position
+                local frameVec = nomalVec * self.frameMoveDic
+                local newPos = selfPos + frameVec
+                self.position = newPos
+                --- todo  临时数据
+                -- local renderPos = self.position + Vector3(0, 0.5, 0)
+                -- BattleEventUtils:DisPath_SynsRotate(self:GetEntityId(), newPos)
+                -- BattleEventUtils:DisPath_SynsPos(self:GetEntityId(), newPos)
+            end
+        end
+    else
+        self.hostCharacter:GetStepManager():RemoveBullet(self)
+    end
+end
+
+return M

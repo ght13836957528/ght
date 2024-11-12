@@ -1,0 +1,11 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:56:20 星期一
+----------------------------------------------------------------------
+--- 持续净化
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+
+---@class BuffKeepPurify
+local BuffKeepPurify = class("BuffKeepPurify", BasePersistentBuff)
+local M = BuffKeepPurify
+
+return M

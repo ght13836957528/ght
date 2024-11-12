@@ -1,0 +1,219 @@
+
+---当前类型的字段  type:mainCityOperation,mainCityOperationName,mainCityOperationParam1,mainCityOperationParam2,mainCityOperationParam3
+---@class MainCityOperationManager
+MainCityOperationManager = {}
+local M = MainCityOperationManager
+
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+local CommonUtils = CS.CommonUtils
+local GameObject = CS.UnityEngine.GameObject
+
+local mainCityOperationList={
+    [NewGuideConst.MainCityOperationType.Free_add_ground_green_spr] = {func = function() M.showNewGuideAddGroundGreen()  end},
+    [NewGuideConst.MainCityOperationType.ShowLightFirstNew] = {func = function() M.showNewGuideLight()  end},
+    [NewGuideConst.MainCityOperationType.SetNight] = {func = function() M.showNewGuideSetNight()  end},
+    [NewGuideConst.MainCityOperationType.SetBuildAndUICanClick] = {func = function() M.setBuildAndUICanClick()  end},
+    [NewGuideConst.MainCityOperationType.ShowFreeTaskChapterView] = {func = function() M.showFreeTaskChapterView()  end},
+    [NewGuideConst.MainCityOperationType.ShowChapterStartView] = {func = function() M.showChapterStartView()  end},
+    [NewGuideConst.MainCityOperationType.BuildRoads] =  {func = function() M.startBuildRoads()  end},
+    [NewGuideConst.MainCityOperationType.OpenBuildInformation] =  {func = function() M.openBuildInformation()  end},
+    [NewGuideConst.MainCityOperationType.OpenIfKillAdaView] =  {func = function() M.openIfKillAdaView()  end},
+}
+
+function M.initManager()
+    M.curStepInfo = nil
+end
+
+---@param stepInfo GuideStepBaseInfo
+function M.doAction(stepInfo)
+    if not stepInfo then
+        print_error("mainCityOperation data is nil")
+        return
+    end
+
+    M.curStepInfo = stepInfo
+    if not stepInfo.mainCityOperationName then
+        print_error("mainCityOperation inexistence ,GuideId:" .. stepInfo.id)
+        return
+    end
+    
+    M.getMainCityOperation(stepInfo.mainCityOperationName)
+  end
+
+function M.getMainCityOperation(name)
+    if mainCityOperationList[name] == nil then
+        print_error("not exist function for :"  .. name)
+        return nil
+    end
+
+    return mainCityOperationList[name].func()
+end
+
+--添加绿色地格闪烁 Free_add_ground_green_spr
+function M.showNewGuideAddGroundGreen()
+    local para1 = M.curStepInfo.mainCityOperationParam1
+    --local para2 = M.curStepInfo.mainCityOperationParam2
+    --local para3 = M.curStepInfo.mainCityOperationParam3
+
+    --if para2 then
+    --    local strSplit1 = string.split(para2,";")
+    --    if strSplit1 and #strSplit1>=2 then
+    --        local temp_pos = Vector2Int(tonumber(strSplit1[1]),tonumber(strSplit1[2]))
+    --        if temp_pos.x ==32 and temp_pos.y == 32 then
+    --            temp_pos = GameEntry.Data.Building.main_city_pos
+    --        end
+    --
+    --        if para3 then
+    --            local scale = tonumber(para3)
+    --            CommonUtils.CamaraAutoLookAt(temp_pos.x, temp_pos.y, scale, 1)
+    --        else
+    --            CommonUtils.CamaraAutoLookAt(temp_pos.x, temp_pos.y, -1, 1)
+    --        end
+    --    end
+    --end
+    if para1 then
+        GameEntry.Setting:SetString("Free_add_ground_green_spr" ,para1)
+
+        --在 para1 中添加绿块
+        local strSplit2 = string.split(para1,"_")
+        if strSplit2 then
+            for i = 1, #strSplit2 do
+                local strSplit3 = string.split(strSplit2[i],";")
+                if strSplit3 and #strSplit3==2 then
+                    local vectInt = Vector2Int(tonumber(strSplit3[1]),tonumber(strSplit3[2]))
+                    GameEntry.UI.CityScene.LoadGreenPlotController:LoadPlot(vectInt)
+                end
+            end
+        end
+    end
+end
+
+--播放亮灯效果 ShowLightFirstNew
+function M.showNewGuideLight()
+    local key = GameEntry.Data.Player.Uid .. "_LampState" --第一次光亮
+    local key2 = GameEntry.Data.Player.Uid .. "_LampStateTwo"
+    local cityScene = GameEntry.UI.CityScene
+    if cityScene and cityScene.LampManager then
+        local state1 = GameEntry.Setting:GetString(key)
+        local state2 = GameEntry.Setting:GetString(key2)
+        if not string.isNilOrEmpty(state1) then
+            local para1 = M.curStepInfo.mainCityOperationParam1
+            if not string.isNilOrEmpty(para1) and para1 == "1" then
+                --镜头移动
+                CommonUtils.CamaraAutoLookAt(28, 28, 0.57, 5.6)
+            end
+            cityScene.LampManager:FirstLightMethod()
+            GameEntry.Setting:SetString(key2, "thisisTwoSHow")
+            GameEntry.Sound:PlayEffect(CS.GameDefines.SoundAssets.Music_Effect_SFX_LIGHTUPDOWN)
+            GameEntry.Setting:RemoveSetting(key)
+            local loader = AssetLoader.new()
+            local path = "Assets/Main/Prefabs/LightingAndWaterSystem/LightingRenders.prefab"
+             loader:loadAsync(path,UnityType.GameObject,function(AssetPath,obj)
+                if path == AssetPath and obj then
+                    local parent = CS.SceneContainer.Instance.MainCity.transform
+                    obj.transform:SetParent(parent)
+                    obj.transform.localPosition = Vector3(0,0,0)
+                    local timer
+                    timer = Timer.new(0, 10, false, false, function()
+                        GameObject.Destroy(obj.gameObject)
+                        UResourceManager.ReleaseAsset(path)
+                        timer:dispose()
+                    end)
+                    timer:start()
+                end
+            end)
+        else
+            if not string.isNilOrEmpty(key2) then
+                cityScene.LampManager:SecondLightHandle()   --第二次亮灯
+            end
+        end
+    end
+end
+
+--设置天黑 SetNight
+function M.showNewGuideSetNight()
+    GameEntry.Timer.Night = true
+    local key= GameEntry.Data.Player.Uid .. "_LampState"
+    GameEntry.Setting:SetString(key,"thisislock");
+    GameEntry.Setting:SetBool(GameEntry.Data.Player.Uid .. "_SetNightAtChapter1", true)
+    local fenceKey = GameEntry.Data.Player.Uid .. "_baseFenceNewGuideState"
+    local temp_key = GameEntry.Setting:GetString(fenceKey)
+    if not string.isNilOrEmpty(temp_key) then
+        GameEntry.Setting:RemoveSetting(fenceKey);
+        CS.BuildBrokenWallController.Instance:OnDelete()
+        local cityScene = GameEntry.UI.CityScene
+        if cityScene and cityScene.BuildingManager then
+            cityScene.BuildingManager:ShowFence()
+        end
+    end
+end
+
+-- 设置建筑能够弹出BuildInformation
+function M.setBuildAndUICanClick()
+    local  stepKey = GameEntry.Data.Player.Uid .. "_SetBuildAndUICanClick";
+    GameEntry.Setting:SetBool(stepKey, true);
+end
+
+-- 弹出章节任务
+function M.showFreeTaskChapterView()
+    ServerRecorder.record("showChapterTask", "1", function(errorCode)
+        if not string.isNilOrEmpty(errorCode) then
+            return
+        end
+    end)
+    local leaderState = DataConfigModel.getLeaderState()
+    if not leaderState then
+        print_error("leaderState is nil")
+        return
+    end
+    if leaderState == "k3" or leaderState == "k4"  then--塔防或数值射击老UI
+        CS.UIPreAdd.OpenUIChapterTaskNew()
+    elseif leaderState == "k5" or leaderState == "k6" then--塔防或数值射击新UI
+        --CS.UIPreAdd.OpenTaskPanel("0")
+    end
+    
+    GameEntry.Setting:SetBool(GameEntry.Data.Player.Uid .. "_showChapterTask",true);
+    GameEntry.Event:Fire(self, CS.CommonEventArgs(CS.EventId.GuideShowTaskNode))
+end
+
+-- 弹出章节开始
+function M.showChapterStartView()
+    GameEntry.Setting:RemoveSetting(GameEntry.Data.Player.Uid .. "_LampStateTwo");
+    if GuideManager.getIsNewGuide() then
+        local str = GameEntry.Data.Player.Uid .. "_ShowFBChapterTaskView2"
+        GameEntry.Setting:SetBool(str, true)
+    end
+    CS.UIPreAdd.OpenChapterStart();
+end
+
+-- 设置修路位置
+function M.startBuildRoads()
+    if not M.curStepInfo or string.isNilOrEmpty(M.curStepInfo.mainCityOperationParam1)  then
+        print_error("buildRoads param is nil")
+        return
+    end
+    GuideManager.setGuideBuildRoadTarget(M.curStepInfo.mainCityOperationParam1)
+end
+
+-- 打开对应id的建筑操作界面
+function M.openBuildInformation()
+    if not M.curStepInfo or string.isNilOrEmpty(M.curStepInfo.mainCityOperationParam1)  then
+        print_error("build id is nil")
+        return
+    end
+    local buildId = M.curStepInfo.mainCityOperationParam1
+    local cityBuilding = GameGlobal.GameEntry.UI.CityScene.BuildingManager:GetBuildingByType(buildId)
+    if cityBuilding then
+        cityBuilding:Click()
+    end
+end
+
+function M.openIfKillAdaView()
+    UIManager.panel:open(UIPanelType.UIGuidePlotChooseView)--打开是否杀死艾达界面
+end
+
+function M.clear()
+    M.curStepInfo = nil
+end
+
+return M

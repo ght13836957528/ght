@@ -1,0 +1,464 @@
+----------------------------------------------------------------------
+--------- 2022年11月30日 17:05:05 星期三
+----------------------------------------------------------------------
+
+-- 战场管理，进入战斗场景后，初始化战斗内容，比如地图刷新、角色管理等
+
+require "GameLogic.Battle.BattleInit"
+local BattleResourceContainer = require "GameLogic.Battle.BattleRender.BattleResourceContainer"
+local BattleConstant          = require "GameLogic.Battle.BattleConstant"
+local BattleEnum              = require "GameLogic.Battle.BattleEnum"
+local BattleContext           = require "GameLogic.Battle.BattleContext"
+
+local BattleCharacterManager  = require "GameLogic.Battle.Characters.BattleCharacterManager"
+
+
+local BattleEventUtils  = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local BattlePoolManager = require "GameLogic.Battle.BattlePoolManager"
+local BattleRenderWorld = require "GameLogic.Battle.BattleRender.BattleRenderWorld"
+local BattleRandom      = require "GameLogic.Battle.Common.BattleRandom"
+local FrameControl      = require "GameLogic.Battle.BattleFrame.FrameControl"
+local BattleHelper      = require "GameLogic.Battle.BattleHelper"
+---@class BattleManager
+local BattleManager     = class("BattleManager")
+local M                 = BattleManager
+
+function M:Ctor(isClent, sceneController)
+    self.battleContext = BattleContext.new()
+    -- self.battleContext:Initialize(BattleEnum.BattleType.PVE)
+    self.battleContext:SetSceneController(sceneController)
+    self.battleContext:SetBattleManager(self)
+    if isClent then
+        self.battleRenderWorld = BattleRenderWorld.new(self.battleContext)
+        self.battleRenderWorld:Initialize()
+    end
+
+    self.battleCharacterManager = BattleCharacterManager.new(self.battleContext, isClent)
+    self.battlePoolManager      = BattlePoolManager.new(self.battleContext)
+    self.battleRandom           = BattleRandom.new()
+    self.frameControl           = FrameControl.new()
+    self.battleContext:SetBattleRandom(self.battleRandom)
+    self.battleContext:SetFrameControl(self.frameControl)
+
+    self._battleUpdateOn_Off = true
+    self._hadResult = false
+    self._endDelegate = nil
+    self._result = nil
+    self._cache_task = {}
+
+
+    self._cache_enter_battle_data = {}
+end
+
+function M:Initialize(IS_CLIENT)
+    self:RegisterEvent()
+    if self.OnUpdate ~= nil and self.update_handle == nil and IS_CLIENT then
+        self.update_handle = UpdateBeat:CreateListener(self.OnUpdate, self)
+        UpdateBeat:AddListener(self.update_handle)
+    end
+end
+
+function M:RegisterEvent()
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_VSFinish, self.RenderEnterBattle, self)
+    BroadcastEvent.subscribe(BattleEventId.MSG_BATTLE_HANDLE_CHARACTER, self._onHandleCharacter, self)
+    BroadcastEvent.subscribe(BattleEventId.MSG_BATTLE_SHOW_MAP_GRID, self._onShowMapGrid, self)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Logic_BattleSpeed, self._RefreshBattleSpeed, self)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Logic_AutoBattle, self._RefreshBattleAuto, self)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Pause, self.OnPauseBattle, self)
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Go_On, self.OnGoOnBattle, self)
+    BroadcastEvent.subscribe(EnumLuaEventId.TASK_UPDATE_NOVICE_TASK_CACHE, self.UpdateTask, self)
+    BroadcastEvent.subscribe(EnumLuaEventId.GUIDE_BATTLE_STOP, self.GuideHandleStop, self)
+    BroadcastEvent.subscribe(EnumLuaEventId.GUIDE_BATTLE_GOON, self.GuideHandleGoOn, self)
+end
+
+function M:UnRegisterEvent()
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_VSFinish, self.RenderEnterBattle, self)
+    BroadcastEvent.unsubscribe(BattleEventId.MSG_BATTLE_HANDLE_CHARACTER, self._onHandleCharacter, self)
+    BroadcastEvent.unsubscribe(BattleEventId.MSG_BATTLE_SHOW_MAP_GRID, self._onShowMapGrid, self)
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Logic_BattleSpeed, self._RefreshBattleSpeed, self)
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Logic_AutoBattle, self._RefreshBattleAuto, self)
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Pause, self.OnPauseBattle, self)
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Go_On, self.OnGoOnBattle, self)
+    BroadcastEvent.unsubscribe(EnumLuaEventId.TASK_UPDATE_NOVICE_TASK_CACHE, self.UpdateTask, self)
+    BroadcastEvent.unsubscribe(EnumLuaEventId.GUIDE_BATTLE_STOP, self.GuideHandleStop, self)
+    BroadcastEvent.unsubscribe(EnumLuaEventId.GUIDE_BATTLE_GOON, self.GuideHandleGoOn, self)
+end
+
+function M:GuideHandleStop()
+    self._battleUpdateOn_Off = false
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Pause)
+end
+
+function M:GuideHandleGoOn()
+    self._battleUpdateOn_Off = true
+    BroadcastEvent.dispatch(BattleEventId.Event_Battle_Go_On)
+end
+
+function M:OnPauseBattle()
+    self._battleUpdateOn_Off = false
+end
+
+function M:OnGoOnBattle()
+    self._battleUpdateOn_Off = true
+end
+
+--- 界面点击开始按钮后，开始战斗
+---@param battleInfo BattleInfo 战斗数据
+---@param resourceCache BattleResourceContainer
+---@param leftTeamList BattleCharacterPlayerModel[]
+---@param rightTeamList BattleCharacterRobotModel[]
+function M:StartFight(battleInfo, resourceCache, leftTeamList, rightTeamList, isReplay, cb)
+    self._hadResult = false
+    self.battleContext:SetBattleBaseData(battleInfo)
+    self.frameControl:Initialize(battleInfo.clientFrame)
+    local canFight = self:_checkCanStartFight()
+    if not canFight then
+        return
+    end
+    if self.battleRenderWorld then
+        self:cacheEnterBattleData(battleInfo, resourceCache, leftTeamList, rightTeamList, isReplay)
+        UIManager.panel:Open(UIPanelType.UIBattleOpening, {}, function()
+            if cb then
+                cb()
+            end
+            resourceCache:loadBattleResource(battleInfo, leftTeamList, rightTeamList)
+        end)
+    else
+        self:_initLogic(battleInfo, leftTeamList, rightTeamList, resourceCache)
+        self.isFighting = true
+    end
+end
+
+function M:cacheEnterBattleData(_battleInfo, _resourceCache, _leftTeamList, _rightTeamList, _isReplay)
+    self._cache_enter_battle_data = {
+        battleInfo = _battleInfo,
+        resourceCache = _resourceCache,
+        leftTeamList = _leftTeamList,
+        rightTeamList = _rightTeamList,
+        isReplay = _isReplay,
+    }
+end
+
+function M:RenderEnterBattle()
+    self:_PlayBattleBGM(self._cache_enter_battle_data.battleInfo)
+    self._cache_enter_battle_data.resourceCache:enterBattle()
+    UIManager.panel:Open(UIPanelType.UIPVEBattleView,
+        {
+            battleData = self._cache_enter_battle_data.battleInfo,
+            leftTeam = self._cache_enter_battle_data.leftTeamList,
+            rightTeam = self._cache_enter_battle_data.rightTeamList,
+            battleContext = self.battleContext,
+            isReplay = self._cache_enter_battle_data.isReplay
+        }, function()
+            UIManager.panel:Close(UIPanelType.UIBattleOpening)
+            self.battleRenderWorld:StartFight(self._cache_enter_battle_data.resourceCache)
+            self:_initLogic(self._cache_enter_battle_data.battleInfo, self._cache_enter_battle_data.leftTeamList,
+                self._cache_enter_battle_data.rightTeamList, self._cache_enter_battle_data.resourceCache)
+            self.isFighting = true
+        end)
+end
+
+function M:SetEndDelegate(delegate)
+    self._endDelegate = delegate
+end
+
+---@param battleData BattleInfo 战斗数据
+---@param resourceCache BattleResourceContainer
+---@param leftTeamList BattleCharacterPlayerModel[]
+---@param rightTeamList BattleCharacterRobotModel[]
+function M:_initLogic(battleData, leftTeamList, rightTeamList, resourceCache)
+    self.battleCharacterManager:Initialize()
+    self.battleContext:SetBattleStageId(battleData.targetId or 101)
+    self:initTroopsLoss(battleData)
+    self.battlePoolManager:Initialize()
+    self:initStartFrameData(battleData)
+
+    self.battleRandom:Initialize(battleData.randomId or 1)
+    self.timeCounter = 0
+    self.accumulativeTime = 0
+    self.battleTotalTime = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleMaxTime")
+    self:_onStartFight(battleData, leftTeamList, rightTeamList, resourceCache)
+end
+
+function M:initStartFrameData(battleData)
+    self:SetBattleSpeed(BattleHelper:getBattleSpeedByBattleInfo(battleData))
+    self.battleContext:SetBattleAuto(BattleHelper:getBattleAutoByBattleInfo(battleData) == BattleEnum.BattleIsAuto.auto)
+end
+
+---@param battleData BattleInfo
+function M:initTroopsLoss(battleData)
+    if battleData.battleType == BattleEnum.BattlePlayType.Normal
+        or battleData.battleType == BattleEnum.BattlePlayType.World_Pve
+        or battleData.battleType == BattleEnum.BattlePlayType.World_Pve_Boss
+        or battleData.battleType == BattleEnum.BattlePlayType.World_Pve_Mass
+        or battleData.battleType == BattleEnum.BattlePlayType.World_Pve_Port
+        or battleData.battleType == BattleEnum.BattlePlayType.World_Pve_BigWorld
+        or battleData.battleType == BattleEnum.BattlePlayType.World_Pve_Boss_Win
+    then
+        if battleData.targetId then
+            local con = ConfigHandler:GetEntry(GameDefine.TableName.Stage_Battle, battleData.targetId)
+            if con and con.troopLoss then
+                local troopLoss = con.troopLoss
+                self.battleContext:SetTroopsLoss(troopLoss)
+            else
+                BattleLogger.log_error("???? stageBattle 表没有填写病损比例 ！！  ", battleData.targetId)
+                self.battleContext:SetTroopsLoss(100)
+            end
+        else
+            BattleLogger.log_error("???? stageBattle 没找到数据  ", battleData.targetId)
+            self.battleContext:SetTroopsLoss(100)
+        end
+    else
+        BattleLogger.log_error("???? to do  读取病损比例  ")
+        self.battleContext:SetTroopsLoss(80)
+    end
+end
+
+function M:OnEndFight(iResult, battleEndData)
+    -- self:_StopBattleBGM()
+    local result = iResult or 0
+    if result == 1 then
+        -- print("己方获胜")
+    elseif result == 2 then
+        -- print("敌方获胜")
+    else
+        -- print("未知结果")
+    end
+    self.isFighting = false
+    if self.battleRenderWorld then
+        self.battleRenderWorld:OnEndFight(iResult)
+    end
+    self.battleCharacterManager:OnEndFight()
+    self._hadResult = true
+    self.isFighting = false
+    self._result = iResult
+    self._battleEndData = battleEndData
+    if self._endDelegate then
+        self._endDelegate(result)
+    end
+end
+
+function M:OnUpdate()
+    local fighting = self.isFighting or false
+    if not fighting then
+        return
+    end
+
+    if not self._battleUpdateOn_Off then
+        return
+    end
+
+    local deltaTime = Time.deltaTime or 0
+    local theTime = self.accumulativeTime or 0
+    self.accumulativeTime = theTime + deltaTime
+
+    while self.accumulativeTime >= self._speedInterval do
+        self:Update(BattleConstant.LogicDeltaTime)
+        self.accumulativeTime = self.accumulativeTime - self._speedInterval
+    end
+    if self.battleRenderWorld then
+        self.battleRenderWorld:OnUpdate(deltaTime)
+    end
+end
+
+function M:ReplayUpdate()
+    local fighting = self.isFighting or false
+    if not fighting then
+        return
+    end
+
+    if not self._battleUpdateOn_Off then
+        return
+    end
+    self:Update(BattleConstant.LogicDeltaTime)
+end
+
+function M:Update(fDeltaTime)
+    local deltaTime = fDeltaTime or 0
+    local timeCounter = self.timeCounter or 0
+    self.timeCounter = timeCounter + deltaTime
+    if self.timeCounter > self.battleTotalTime then
+        self:overtimeHandle()
+        return
+    end
+    self.frameControl:OnUpdate()
+    self.battleCharacterManager:Update(fDeltaTime)
+end
+
+function M:overtimeHandle()
+    self.isFighting = false
+    local playType = self.battleContext:GetPlayType()
+    if playType == BattleEnum.BattlePlayType.World_Pve_Boss
+        or playType == BattleEnum.BattlePlayType.World_Pve_Boss_Win then
+        self.battleCharacterManager:PlayEndAni(true)
+    else
+        self.battleCharacterManager:PlayEndAni(false)
+    end
+end
+
+function M:GetLogicFPS()
+    return BattleConstant.FPS
+end
+
+--- 获取战斗计时
+function M:GetFightTime()
+    return self.battleTotalTime - self.timeCounter
+end
+
+function M:Clear()
+    self:_StopBattleBGM()
+    if self.update_handle ~= nil then
+        UpdateBeat:RemoveListener(self.update_handle)
+    end
+    self.update_handle = nil
+
+    if self.selectedCharacters ~= nil then
+        for i, _ in ipairs(self.selectedCharacters) do
+            self.selectedCharacters[i] = nil
+        end
+    end
+
+    self.selectCount = 0
+    self.isFighting = false
+
+    self:UnRegisterEvent()
+
+    if self.battleRenderWorld then
+        self.battleRenderWorld:Clear()
+    end
+    self.battleRenderWorld = nil
+
+    self.battleCharacterManager:Clear()
+    self.battlePoolManager:Clear()
+    if self.representCharacterManager then
+        self.representCharacterManager:Clear()
+    end
+    if self._resourceCache then
+        self._resourceCache:clear()
+    end
+    self.frameControl:Clear()
+    self._result = nil
+    self._battleEndData = nil
+end
+
+function M:SetBattleSpeed(speedIndex)
+    local speed = 1
+    if speedIndex == BattleEnum.BattleSpeedType.Double then
+        speed = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle2xSpeedRealSpeed")
+    elseif speedIndex == BattleEnum.BattleSpeedType.Quadruple then
+        speed = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle4xSpeedRealSpeed")
+    elseif speedIndex == BattleEnum.BattleSpeedType.Half then
+        speed = ConfigHandler:GetEntry(GameDefine.TableName.Global, "BattleBossDieSpeed") or 0.5
+    end
+
+    if speed > 0 then
+        self._speedInterval = BattleConstant.LogicDeltaTime / speed * 0.001
+        self.battleContext:SetBattleSpeed(speed)
+    else
+        BattleLogger.log_error("speed 必须 >0  :", tostring(speed))
+    end
+end
+
+-----------------私有方法-------------------
+function M:_tryCallAction(action, param)
+    if action ~= nil then
+        action(param)
+    end
+end
+
+function M:_onMapInitialized(iErrorCode, mapObj)
+    local errorCode = iErrorCode or -1
+    if errorCode == 0 then
+
+    else
+        print_error("创建地图错误: " .. tostring(errorCode))
+    end
+end
+
+--- param = { characterId = characterId, index = 1, selected = 1 }
+function M:_onHandleCharacter(param)
+    local data = param or {}
+    local characterId = data.characterId or 0
+    local index = data.index or 0
+    local selected = data.selected or 0
+    if characterId <= 0 or index <= 0 or selected <= 0 then
+        return
+    end
+
+    if selected == 1 then
+        self.battleCharacterManager:AddCharacter(characterId, index)
+    else
+        self.battleCharacterManager:RemoveCharacter(characterId, index)
+    end
+end
+
+--- param = { show = self.showGrid }
+function M:_onShowMapGrid(param)
+    local data = param or {}
+    local show = data.show or false
+    -- self.battleMapManager:ShowMapGrid(show)
+end
+
+--- 检查是否能开始战斗
+function M:_checkCanStartFight()
+    local fighting = self.isFighting or false
+    if fighting then
+        -- 已经开始战斗了
+        return false
+    end
+
+    return true
+end
+
+---@param battleData battleData 战斗数据
+---@param resourceCache BattleResourceContainer
+---@param leftTeamList BattleCharacterPlayerModel[]
+---@param rightTeamList BattleCharacterRobotModel[]
+function M:_onStartFight(battleData, leftTeamList, rightTeamList, resourceCache)
+    -- self.battleMapManager:OnStartFight(resourceCache)
+    self._resourceCache = resourceCache
+    if resourceCache then
+        self.battleContext:SetMapController(resourceCache:GetMapPathFinder())
+    else
+        self.battleContext:SetMapController(BattleResourceContainer:newLogicMap(battleData))
+    end
+    self.battleContext:GetMapController():OnStartFight()
+    self.battleCharacterManager:OnStartFight(battleData, leftTeamList, rightTeamList, resourceCache)
+end
+
+function M:_RefreshBattleSpeed(speed)
+    self:SetBattleSpeed(speed)
+    -- self.frameControl:disPatchEventMsg()
+end
+
+function M:_RefreshBattleAuto(autoValue)
+    autoValue = autoValue or 1
+    local isAuto = autoValue == BattleEnum.BattleIsAuto.auto
+    self.battleContext:SetBattleAuto(isAuto)
+    self.battleCharacterManager:SetBattleAuto(isAuto)
+end
+
+function M:UpdateTask(taskInfo)
+    for _, taskInfo in ipairs(taskInfo) do
+        local config = ConfigHandler:GetEntry(GameDefine.TableName.Task, taskInfo.configId)
+        if config then
+            if config.isShowInResult and config.isShowInResult == 1 then
+                self._cache_task[taskInfo.uuid] = taskInfo
+            end
+        else
+            log_Error("???? Task 表找不到 任务数据 id: ", taskInfo.configId)
+        end
+    end
+end
+
+---@param battleInfo BattleInfo 战斗数据
+function M:_PlayBattleBGM(battleInfo)
+    local battleType = battleInfo.battleType
+    BattleEventUtils:DisPath_Render_PlayBGM(BattleHelper:getBattleBGM(battleType))
+end
+
+function M:_StopBattleBGM()
+    BattleEventUtils:DisPath_Render_BreakBGM()
+end
+
+return M

@@ -1,0 +1,273 @@
+require "Framework.Common.ObjectPool"
+---@class BattleRenderEntityManager
+local BattleRenderEntityManager = class("BattleRenderEntityManager")
+local M = BattleRenderEntityManager
+local BattleEnum = require 'GameLogic.Battle.BattleEnum'
+-- local UWAssetManager = Game.SystemManager.UWAssetManager
+local entityMap = {
+    [BattleEnum.EntityRenderType.RenderCharacter] = {
+        clazzPath = "GameLogic.Battle.BattleRender.BattleRenderEntity.BattleRenderCharacterEntity",
+    },
+    [BattleEnum.EntityRenderType.RenderBullet] = {
+        clazzPath = "GameLogic.Battle.BattleRender.BattleRenderEntity.BattleRenderBullteEntity",
+    },
+    [BattleEnum.EntityRenderType.RenderSummonCharacter] = {
+        clazzPath = "GameLogic.Battle.BattleRender.BattleRenderEntity.BattleRenderCharacterEntity",
+    },
+    -- [BattleEnum.EntityRenderType.RenderScene] = {
+    --     -- clazzPath = "GameLogic.Battle.BattleRender.BattleRenderEntity.BattleRenderBullteEntity",
+    -- },
+    -- [BattleEnum.EntityRenderType.RenderAttack] = {
+    --     -- clazzPath = "GameLogic.Battle.BattleRender.BattleRenderEntity.BattleRenderBullteEntity",
+    -- },
+}
+
+local EventMap = {
+    [BattleEventId.Event_Battle_Render_CreateEntity]       = "_createEntity",
+    [BattleEventId.Event_Battle_Render_RemoveRenderEntity] = "_removeEntity",
+
+    [BattleEventId.Event_Battle_Render_CreateMowingEntity]       = "_createMowingEntity",
+    [BattleEventId.Event_Battle_Render_RemoveMowingEntity]       = "_removeMowingEntity",
+}
+---@param systemManager BattleRenderSystemManager
+---@param worldRender BattleRenderWorld
+function M:Ctor(systemManager, worldRender)
+    self._worldRender = worldRender
+    self._systemManager = systemManager
+    self._list_pool = {}
+    self._list_renderEntity = {}
+
+
+    self:_registerMsg()
+end
+
+function M:Initialize()
+    self:_initPool(10)
+end
+
+function M:OnUpdate(dt)
+    for _, entity in ipairs(self._list_renderEntity) do
+        if entity and entity.OnUpdate then
+            entity:OnUpdate(dt)
+        end
+    end
+end
+
+function M:Clear()
+    self:_unRegisterMsg()
+    for _, entity in ipairs(self._list_renderEntity) do
+        if entity and entity.Clear then
+            entity:Clear()
+        end
+    end
+    self._list_renderEntity = {}
+    for _, pool in pairs(self._list_pool) do
+        pool:Dispose()
+    end
+    self._list_pool = {}
+end
+
+function M:PopAsset(assetName, cb)
+     --Game.SystemManager.UWAssetManager:createDynamicPool(assetName, 90)
+    return Game.SystemManager.UWAssetManager:loadResourceAsync(assetName, cb)
+end
+
+function M:PushAsset(gUid, object)
+    Game.SystemManager.UWAssetManager:unloadGUid(gUid)
+end
+
+--- todo 后期优化数据结构 存储对应 index 实现 O1
+-- TODO nancheng 加个map 提高查询效率
+function M:GetEntityById(entityId)
+    local index = 0
+    for i = 1, #self._list_renderEntity do
+        if self._list_renderEntity[i]:GetEntityId() == entityId then
+            index = i
+            break
+        end
+    end
+    if index == 0 then
+        BattleLogger.log_error("not find entity by entityId : ", entityId)
+        return
+    end
+    return table.remove(self._list_renderEntity, index)
+end
+
+-----------------------------------------------------------------------------------------------
+function M:_registerMsg()
+    for i, v in pairs(EventMap) do
+        if i and v and self[v] then
+            BroadcastEvent.subscribe(i, self[v], self)
+        end
+    end
+end
+
+function M:_unRegisterMsg()
+    for i, v in pairs(EventMap) do
+        if i and v and self[v] then
+            BroadcastEvent.unsubscribe(i, self[v], self)
+        end
+    end
+end
+
+function M:_createEntity(entityId, type, data)
+    local entity = self:_createEntityByType(entityId, type, data)
+    if entity == nil then
+        BattleLogger.log_error("create entity fail !!!   entityId == ", entityId, "  type == ", type)
+        return nil
+    end
+    self:_addRenderEntity(entity)
+    self._systemManager:AddEntity(entity)
+    return entity
+end
+
+function M:_addRenderEntity(entity)
+    self._list_renderEntity = self._list_renderEntity or {}
+    table.insert(self._list_renderEntity, entity)
+end
+
+function M:_removeEntity(entityId)
+    local entity = self:GetEntityById(entityId)
+    if entity == nil then
+        return
+    end
+    local pool = self:_getPoolByType(entity:GetEntityType())
+    if pool and entity then
+        if entity.Clear then
+            entity:Clear()
+        end
+        pool:push(entity)
+    end
+    self._systemManager:RemoveEntity(entityId)
+end
+
+function M:_initPool(initCount)
+    for i, v in pairs(entityMap) do
+        if self._list_pool[i] == nil then
+            local clazz = require(v.clazzPath)
+            self._list_pool[i] = ObjectPool.new(clazz)
+        end
+    end
+end
+
+---@return ObjectPool
+function M:_getPoolByType(type)
+    if self._list_pool[type] then
+        return self._list_pool[type]
+    else
+        BattleLogger.log_error("not find this type pool ：type == ", type)
+    end
+end
+
+function M:_createEntityByType(entityId, type, data)
+    local entityType = type
+    if entityType == BattleEnum.EntityRenderType.RenderCharacter then
+        return self:_createRenderCharacter(entityId, entityType, data)
+    elseif entityType == BattleEnum.EntityRenderType.RenderScene then
+        return self:_createRenderSceneEntity(entityId, entityType)
+    elseif entityType == BattleEnum.EntityRenderType.RenderBullet then
+        return self:_createRenderBulletEntity(entityId, entityType, data)
+    elseif entityType == BattleEnum.EntityRenderType.RenderAttack then
+        return self:_createRenderAttackEntity(entityId, entityType, data)
+    elseif entityType == BattleEnum.EntityRenderType.RenderSummonCharacter then
+        return self:_createRenderSummonCharacter(entityId, entityType, data)
+    else
+        BattleLogger.log_error("not handle this type Entity : ", entityType)
+    end
+end
+
+function M:_createRenderSummonCharacter(entityId, entityType, data)
+    local pool = self:_getPoolByType(entityType)
+    ---@type BattleRenderCharacterEntity
+    local missileEntity = pool:pop(entityId, self)
+    -- camp = camp, heroId = summonId, initPos = initXZPos.pos
+    local camp = data.camp
+    local heroId = data.heroId
+    local initPos = data.initPos
+    local gUid = self._worldRender._resourceCache:loadModelByHeroId(heroId, initPos, camp, function(obj, gUid)
+        missileEntity:Initialize(obj, self._worldRender._resourceCache, camp)
+    end)
+    return missileEntity
+end
+
+function M:_createRenderCharacter(entityId, entityType, data)
+    local pool = self:_getPoolByType(entityType)
+    ---@type BattleRenderCharacterEntity
+    local missileEntity = pool:pop(entityId, self)
+    local modelGo = self._worldRender._resourceCache:getCacheModel(data.camp, data.posIndex)
+    if modelGo then
+        missileEntity:Initialize(modelGo, self._worldRender._resourceCache, data.camp, data.isShowHp)
+        return missileEntity
+    else
+        BattleLogger.log_error("显示层找不到 预览武将 ")
+    end
+end
+
+function M:_createRenderSceneEntity(entityId, entityType)
+    BattleLogger.log_error(" _createRenderSceneEntity ???  ")
+    return nil
+end
+
+function M:_createRenderBulletEntity(entityId, entityType, data)
+    local pool = self:_getPoolByType(entityType)
+    ---@type BattleRenderBullteEntity
+    local missileEntity = pool:pop(entityId, self)
+    missileEntity:Initialize(data.stepTag)
+    return missileEntity
+end
+
+function M:_createRenderAttackEntity(entityId, entityType, data)
+    BattleLogger.log_error(" _createRenderAttackEntity ???  ")
+    return nil
+end
+
+function M:_createMowingEntity(entityId, data)
+    if self._systemManager:CheckExitEntity(entityId) then
+        return
+    end
+    
+    local gameLauncher = MowingGameUtils:GetMowingGameLauncher()
+    gameLauncher.CharacterModule:GetMowingModel(entityId, function(go)
+        if go then
+            local pool = self:_getPoolByType(BattleEnum.EntityRenderType.RenderCharacter)
+            ---@type BattleRenderCharacterEntity
+            local entity = pool:pop(entityId, self)
+            entity:Initialize(go, gameLauncher.BattleResourceCache, data.camp, data.isShowHp)
+
+            if data.scale then
+                go.transform.localScale = Vector3(data.scale, data.scale, data.scale)
+            end
+
+            entity:SetPosition(data.initPos)
+            if data.initRot then
+                entity:SetRotate_2(data.initRot)
+            end
+            
+            self:_addRenderEntity(entity)
+            self._systemManager:AddEntity(entity)
+        else
+            BattleLogger.log_error("显示层找不到 预览武将 ")
+            return
+        end
+    end)
+end
+
+function M:_removeMowingEntity(entityId)
+    ---@type BattleRenderCharacterEntity
+    local entity = self:GetEntityById(entityId)
+    if entity == nil then
+        return
+    end
+    Game.BusinessManager.MowingManager:GetGameLauncher().CharacterModule:ReturnMowingModel(entity._go_model)
+    
+    local pool = self:_getPoolByType(entity:GetEntityType())
+    if pool and entity then
+        if entity.Clear then
+            entity:Clear()
+        end
+        pool:push(entity)
+    end
+    self._systemManager:RemoveEntity(entityId)
+end
+
+return M

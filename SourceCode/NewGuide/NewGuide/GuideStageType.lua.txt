@@ -1,0 +1,5 @@
+---@class GuideStageType @引导关卡类型
+GuideStageType = {}
+GuideStageType.None = "None"            -- 无
+GuideStageType.Tower = "Tower"          -- 塔防
+GuideStageType.Shoot = "Shoot"          -- 数值射击

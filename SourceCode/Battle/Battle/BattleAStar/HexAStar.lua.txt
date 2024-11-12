@@ -1,0 +1,161 @@
+local Mathf = Mathf
+local Vector2Int = Vector2Int
+local Vector2 = Vector2
+
+local AStar = require "GameLogic.Battle.BattleAStar.AStar"
+--- @class HexAStar:AStar
+local HexAStar = class("HexAStar", AStar)
+local Sqrt3 = Mathf.Sqrt(3)
+local surroundEventPoint = {
+    Vector2Int(-1, 0),
+    Vector2Int(-1, 1),
+    Vector2Int(0, 1),
+    Vector2Int(1, 0),
+    Vector2Int(0, -1),
+    Vector2Int(-1, -1),
+}
+
+local surroundUnEventPoint = {
+    Vector2Int(-1, 0),
+    Vector2Int(0, 1),
+    Vector2Int(1, 1),
+    Vector2Int(1, 0),
+    Vector2Int(1, -1),
+    Vector2Int(0, -1),
+}
+
+function HexAStar:OuterToInner(size)
+    return Sqrt3 * 0.5 * size
+end
+
+function HexAStar:OuterToDoubleInner(size)
+    return Sqrt3 * size
+end
+
+---@return number,number
+function HexAStar:GetIndexByPos(pos)
+    local coordZ = 2 / 3 * pos.y / self._gridSize
+    local coordX = pos.x - coordZ * self:OuterToInner(self._gridSize) / self:OuterToDoubleInner(self._gridSize)
+    local indexY = Mathf.Floor(Mathf.Round(coordZ))
+    local indexX = Mathf.Floor(Mathf.Round(coordX) + indexY // 2)
+    return indexX, indexY
+end
+
+---@param point Point
+function HexAStar:GetPositionByPoint(point)
+    local x = point._x - point._z // 2
+    local z = point._z
+    local tmpx = x * self:OuterToDoubleInner(self._gridSize) + z * self:OuterToInner(self._gridSize)
+    local tmpz = z * self._gridSize * 3 / 2
+    return Vector2(tmpx, tmpz) + self._startPos
+end
+
+function HexAStar:GetCoordByIndex(indexX, indexY)
+    local coorX = indexX - (indexY - 1) // 2
+    local coorY = indexY
+    return coorX, coorY
+end
+
+-- ---@param pointA Point
+-- ---@param pointB Point
+-- function HexAStar:GetDistance(pointA, pointB)
+--     local aX, aY = self:GetCoordByIndex(pointA._x, pointA._z)
+--     local bX, bY = self:GetCoordByIndex(pointB._x, pointB._z)
+--     return Mathf.Abs(aX - bX) + Mathf.Abs(aY - bY)
+-- end
+
+---@param pointA Point
+---@param pointB Point
+function HexAStar:GetDistance(pointA, pointB)
+    -- local aX, aY = self:GetCoordByIndex(pointA._x, pointA._z)
+    -- local bX, bY = self:GetCoordByIndex(pointB._x, pointB._z)
+    local x1 = pointA._x
+    local z1 = pointA._z
+    local x2 = pointB._x
+    local z2 = pointB._z
+    local zAbs = math.abs(z1 - z2)
+    local _, num2 = math.modf(z1 * 0.5)
+    local min = 0
+    local max = 0
+    if num2 ~= 0 then
+        min = x1 - math.modf((zAbs + 1) * 0.5)
+        max = x1 + math.modf(zAbs * 0.5)
+    else
+        min = x1 - math.modf(zAbs * 0.5)
+        max = x1 + math.modf((zAbs + 1) * 0.5)
+    end
+    if x2 < min then
+        return min - x2 + zAbs
+    elseif x2 > max then
+        return x2 - max + zAbs
+    else
+        return zAbs
+    end
+end
+
+---@param point Point
+function HexAStar:GetSurroundList(point)
+    if point._z % 2 == 0 then
+        return surroundUnEventPoint
+    else
+        return surroundEventPoint
+    end
+
+    -- if point._z % 2 == 0 then
+    --     return surroundEventPoint
+    -- else
+    --     return surroundUnEventPoint
+    -- end
+end
+
+---@param point Point
+---@return Point[]
+function AStar:GetSurroundPoints(point)
+    self._pointCache = {}
+    ---@type Vector2Int
+    local points = self:GetSurroundList(point)
+    for _, offest in ipairs(points) do
+        local neighPointX = point._x + offest.x
+        local neighPointZ = point._z + offest.y
+        if self:IsValid(neighPointX, neighPointZ) then
+            local targetIndex = neighPointX + (neighPointZ - 1) * self._width
+            table.insert(self._pointCache, self._grids[targetIndex])
+        end
+    end
+    table.sort(self._pointCache, function(a, b)
+        if a._z == b._z then
+            return a._z > b._z
+        else
+            if a._z == point._z then
+                return true
+            elseif b._z == point._z then
+                return false
+            else
+                return a._z > b._z
+            end
+        end
+        -- return a._Priority > b._Priority
+    end)
+    local tab = {}
+    for _, value in ipairs(self._pointCache) do
+        table.insert(tab, value)
+    end
+    return tab
+end
+
+---@param point Point
+function HexAStar:GetSurroundListByZ(z)
+    if z % 2 == 0 then
+        return surroundUnEventPoint
+    else
+        return surroundEventPoint
+    end
+
+    -- if point._z % 2 == 0 then
+    --     return surroundEventPoint
+    -- else
+    --     return surroundUnEventPoint
+    -- end
+end
+
+return HexAStar

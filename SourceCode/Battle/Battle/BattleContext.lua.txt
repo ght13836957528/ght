@@ -1,0 +1,255 @@
+----------------------------------------------------------------------
+--------- 2022年12月02日 16:46:45 星期五
+----------------------------------------------------------------------
+---@class BattleContext
+local BattleContext = class("BattleContext")
+local BattleEventUtils = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+local SkillStepHandler = require "GameLogic.Battle.SkillSystem.SkillSteps.SkillStepHandler"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local ConfigHandler = ConfigHandler
+local M = BattleContext
+
+function M:Ctor()
+    self.entityId = 0
+    self.controlPackId = 0
+    self._isBlackScene = false
+    self._blackMap = {}
+    self._skillStepHandler = SkillStepHandler.new(self)
+    self._passive_pendant_left = {}
+    self._replace_skill_left = {}
+    self._passive_pendant_right = {}
+    self._replace_skill_right = {}
+
+    ---@type MowingGameLauncher
+    self._mowingGameLauncher = nil
+end
+
+---@param battleInfo BattleInfo
+function M:SetBattleBaseData(battleInfo)
+    self._battlePlayType = battleInfo.battleType
+    self._battleOperationType = BattleHelper:getBattleOperationType(battleInfo.battleType)
+    self._battleLogicType = BattleHelper:getLogicTypeByBattleType(battleInfo.battleType)
+    self._battleSceneUUId = battleInfo.battleUuid
+    self:initPendantSkill(battleInfo.mazeRelicId)
+end
+
+function M:initPendantSkill(mazeRelicIdS)
+    mazeRelicIdS = mazeRelicIdS or {}
+    local isOpenMazeTest = BattleStatic.isOpenMazeTest
+    if isOpenMazeTest then
+        local debugRelicIdS = BattleStatic.battleMazeRelicId or {}
+        if next(debugRelicIdS) then
+            mazeRelicIdS = debugRelicIdS
+        end
+    end
+    for _, id in ipairs(mazeRelicIdS) do
+        if isOpenMazeTest then
+            BattleLogger.logMazeRelic(id)
+        end
+        local con = ConfigHandler:GetEntry(GameDefine.TableName.Maze_Relic, id)
+        if con then
+            if con.skillPassive then
+                table.insert(self._passive_pendant_left, con.skillPassive)
+            end
+            if con.skillBase then
+                for _, skillId in pairs(con.skillBase) do
+                    self._replace_skill_left[skillId] = 1
+                end
+            end
+        else
+            BattleLogger.log_error("Maze_Relic 表没有找到此数据 : id = ", id)
+        end
+    end
+end
+
+function M:GetReplaceSkill(camp)
+    if camp == BattleEnum.BattleCamp.Attack then
+        return self._replace_skill_left
+    else
+        return self._replace_skill_right
+    end
+end
+
+function M:GetPassivePendantLeft()
+    return self._passive_pendant_left
+end
+
+function M:isCanOperation()
+    return self._battleOperationType == BattleEnum.BattleOperationType.CanOperation
+end
+
+function M:GetBattleOperationType()
+    return self._battleOperationType
+end
+
+function M:GetBattleSceneUUId()
+    return self._battleSceneUUId
+end
+
+---@return SkillStepHandler
+function M:GetSkillStepHandler()
+    return self._skillStepHandler
+end
+
+function M:GetEntityId()
+    self.entityId = self.entityId + 1
+    return self.entityId
+end
+
+function M:GetControlPackId()
+    self.controlPackId = self.controlPackId + 1
+    return self.controlPackId
+end
+
+function M:GetPlayType()
+    return self._battlePlayType
+end
+
+function M:GetBattleLogicType()
+    return self._battleLogicType
+end
+
+--- 病损系数(轻伤)
+function M:SetTroopsLoss(troopLoss)
+    self._troopsLoss = troopLoss
+end
+
+--- 病损系数(轻伤)
+function M:GetTroopsLoss()
+    return self._troopsLoss
+end
+
+function M:SetBattleStageId(id)
+    self._battleStageId = id
+end
+
+function M:GetBattleStageId()
+    return self._battleStageId
+end
+
+function M:SetBattleAuto(isAuto)
+    self._isAuto = isAuto
+end
+
+---@return boolean
+function M:GetBattleAuto()
+    return self._isAuto
+end
+
+--- 战斗倍速
+function M:SetBattleSpeed(speed)
+    speed = speed or 1
+    self._battleSpeed = speed
+end
+
+---@return number
+function M:GetBattleSpeed()
+    return self._battleSpeed
+end
+
+function M:SetFrameControl(frameControl)
+    self._battleFrameControl = frameControl
+end
+
+---@return FrameControl
+function M:GetFrameControl()
+    return self._battleFrameControl
+end
+
+function M:SetBattleRandom(battleRandom)
+    self.battleRandom = battleRandom
+end
+
+---@return BattleRandom
+function M:GetBattleRandom()
+    return self.battleRandom
+end
+
+function M:SetBattleManager(battleManager)
+    self.battleManager = battleManager
+end
+
+---@return BattleManager
+function M:GetBattleManager()
+    return self.battleManager
+end
+
+function M:SetBattlePoolManager(battlePoolManager)
+    self.battlePoolManager = battlePoolManager
+end
+
+---@return BattlePoolManager
+function M:GetBattlePoolManager()
+    return self.battlePoolManager
+end
+
+function M:SetHeroPreviewManager(heroPreviewManager)
+    self.previewManager = heroPreviewManager
+end
+
+function M:SetSceneController(sceneController)
+    self.sceneController = sceneController
+end
+
+function M:GetSceneController()
+    return self.sceneController
+end
+
+function M:SetMapController(mapController)
+    self.battleMapController = mapController
+end
+
+---@return BattleMapPathFinder
+function M:GetMapController()
+    return self.battleMapController
+end
+
+function M:SetCharacterManager(characterManager)
+    self.battleCharacterManager = characterManager
+end
+
+---@return BattleCharacterManager
+function M:GetCharacterManager()
+    return self.battleCharacterManager
+end
+
+function M:SetBlackScreenStatus(bBlack, entityId)
+    local toBlack = bBlack or false
+    self._blackMap[entityId] = toBlack
+    for _, isBlack in pairs(self._blackMap) do
+        if isBlack == true then
+            if not self._isBlackScene then
+                BattleEventUtils:DisPath_BlackOutScene(true)
+            end
+            self._isBlackScene = true
+            return
+        end
+    end
+    if self._isBlackScene == true then
+        BattleEventUtils:DisPath_BlackOutScene(false)
+    end
+    self._isBlackScene = false
+end
+
+--- 提供当前是否黑屏的状态，黑屏时，cd和buff不计时
+function M:GetBlackScreenStatus()
+    return self._isBlackScene
+end
+
+function M:SetMowingGameLauncher(gameLauncher)
+    self._mowingGameLauncher = gameLauncher    
+end
+
+function M:GetMowingGameLauncher()
+    return self._mowingGameLauncher    
+end
+
+function M:Clear()
+    self._passive_pendant_left = {}
+    self._replace_skill_left = {}
+    self._passive_pendant_right = {}
+    self._replace_skill_right = {}
+end
+
+return M

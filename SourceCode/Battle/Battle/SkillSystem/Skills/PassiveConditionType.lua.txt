@@ -1,0 +1,22 @@
+----------------------------------------------------------------------
+--------- 2023年02月06日 18:51:35 星期一
+----------------------------------------------------------------------
+
+---@class PassiveConditionType
+local PassiveConditionType = {
+    ConditionType_None                      = 0,
+    ConditionType_FullHP                    = 21,   -- 满血时
+    ConditionType_Dying                     = 22,   -- 濒死
+    ConditionType_HPPercentLessThan         = 23,   -- 血量百分比低于
+    ConditionType_HPPercentMoreThan         = 24,   -- 血量百分比高于
+    ConditionType_FightTimeLessThan         = 25,   -- 战斗时间少于
+    ConditionType_FightTimeMoreThan         = 26,   -- 战斗时间多于
+    ConditionType_EnemyCountLessThan        = 27,   -- 敌人少于
+    ConditionType_EnemyCountMoreThan        = 28,   -- 敌人多于
+    ConditionType_AllyCountLessThan         = 29,   -- 己方人数少于
+    ConditionType_AllyCountMoreThan         = 30,   -- 己方人数多于
+    ConditionType_AllCharacterCountLessThan = 31,   -- 全部人数少于
+    ConditionType_AllCharacterCountMoreThan = 32,   -- 全部人数多于
+}
+
+return PassiveConditionType

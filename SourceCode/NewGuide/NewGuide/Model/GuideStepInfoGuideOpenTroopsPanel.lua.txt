@@ -1,0 +1,11 @@
+
+---@class GuideStepInfoGuideOpenTroopsPanel:GuideStepBaseInfo 引导打开编队
+local GuideStepInfoGuideOpenTroopsPanel = class("GuideStepInfoGuideOpenTroopsPanel", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoGuideOpenTroopsPanel
+
+function M:onParse(params)
+
+end
+
+
+return M

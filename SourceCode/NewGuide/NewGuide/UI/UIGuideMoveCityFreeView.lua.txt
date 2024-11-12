@@ -1,0 +1,97 @@
+local GameEntry = CS.UnityGameFramework.Runtime.GameEntry
+---@class UIGuideMoveCityFreeView : UIPanel
+local UIGuideMoveCityFreeView = class("UIGuideMoveCityFreeView", UIPanel)
+local M = UIGuideMoveCityFreeView
+
+local UIGuiderView = require("GameLogic.Plot.UI.UIGuiderView")
+local plotDialogItem = require("GameLogic.Plot.UI.UIPlotDialogItem")
+local spinePrefab = "Assets/Main/Prefabs/UI/Guide/guider_259.prefab"
+
+function M:getConfigLayerType()
+    return UILayerType.Story
+end
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:getConfigAssetPath()
+    return "Assets/Main/Prefabs/UI/Guide/UIGuideMoveCityView.prefab"
+end
+
+function M:onCreate()
+    local plotTable = {} 
+    plotTable.name = "83200317" --83200317=艾达
+    plotTable.content = "90500261" --90500261=附近土地的守卫较强，难以发展。我们将免费赠予您一次迁城至更合适区域的机会，是否前往迁城？
+    self:setDialogInfo(plotTable)
+    self:setFigure()
+end
+
+function M:onAddListener()
+    self._CloseButton:addEventListener(ButtonEvent.CLICK, self.onClickClose, self)
+    self._BtnGoto:addEventListener(ButtonEvent.CLICK, self.onClickGoto, self)
+    self._BtnCancel:addEventListener(ButtonEvent.CLICK, self.onClickCancel, self)
+end
+
+function M:onRemoveListener()
+    self._CloseButton:removeEventListener(ButtonEvent.CLICK, self.onClickClose, self)
+    self._BtnGoto:removeEventListener(ButtonEvent.CLICK, self.onClickGoto, self)
+    self._BtnCancel:removeEventListener(ButtonEvent.CLICK, self.onClickCancel, self)
+end
+
+function M:setFigure()
+    if self._SpineParent.transform.childCount == 0 then
+        UResourceManager.LoadAsset(UnityType.GameObject, spinePrefab, function(request)
+            if string.isNilOrEmpty(request.error) then
+                local asset = request.Result
+                self.obj = CS.UnityEngine.GameObject.Instantiate(asset)
+                self.obj.transform.parent = self._SpineParent.transform
+                
+                local _objRect = self.obj.gameObject:GetComponent(UnityType.RectTransform)
+                --_objRect:SetInsetAndSizeFromParentEdge(CS.UnityEngine.RectTransform.Edge.Right, -100, 640)
+                --_objRect:SetInsetAndSizeFromParentEdge(CS.UnityEngine.RectTransform.Edge.Top, 200, 1136)
+                _objRect:SetInsetAndSizeFromParentEdge(CS.UnityEngine.RectTransform.Edge.Left, -100, 640)
+                _objRect:SetInsetAndSizeFromParentEdge(CS.UnityEngine.RectTransform.Edge.Bottom, -200, CS.UnityEngine.Screen.height / CS.UnityEngine.Screen.width * 640)
+
+                --self.obj.transform.localPosition = Vector3.New(220, 368, -600)
+                self.obj.transform.localScale = Vector3.one
+                self.obj.gameObject:SetActive(true)
+            end
+        end)
+    end
+end
+
+function M:setDialogInfo(plotData)
+    if not self.item then
+        self.item = plotDialogItem.new()
+        self.item:bind(self._Left.gameObject)
+    end
+
+    self.item:initData(plotData.name, plotData.content)
+end
+
+function M:onClickClose()
+    self:closeSelf()
+    GuideManager._moveNext()
+end
+
+function M:onClickGoto()
+    self:closeSelf()
+    
+    local info = GameEntry.Data.Territory:GetFirstAllianceTerritoryInfoOnMap()
+    if info and info.m_territoryPtIndex > 0 then
+
+        local sid = GameEntry.Data.Player.CurServerId
+        CS.GotoUtils.GotoWorldToPointId(info.m_territoryPtIndex, sid, false, false, -1, 3)
+    end
+
+    GuideManager._moveNext()
+end
+
+function M:onClickCancel()
+    self:closeSelf()
+
+    GuideManager._moveNext()
+end
+
+return M

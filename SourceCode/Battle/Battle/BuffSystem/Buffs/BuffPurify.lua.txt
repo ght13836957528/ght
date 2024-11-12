@@ -1,0 +1,40 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 11:32:37 星期一
+----------------------------------------------------------------------
+--- 净化
+local BaseBuff = require "GameLogic.Battle.BuffSystem.BaseBuff"
+
+---@class BuffPurify
+local BuffPurify = class("BuffPurify", BaseBuff)
+local M = BuffPurify
+
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+    self:_doModify()
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+
+end
+
+function M:_doModify()
+    local buffManager = self.hostCharacter:GetBuffManager()
+    local persistBuffList = buffManager.persistBuffList
+    for _, v in pairs(persistBuffList) do
+        if v ~= nil then
+            local buffLabel = v.buffLabel or 0 
+            if buffLabel == 2 then
+                v:tryRemoveBuff()
+            end
+        end
+    end
+end
+
+return M

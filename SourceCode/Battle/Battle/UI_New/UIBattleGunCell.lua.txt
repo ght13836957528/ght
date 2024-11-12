@@ -1,0 +1,86 @@
+---@class  UIBattleGunCell: UIWidget
+local UIBattleGunCell = class("UIBattleGunCell", UIWidget)
+local M = UIBattleGunCell
+local math = math
+function M:AutoWrapInjectObject()
+    return true
+end
+
+function M:GetConfigAssetPath()
+    return "Assets/GameAsset/Sprites/Prefabs/Battle/PVEFightingV2/UIBattleGunCell.prefab"
+end
+
+function M:OnParse(params)
+    self._camp = params.camp
+    self._listIndex = params.index
+    self._entityId = params.entityId
+    self._gunId = params.gunId
+end
+
+function M:OnCreate()
+    self:_initHeadIcon()
+end
+
+function M:_initHeadIcon()
+    if self._gunId == nil then
+        return
+    end
+
+    local con = ConfigHandler:GetEntry(GameDefine.TableName.Ship_Cabin_Gun_Detail, self._gunId)
+    if con then
+        UIUtils:setImage2(con.icon, self._imgIcon)
+    end
+    self._txtName.text = _lang(con.text)
+end
+
+function M:OnAddListener()
+    BroadcastEvent.subscribe(BattleEventId.Event_Battle_Render_GunCD, self.OnUpdateCD, self)
+end
+
+function M:OnRemoveListener()
+    BroadcastEvent.unsubscribe(BattleEventId.Event_Battle_Render_GunCD, self.OnUpdateCD, self)
+end
+
+function M:OnDispose()
+    if self.delayTimer then
+        self.delayTimer:Dispose()
+        self.delayTimer = nil
+    end
+end
+
+function M:OnUpdateCD(param)
+    if param == nil then
+        return
+    end
+    local entityId = param.entityId
+    local cd = param.cd
+    local baseCD = param.baseCD
+    if entityId == self._entityId then
+        baseCD = baseCD > 0 and baseCD or 1
+        local tmp = cd / baseCD
+        self._imgMask.fillAmount = tmp
+        self._txtNum.text = math.ceil(cd * 0.001)
+    end
+    -- self._imgMask
+    -- self._txtNum
+end
+
+function M:PlayFire()
+    GameObjectUtil.SafeSetActiveSelf(self._goIconRoot, false)
+    GameObjectUtil.SafeSetActiveSelf(self._releaseNode, true)
+    self._releaseNode:Play("UI_Battle_BlueArtillery_in")
+    if self.delayTimer ~= nil then
+        self.delayTimer:reset(2.7, 0, false, false, function()
+            -- GameObjectUtil.SafeSetActiveSelf(self._goIconRoot, true)
+            GameObjectUtil.SafeSetActiveSelf(self._releaseNode, false)
+        end, self)
+    else
+        self.delayTimer = Timer.new(2.7, 0, false, false, function()
+            -- GameObjectUtil.SafeSetActiveSelf(self._goIconRoot, true)
+            GameObjectUtil.SafeSetActiveSelf(self._releaseNode, false)
+        end, self)
+    end
+    self.delayTimer:start()
+end
+
+return M

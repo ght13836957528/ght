@@ -1,0 +1,53 @@
+-------------------
+--- 战斗中的常量值
+-------------------- 
+--------
+local BattleConstant = {
+    
+
+    LogicBaseFPS = 30,
+
+    FPS = 30,                  -- 战斗逻辑帧
+    LogicDeltaTime = 33,       -- 战斗逻辑帧间隔 / ms
+
+    NomalMaxRage     = 1000,   
+
+    HatredValue_Nomal = 5,    -- 默认仇恨值
+
+    HatredValue_Attack = 5,   -- 普工范围内的仇恨值
+
+    HatredValue_DisMin = 6,   -- 距离最近得
+
+    HatredValue_HitMine = 5,  -- 攻击玩家得
+
+    OuterRadius = 1,
+
+
+    
+    RepelTime = 500,    -- 击退动画时间
+    RepelTime_1 = 333,    -- 击退动画时间1
+    RepelTime_2 = 167,    -- 击退动画时间2
+
+    
+    BlowTime = 1000,    -- 击退动画时间
+    BlowTime_1 = 667,    -- 击退动画时间1
+    BlowTime_2 = 333,    -- 击退动画时间2
+
+    BuffEffLimitLine = 20,  -- 区分瞬时buff 和 持续buff 得数值 这是与策划 约定俗成得
+
+    BuffDotOrHotInterval = 1000,  -- 单位毫秒/ms  持续效果的触发间隔
+
+    --- 战斗显示倍速 对应实际倍速
+    BattleSpeedMultiplier = {
+        [1] = 1,
+        [2] = 1.5,
+        [4] = 2,
+    },
+
+    BattleGuideBossId = 111010,
+}
+
+
+
+
+return BattleConstant

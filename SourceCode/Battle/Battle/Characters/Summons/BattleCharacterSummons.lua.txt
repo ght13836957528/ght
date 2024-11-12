@@ -1,0 +1,45 @@
+----------------------------------------------------------------------
+--------- 2022年12月02日 17:25:40 星期五
+----------------------------------------------------------------------
+
+--[[
+    战斗中的角色，在这里不区分是host和enemy，由controller来控制行为
+]]
+local BattleHelper           = require "GameLogic.Battle.BattleHelper"
+local BattleCharacter        = require "GameLogic.Battle.Characters.BattleCharacter"
+local BattleEnum             = require "GameLogic.Battle.BattleEnum"
+---@class BattleCharacterSummons:BattleCharacter
+local BattleCharacterSummons = class("BattleCharacterSummons", BattleCharacter)
+local M                      = BattleCharacterSummons
+
+------------------------------------------------------------------------------------------------------
+
+function M:Initialize(parentEntityId, initXZPos)
+    self:registerEvent()
+    self.characterTransform:Initialize(self.battleData._initRotate, self.characterBattleId, self.battleData._baseScale)
+    self.characterContext:Initialize(self.battleData, parentEntityId)
+    self.characterContext:SetIsSummon(true)
+    self.controller:Initialize(self)
+    self.characterAttribute:Initialize(self.battleData._attMap)
+    self.battleCharacterBaseAttribute:Initialize(self.battleData)
+    self.hatredManager:Initialize()
+    self.rageManager:Initialize(self.battleData)
+    self.skillManager:Initialize(self)
+    self.buffManager:Initialize(self.battleData._buff)
+    self.searcher:Initialize()
+    self.findPathManager:Initialize(self.battleData._initRotate, self.battleData._posIndex,
+        BattleHelper:getBattleSceneId(self.battleContext._battlePlayType, self.battleContext._battleStageId), initXZPos)
+    self.stepManager:Initialize()
+    self.battleNumericalBox:setParentBox(parentEntityId)
+    self.battleDataCounter:setParentBox(parentEntityId)
+    -- self.isPauseLogic = false
+    self.isBrevity = false
+    self.isDied = self.battleCharacterBaseAttribute:GetCurrentHpValue() <= 0
+    self.isSummoner = parentEntityId ~= nil
+end
+
+function M:GetCharacterType()
+    return BattleEnum.BattleCharacterType.Summoner
+end
+
+return M

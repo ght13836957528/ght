@@ -1,0 +1,19 @@
+----------------------------------------------------------------------
+--------- 2023年02月02日 10:29:45 星期四
+----------------------------------------------------------------------
+
+---@class TeleportTargetType
+local TeleportTargetType = 
+{
+    TargetType_None                 = 0,    -- 
+    TargetType_HatredTarget         = 1,    -- 仇恨目标（应该是仇恨值最大？）
+    TargetType_NearestTarget        = 2,    -- 最近的目标
+    TargetType_FurthestTarget       = 3,    -- 最远的目标
+    TargetType_MostAttackTarget     = 4,    -- 攻击力最高目标
+    TargetType_MinimumDefenseTarget = 5,    -- 防御力最低
+    TargetType_Weakest              = 6,    -- 最虚弱
+    TargetType_MostHPTarget         = 7,    -- 血量最多目标
+    TargetType_PlaceTarget          = 8,    -- 对位目标（如果没有对位了，找仇恨目标）
+}
+
+return TeleportTargetType

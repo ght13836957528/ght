@@ -1,0 +1,92 @@
+---@class UICombineWatermelonRuleLayer : UIWidget UICombineWatermelonMainView 界面里的【活动规则】界面
+local UICombineWatermelonRuleLayer = class("UICombineWatermelonRuleLayer", UIWidget)
+local M = UICombineWatermelonRuleLayer
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    if params then
+
+    end
+end
+
+function M:onAddListener()
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GetAward, self.updateAward, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GameReady, self.gameReady, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GameListReady, self.enterGame, self)
+    self._btn:addEventListener(ButtonEvent.CLICK, self.onClickEnterGame, self)
+end
+function M:onRemoveListener()
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GetAward, self.updateAward, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GameReady, self.gameReady, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GameListReady, self.enterGame, self)
+    self._btn:removeEventListener(ButtonEvent.CLICK, self.onClickEnterGame, self)
+end
+
+function M:onCreate()
+    self.lastTime = CombineWatermelonModel.getActivityLastTime()
+    if self.lastTime > 0 then
+        self._timeLabel.text = GameGlobal.GameEntry.Localization:GetString("5505004", GameGlobal.GameEntry.Timer:MilliSecondToFmtString(self.lastTime))
+        self.timer = Timer.new(0, 1, true, false, self.onUpdate, self)
+        self.timer:start()
+    else
+        self._timeLabel.text = GameGlobal.GameEntry.Localization:GetString("5505004", 0)
+    end
+
+    self._btn:setText(GameGlobal.GameEntry.Localization:GetString("5505008"))
+    self._ruleTitle.text = GameGlobal.GameEntry.Localization:GetString("5600500") --废土运动会
+    self._desc.text = GameGlobal.GameEntry.Localization:GetString("5600501")
+    self._descContent.text = GameGlobal.GameEntry.Localization:GetString("5600502")
+    self._descTips.text = ""
+    self._challengeTimes.text = GameGlobal.GameEntry.Localization:GetString("5600193", CombineWatermelonModel.getChallengeCurNum(), CombineWatermelonModel.getChallengeMaxNum())
+    
+end
+
+function M:onUpdate()
+    if self.lastTime > 0 then
+        self.lastTime = self.lastTime - 1000
+        self._timeLabel.text = GameGlobal.GameEntry.Localization:GetString("5505004", GameGlobal.GameEntry.Timer:MilliSecondToFmtString(self.lastTime))
+    end
+end
+
+function M:updateAward()
+    --local demoned = CombineWatermelonModel.getCoinAwardData().totalPrice.. GameGlobal.GameEntry.Localization:GetString("107518") --xx钻石
+    --self._descTips.text = GameGlobal.GameEntry.Localization:GetString("5505007", demoned)
+end
+
+function M:gameReady()
+    self._challengeTimes.text = GameGlobal.GameEntry.Localization:GetString("5600193", CombineWatermelonModel.getChallengeCurNum(), CombineWatermelonModel.getChallengeMaxNum())
+end
+
+function M:onClickEnterGame()
+    CombineWatermelonModel.requestEnterGame()
+end
+
+function M:enterGame()
+    if not UIManager.panel:isOpen(UIPanelType.UICombineWatermelonGameView) then
+        self._spineRoot:SetActiveEx(true)
+        self._spine.Skeleton:SetToSetupPose()
+        self._spine.AnimationState:ClearTracks()
+        self._spine.AnimationState:SetAnimation(0, "animation", false)
+
+        local timeDelay
+        timeDelay = Timer.new(0, 2.2, false, false, function() --spine动画2.1s
+            self._spineRoot:SetActiveEx(false)
+            UIManager.panel:open(UIPanelType.UICombineWatermelonGameView)
+
+            timeDelay:stop()
+            timeDelay = nil
+        end)
+        timeDelay:start()
+    end
+end
+
+function M:onDispose()
+    if self.timer then
+        self.timer:stop()
+    end
+end
+
+return M

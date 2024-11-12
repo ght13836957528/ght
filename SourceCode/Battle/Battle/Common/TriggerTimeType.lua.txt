@@ -1,0 +1,27 @@
+----------------------------------------------------------------------
+--------- 2023年01月31日 19:09:23 星期二
+----------------------------------------------------------------------
+
+--[[
+    触发时机定义
+]]
+
+---@class TriggerTimeType
+local TriggerTimeType = {
+    TriggerTime_None                        = 0,
+    TriggerTime_OnStartFight                = 1,
+    TriggerTime_OnProfound                  = 2,    -- 放大招时
+    TriggerTime_OnDoDamage                  = 3,    -- 造伤害时
+    TriggerTime_OnHurt                      = 4,    -- 受伤害时（所有伤害）
+    TriggerTime_OnPhysicalHurt              = 5,    -- 受物理伤害时
+    TriggerTime_OnSpellHurt                 = 6,    -- 受法术伤害时
+    TriggerTime_OnMakeCure                  = 7,    -- 创造治疗时触发
+    TriggerTime_OnAcceptCure                = 8,    -- 接受治疗时触发
+    TriggerTime_OnCreatePersistBuff         = 9,    -- 创造持续时间buff时
+    TriggerTime_OnAcceptPersistBuff         = 10,   -- 接受【所有】持续时间buff时
+    TriggerTime_OnAcceptBeneficialBuff      = 11,   -- 接受【有益】持续时间buff时
+    TriggerTime_OnAcceptHarmfulBuff         = 12,   -- 接受【有害】持续时间buff时
+    TriggerTime_OnDeath                     = 13,   -- 死亡时触发
+}
+
+return TriggerTimeType

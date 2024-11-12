@@ -1,0 +1,53 @@
+local ISystem = require "GameLogic.Battle.BattleRender.BattleRenderSystem.ISystem"
+
+---@class RenderMoveSystem:ISystem
+local RenderMoveSystem = class("RenderMoveSystem", ISystem)
+local M = RenderMoveSystem
+function M:Ctor(systemManager)
+    ISystem.Ctor(self, systemManager)
+end
+
+function M:GetEventHandleMap()
+    return {
+        [BattleEventId.Event_Battle_Render_Move_Line] = "MoveLineHandle",
+        [BattleEventId.Event_Battle_Render_Rotate] = "RotateHandle",
+        [BattleEventId.Event_Battle_Render_Rotate_2] = "RotateHandle_2",
+
+    }
+end
+
+function M:MoveLineHandle(data)
+    local entity = self:GetEntityByUid(data.entityId)
+    if entity == nil then
+        self:logNotFindEntity(data.entityId)
+        return
+    end
+    local nowPos = data.newPos
+    local time = data.time
+    if nowPos and time and entity.SetPosition then
+        entity:SetPosition(nowPos)
+    end
+end
+
+function M:RotateHandle(data)
+    local entity = self:GetEntityByUid(data.entityId)
+    if entity == nil then
+        self:logNotFindEntity(data.entityId)
+        return
+    end
+    local nowPos = data.newPos
+    local time = data.time
+    if nowPos and time and entity.SetRotate then
+        entity:SetRotate(nowPos)
+    end
+end
+
+function M:RotateHandle_2(data)
+    local entity = self:GetEntityByUid(data.entityId)
+    if entity then
+        entity:SetRotate_2(data.rotation)
+    end
+
+end
+
+return M

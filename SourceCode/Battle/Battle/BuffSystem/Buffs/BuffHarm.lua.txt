@@ -1,0 +1,122 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 11:30:08 星期一
+----------------------------------------------------------------------
+local BattleEnum          = require "GameLogic.Battle.BattleEnum"
+local BattleFormulaHelper = require "GameLogic.Battle.BattleAttribute.BattleFormulaHelper"
+local BaseBuff            = require 'GameLogic.Battle.BuffSystem.BaseBuff'
+local TriggerTimeType     = require "GameLogic.Battle.Common.TriggerTimeType"
+local BattleEventUtils    = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+---@class BuffHarm:BaseBuff
+local BuffHarm            = class("BuffHarm", BaseBuff)
+local M                   = BuffHarm
+
+function M:_onInitialize()
+
+end
+
+function M:_onEnter()
+    self:_doModify()
+end
+
+function M:_onRefresh()
+
+end
+
+function M:_onExit()
+
+end
+
+----------------------------------------------------------------------
+function M:_doModify()
+    local fromCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.fromId)
+    local paramA = self.buffParams[4] or 0
+
+    --- 暴击率
+    local criticalStrike = 0
+    if paramA == BattleEnum.HitSpecialType.MustCritical then
+        criticalStrike = 1
+    else
+        criticalStrike = self:criticalStrike(fromCharacter, self.hostCharacter)
+    end
+    BattleLogger.logNumerical("暴击率 : ", criticalStrike)
+    local isCritical = self.hostCharacter:GetBattleContext():GetBattleRandom():IsWithinTheScopeOfFloat(criticalStrike,
+        "暴击率", fromCharacter:GetTransform():GetInitPos(), fromCharacter:GetCharacterContext():GetBattleCamp())
+    BattleLogger.logNumerical("是否暴击 : ", isCritical)
+    local CriticalValue = fromCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_CritEffect_21) or 0
+    ---- 爆伤系数
+    local critical_k = isCritical and (CriticalValue * 0.01) or 1
+    BattleLogger.logNumerical("暴击系数 : ", critical_k)
+    --- 杀伤力
+    local attValue = self:GetAttValue(fromCharacter)
+    BattleLogger.logNumerical("杀伤力 : ", attValue)
+    --- 物理 或者 魔法伤害
+    local hitValue = self:GetHitValue(fromCharacter, self.hostCharacter, attValue, self.buffParams)
+    --- 相克系数
+    local beC_k = self:controlK(fromCharacter, self.hostCharacter)
+    BattleLogger.logNumerical("相克系数 : ", beC_k)
+    --- 等级相克系数
+    local level_k = self:levelCon(fromCharacter, self.hostCharacter)
+    BattleLogger.logNumerical("等级相克系数 : ", level_k)
+    --- 技能威力
+    local skill_k = self.buffParams[3] or 100
+    BattleLogger.logNumerical("技能威力 : ", skill_k)
+    ---- 特殊额外系数
+    local enhance_k = 1
+    if paramA == BattleEnum.HitSpecialType.HpHToHitH then
+        --- m 生命越多伤害越高
+        local hpR = self.hostCharacter:GetBaseAtt():GetHpRate()
+        local battleMoreTargetHpMoreDmgParam = ConfigHandler:GetEntry(GameDefine.TableName.Global,
+            "BattleMoreTargetHpMoreDmgParam")
+        enhance_k = enhance_k + (hpR - 0.1) * battleMoreTargetHpMoreDmgParam * 100
+    elseif paramA == BattleEnum.HitSpecialType.HpLToHitH then
+        --- m 受伤越多伤害越高
+        local hpR = self.hostCharacter:GetBaseAtt():GetHpRate()
+        local battleMoreTargetHurtMoreDmgParam = ConfigHandler:GetEntry(GameDefine.TableName.Global,
+            "BattleMoreTargetHurtMoreDmgParam")
+        enhance_k = enhance_k + (1 - hpR) * battleMoreTargetHurtMoreDmgParam * 100
+    elseif paramA == BattleEnum.HitSpecialType.HpHToHitH_S then
+        --- s 生命越多伤害越高
+        local hpR = fromCharacter:GetBaseAtt():GetHpRate()
+        local battleMoreSelfHpMoreDmgParam = ConfigHandler:GetEntry(GameDefine.TableName.Global,
+            "BattleMoreSelfHpMoreDmgParam")
+        enhance_k = enhance_k + (hpR - 0.1) * battleMoreSelfHpMoreDmgParam * 100
+    elseif paramA == BattleEnum.HitSpecialType.HpLToHitH_S then
+        --- s 受伤越多伤害越高
+        local hpR = fromCharacter:GetBaseAtt():GetHpRate()
+        local battleMoreSelfHurtMoreDmgParam = ConfigHandler:GetEntry(GameDefine.TableName.Global,
+            "BattleMoreSelfHurtMoreDmgParam")
+        enhance_k = enhance_k + (1 - hpR) * battleMoreSelfHurtMoreDmgParam * 100
+    elseif paramA == BattleEnum.HitSpecialType.AccumulatedInjured then
+        --- s 读取buff内存储得 受到得伤害
+        local paramB = self.buffParams[5]
+        if paramB then
+            local buffInfo = fromCharacter:GetBuffManager():GetBuffById(tostring(paramB))
+            if buffInfo and buffInfo.GetResultValue then
+                --- 默认写死 BattleEnum.BuffType.Buff_TotalInjured
+                local tmp = buffInfo:GetResultValue(BattleEnum.BuffType.Buff_TotalInjured)
+                hitValue = hitValue + tmp
+            end
+        end
+    else
+        -- nothing to do
+    end
+    BattleLogger.logNumerical("特殊额外系数 : ", enhance_k)
+    local result = hitValue * skill_k * 0.01 * beC_k * critical_k * level_k
+
+    result = result * enhance_k
+    result = FixedCalculateHandler:keepPoint(result, 0)
+    result = result <= 0 and 1 or result
+    BattleLogger.logNumerical("最终伤害 : ", result)
+
+    self:counterAttackData(fromCharacter)
+    self:counterBeAttackData(self.hostCharacter)
+    self.hostCharacter:GetLogicHandle():AcceptDamage(self.fromId, result, self.buffParams, isCritical)
+    local hitType = fromCharacter:IsMagic() and BattleEnum.HitType.Magic or BattleEnum.HitType.Physics
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_OutputDamage_2, self.fromId, hitType)
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_InputDamage_3, self.hostCharacter:GetBattleId(),
+        hitType)
+    BattleEventUtils:DisPath_TriggerEvent(BattleEventId.TriggerTime_HpChange_13, self.hostCharacter:GetBattleId())
+end
+
+return M

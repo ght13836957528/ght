@@ -1,0 +1,74 @@
+local UITeamHeroHeadItem = require "GameLogic.BattleTeam.View.UITeamHeroHeadItem"
+local BattleHelper = require "GameLogic.Battle.BattleHelper"
+---@class UIBattleResultHeadItem:UITeamHeroHeadItem
+local UIBattleResultHeadItem = class("UIBattleResultHeadItem", UITeamHeroHeadItem)
+local M = UIBattleResultHeadItem
+---@param data HeroInfo
+---@param statistic PosStatisticData
+---@param base UIPVEBattleResultWin
+function M:Refresh(index, data, statistic,base)
+    self._index = index
+    self._data = data
+    self._base = base
+
+    self._heroCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Detail, data.heroId)
+    self._heroShowCon = ConfigHandler:GetEntry(GameDefine.TableName.Hero_Show_Info, data.heroId)
+    if self._heroCon == nil then
+        log_Error("Hero_Detail 没找到武将数据 ！！！  heroId == ", data.heroId)
+    end
+    -- self._stateParams = stateParams
+    self:setBaseData(data, self._heroCon, self._heroShowCon)
+    self:setHpBarData(statistic.hpCurrent, statistic.hpBase)
+    self:setSpBarData(statistic.power)
+    -- self:setStatusData(stateParams)
+    self._transform.gameObject:SetActive(true)
+end
+
+function M:onClick(obj)
+    self:clickEvent()
+end
+
+function M:clickEvent()
+    if self._base and self._base._onClickSwitch then
+        self._base:_onClickSwitch()
+    end
+end
+
+
+
+function M:showMvp()
+    self.img_mvp_1.gameObject:SetActive(true)
+end
+
+------------------------------------------------------------
+---@param data HeroInfo
+function M:setBaseData(data, con, showCon)
+    local con_quality = Game.SystemManager.DataTableManager:GetEntry(GameDefine.TableName.Hero_Quality, data.quality)
+
+    self:setHead(BattleHelper:getHeroModelIcon(data.heroId, Game.BusinessManager.PlayerInfoManager:GetMySex()))
+    self:setCamp(con.race)
+    self:setBg(data.quality, con_quality)
+    self:setFrame(data.quality)
+    self:setStar(con_quality.star or 0)
+    self:setLevel(data.level)
+end
+
+function M:setHpBarData(hpCurrent, hpBase)
+    hpCurrent = hpCurrent or 0
+    hpCurrent = hpCurrent < 0 and 0 or hpCurrent
+    hpBase = hpBase or 1
+    hpBase = hpBase == 0 and 1 or hpBase
+    GameObjectUtil.SafeSetActiveSelf(self.go_hpBar_root, true)
+    self.img_hp_img.fillAmount = hpCurrent / hpBase
+    if hpCurrent <= 0 then
+        self:setDeathStatus(true)
+    end
+end
+
+function M:setSpBarData(sp)
+    sp = sp or 0
+    self.img_mp_img.fillAmount = sp / 1000
+end
+
+
+return M

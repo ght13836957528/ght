@@ -1,0 +1,80 @@
+----------------------------------------------------------------------
+--------- 2023年01月30日 16:52:54 星期一
+----------------------------------------------------------------------
+---- 召唤物
+---  目前设计召唤物的生命周期 由buff管理 这样可以被驱散 可以灵活召唤 支持时间消失 生命周期同寄生主
+----------
+local BasePersistentBuff = require "GameLogic.Battle.BuffSystem.BasePersistentBuff"
+local BattleEnum = require "GameLogic.Battle.BattleEnum"
+local BattleConstant = require "GameLogic.Battle.BattleConstant"
+local BattleCharacterSummons = require "GameLogic.Battle.Characters.Summons.BattleCharacterSummons"
+---@class Buff_Summons:BasePersistentBuff
+local Buff_Summons = class("Buff_Summons", BasePersistentBuff)
+local M = Buff_Summons
+
+function M:_onInitialize()
+
+end
+
+--- buff创建开始生效前的处理
+function M:_onEnter()
+    self:_doModify()
+end
+
+-- function M:_onUpdate(deltaTime)
+
+-- end
+
+function M:isCanRemove()
+    if self._summoner then
+        return self._summoner:CheckIsDied()
+    else
+        return true
+    end
+end
+
+function M:_onExit()
+    if self._summoner then
+        self._summoner:GetLogicHandle():_onDie()
+    end
+end
+
+function M:_doModify()
+    local summonId = self.buffParams[2]
+    local posEnumType = self.buffParams[3] or 1
+    local posParams = self.buffParams[4] or 1
+    local dropPointType = BattleEnum.MapGridOrientation.Top
+    if posEnumType == BattleEnum.SummonsPosType.AttackTarget then
+        local characterManager = self.hostCharacter:GetBattleContext():GetCharacterManager()
+        local targetCharacter = characterManager:GetCharacterById(self.fromId)
+        local findPathManager = self.hostCharacter:GetFindPathManager()
+        local _back_normal = targetCharacter:GetTransform():Forward()
+        local orientation = findPathManager:_getOrientation(_back_normal)
+        local gridIndex_x, gridIndex_z = targetCharacter:GetTransform():GetLogicGridIndexXZ()
+        local targetGrid_X, targetGrid_Z = findPathManager:NoObstacleAround(gridIndex_x, gridIndex_z, orientation,
+            dropPointType, 2)
+        -- local logicIndex = self.hostCharacter:GetBattleContext():GetMapController():GetLogicIndexByXZ(targetGrid_X,
+        --     targetGrid_Z)
+        if targetGrid_X and targetGrid_Z then
+            targetCharacter:GetFindPathManager():SetObstacleSelf(true)
+            local targetWorldPos = self.hostCharacter:GetBattleContext():GetMapController():GetRenderPositionByLogicPos(
+                targetGrid_X, targetGrid_Z)
+
+            if self.hostCharacter:GetBattleContext():GetPlayType() == BattleEnum.BattlePlayType.Mowing then
+                targetWorldPos = targetCharacter:GetTransform():GetRenderPos()
+                --targetWorldPos = targetWorldPos + targetCharacter:GetTransform():Forward()
+                self._summoner = characterManager:CreateMowingAttackSummonCharacter(self.hostCharacter, summonId,
+                        { x = targetGrid_X, z = targetGrid_Z, pos = targetWorldPos })
+            else
+                self._summoner = characterManager:CreateAttackSummonCharacter(self.hostCharacter, summonId,
+                        { x = targetGrid_X, z = targetGrid_Z, pos = targetWorldPos })
+            end
+        else
+            BattleLogger.log_error("召唤物位置没有找到合适得位置 ")
+        end
+    else
+        BattleLogger.log_error("召唤物位置枚举扩展 ： ", posEnumType)
+    end
+end
+
+return M

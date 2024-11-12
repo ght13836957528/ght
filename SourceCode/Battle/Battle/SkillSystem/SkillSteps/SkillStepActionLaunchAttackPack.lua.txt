@@ -1,0 +1,378 @@
+----------------------------------------------------------------------
+--------- 2023年01月17日 14:53:23 星期二
+----------------------------------------------------------------------
+
+--[[
+    处理发送攻击包
+]]
+local BattleEnum                      = require "GameLogic.Battle.BattleEnum"
+local BaseSkillStepAction             = require "GameLogic.Battle.SkillSystem.SkillSteps.BaseSkillStepAction"
+
+local PlayArtAction                   = require "GameLogic.Battle.SkillSystem.Actions.PlayArtAction"
+local PlaySoundAction                 = require "GameLogic.Battle.SkillSystem.Actions.PlaySoundAction"
+
+local AttackConditionType             = require "GameLogic.Battle.SkillSystem.SkillSteps.AttackConditionType"
+local TriggerTimeType                 = require "GameLogic.Battle.Common.TriggerTimeType"
+local BattleHelper                    = require "GameLogic.Battle.BattleHelper"
+---@class SkillStepActionLaunchAttackPack:BaseSkillStepAction
+local SkillStepActionLaunchAttackPack = class("SkillStepActionLaunchAttackPack", BaseSkillStepAction)
+local M                               = SkillStepActionLaunchAttackPack
+
+local BattleEventUtils                = require "GameLogic.Battle.BattleEvent.BattleEventUtils"
+
+function M:_onInitialize()
+    self.canAttack = false
+
+
+
+    local endFrame = self.stepActionData.attackEndFrame or 0
+    endFrame = BattleHelper:transitionFrame(endFrame)
+    self.endTime = endFrame
+
+    self.frameCount = 0
+
+    self.index = 0
+
+    self:_createActions()
+
+    self:_createArtAction()
+end
+
+function M:SetIndex(index)
+    self.index = index
+end
+
+function M:GetIndex()
+    return self.index
+end
+
+function M:_onStartAction()
+    -- 判断是否命中
+    self.canAttack = self:_checkDodge()
+    if not self.canAttack then
+        -- 不能命中，结束当前step
+        BattleLogger.log(" 不能命中，结束当前step ")
+        local target = self.battleContext:GetCharacterManager():GetCharacterById(self.findRootId)
+        BattleEventUtils:DisPath_Miss(self.findRootId, target:GetTransform():isLeftTeam())
+        return
+    end
+    self:_onStart()
+end
+
+function M:_onClear()
+    self.canAttack = false
+    -- if self.artActions then
+    --     for _, action in pairs(self.artActions) do
+    --         if action then
+    --             action:Clear()
+    --         end
+    --     end
+    -- end
+end
+
+function M:_createActions()
+    self.actions = {}
+    self:_createSoundAction()
+end
+
+function M:_createArtAction()
+    ---@type PlayArtAction[]
+    self.artActions = {}
+    local artConfig = self.stepActionData.attackSrc
+    if artConfig == nil then
+        return
+    end
+
+    for _, v in ipairs(artConfig) do
+        local action = PlayArtAction.new(self.hostCharacter, self.battleContext, nil)
+        action:Initialize({ effectName = v[1], root = v[2] })
+
+        table.insert(self.artActions, action)
+    end
+end
+
+function M:_createSoundAction()
+    local soundConfig = self.stepActionData.attackSoundTimeline
+    if soundConfig == nil then
+        return
+    end
+
+    -- soundConfig = {{7, src1}, {8, src2}}
+    for _, v in ipairs(soundConfig) do
+        -- v = {7, src1}
+        local frame = BattleHelper:transitionFrame(v[1] or 0)
+        local action = PlaySoundAction.new(self.hostCharacter, self.battleContext, nil)
+        action:Initialize({ soundKey = v[2] })
+        if self.actions[frame] == nil then
+            self.actions[frame] = {}
+        end
+        table.insert(self.actions[frame], action)
+    end
+end
+
+function M:_doArtAction(targetId)
+    if self.artActions ~= nil then
+        for i, action in ipairs(self.artActions) do
+            if action ~= nil then
+                action:Execute(targetId)
+            end
+        end
+    end
+end
+
+function M:_onStart()
+    -- -- 播放动画
+    -- if self.artActions ~= nil then
+    --     for i, action in ipairs(self.artActions) do
+    --         if action ~= nil then
+    --             action:Execute()
+    --         end
+    --     end
+    -- end
+
+    local isActOnSelf = self.stepActionData.actOnSelf or 0
+    if isActOnSelf == 1 then
+        self:_doArtAction(self.baseRootId)
+        -- 给攻击目标添加伤害buff
+        if self:_checkAtkCondition() then
+            local toBuffs = self.stepActionData.atkEff2
+            if toBuffs ~= nil then
+                for i, v in ipairs(toBuffs) do
+                    local buffId = v or 0
+                    self.hostCharacter:GetLogicHandle():AddBuff(self.findRootId, buffId)
+                end
+            end
+        else
+            local toBuffs = self.stepActionData.atkEff
+            if toBuffs ~= nil then
+                for i, v in ipairs(toBuffs) do
+                    local buffId = v or 0
+                    self.hostCharacter:GetLogicHandle():AddBuff(self.findRootId, buffId)
+                end
+            end
+        end
+    else
+        self:_doArtAction(self.findRootId)
+        -- 给攻击目标添加伤害buff
+        if self:_checkAtkCondition() then
+            local toBuffs = self.stepActionData.atkEff2
+            if toBuffs ~= nil then
+                local targetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(
+                    self
+                    .findRootId)
+                for i, v in ipairs(toBuffs) do
+                    local buffId = v or 0
+                    if targetCharacter ~= nil then
+                        targetCharacter:GetLogicHandle():AddBuff(self.baseRootId, buffId)
+                    end
+                end
+            end
+        else
+            local toBuffs = self.stepActionData.atkEff
+            if toBuffs ~= nil then
+                local targetCharacter = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(
+                    self
+                    .findRootId)
+                for i, v in ipairs(toBuffs) do
+                    local buffId = v or 0
+                    targetCharacter:GetLogicHandle():AddBuff(self.baseRootId, buffId)
+                end
+            end
+        end
+    end
+
+
+    -- 造成伤害时的事件
+    -- BroadcastEvent.dispatch(BattleEventId.MSG_BATTLE_TRIGGER_EVENT, TriggerTimeType.TriggerTime_OnDoDamage)
+
+    -- 检查是否添加屏蔽列表
+    local toKickList = self.stepActionData.isKickList or 0
+    if toKickList ~= 0 and self.findRootId ~= nil then
+        self.stepContext:AddKickAttack(self.findRootId)
+    end
+end
+
+function M:_onUpdate(fDeltaTime)
+    -- self:_update(fDeltaTime)
+end
+
+function M:_update(fDeltaTime)
+    if not self.canAttack then
+        return
+    end
+    if self.frameCount > self.endTime then
+        self.canAttack = false
+        self:_onAttackEnd()
+        return
+    end
+    self:_executeActionsOnFrame(self.frameCount)
+    self.frameCount = self.frameCount + 1
+end
+
+function M:_executeActionsOnFrame(iFrameNumber)
+    local currentFrame = iFrameNumber or -1
+    if currentFrame < 0 then
+        return
+    end
+
+    if self.actions[iFrameNumber] then
+        for _, action in ipairs(self.actions[iFrameNumber]) do
+            action:Execute()
+        end
+    end
+end
+
+function M:_onAttackEnd()
+
+end
+
+--- 检查是否命中 true 命中
+function M:_checkDodge()
+    -- log_Error("检查是否闪避")
+    -- if self.findRootId == 1 then
+    --     log_Error("检查是否闪避")
+    -- end
+    local baseChatacter = self.battleContext:GetCharacterManager():GetCharacterById(self.baseRootId)
+    if baseChatacter == nil then
+        return false
+    end
+    local IsMagic = baseChatacter:IsMagic()
+    if IsMagic then
+        return true
+    end
+    local boundHit = self.stepActionData.boundHit or 0 -- 0 表示不是必命中
+    if boundHit == 1 then
+        return true
+    end
+    local targetCharacter = self.battleContext:GetCharacterManager():GetCharacterById(self.findRootId)
+    local dodge_Rate = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Init_Dodge_Rate")
+    local dodge_Formula_Param = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Dodge_Formula_Param")
+    local dodge_Rate_Threshold = ConfigHandler:GetEntry(GameDefine.TableName.Global, "Battle_Dodge_Rate_Threshold")
+
+    local s_d = targetCharacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_Dodge_13) or 0
+    local a_m = baseChatacter:GetAttribute():GetAttackCurrentValue(BattleEnum.BuffChangeAttributeType
+        .AttributeType_Hit_12) or 0
+
+    local tmp = s_d - a_m + dodge_Formula_Param
+    local result = tmp <= 0 and 0 or dodge_Rate + (s_d - a_m) / tmp
+    result = result < 0 and 0 or result
+    result = result > dodge_Rate_Threshold and dodge_Rate_Threshold or result
+    local isDodge, randomResult = self.battleContext:GetBattleRandom():IsWithinTheScopeOfFloat(result, "  闪避/命中: ",
+        targetCharacter:GetTransform():GetInitPos(), targetCharacter:GetCharacterContext():GetBattleCamp())
+    -- if self.findRootId == 1 then
+    --     log_Error("检查是否闪避: ", result, "     ", randomResult)
+    -- end
+    return not isDodge
+end
+
+function M:_checkAtkCondition()
+    local conditionItem = self.stepActionData.atkCondition
+    local conditionItemCount = table_GetArrayLength(conditionItem)
+    if conditionItemCount > 0 then
+        -- conditionItem中的元素数量不确定
+        return self:_doCheckCondition(conditionItem)
+    end
+    return false
+end
+
+function M:_doCheckCondition(conditionParam)
+    local conditionType = conditionParam[1] or 0
+    if conditionType == AttackConditionType.Condition_CashierHpPercentLess then
+        local paramValue = conditionParam[2] or 0
+        paramValue = tonumber(paramValue)
+        if self.hostCharacter:GetBaseAtt():GetHpRate() * 100 < paramValue then
+            return true
+        end
+    elseif conditionType == AttackConditionType.Condition_CashierHpPercentLargeEqual then
+        local paramValue = conditionParam[2] or 0
+        paramValue = tonumber(paramValue)
+        if self.hostCharacter:GetBaseAtt():GetHpRate() * 100 >= paramValue then
+            return true
+        end
+    elseif conditionType == AttackConditionType.Condition_TargetHpPercentLess then
+        ---@type BattleCharacter
+        local target = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.findRootId)
+        if target ~= nil then
+            local paramValue = conditionParam[2] or 0
+            paramValue = tonumber(paramValue)
+            if target:GetBaseAtt():GetHpRate() * 100 < paramValue then
+                return true
+            end
+        end
+    elseif conditionType == AttackConditionType.Condition_TargetHpPercentLargeEqual then
+        ---@type BattleCharacter
+        local target = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.findRootId)
+        if target ~= nil then
+            local paramValue = conditionParam[2] or 0
+            paramValue = tonumber(paramValue)
+            if target:GetBaseAtt():GetHpRate() * 100 >= paramValue then
+                return true
+            end
+        end
+    elseif conditionType == AttackConditionType.Condition_CastHasBuff then
+        local buffId = conditionParam[2] or 0
+        buffId = tonumber(buffId)
+        local buffLayerCount = conditionParam[3] or 0
+        buffLayerCount = tonumber(buffLayerCount)
+        if buffId ~= nil and buffLayerCount > 0 then
+            local bHasBuff = self.hostCharacter:GetLogicHandle():CheckHasBuff(buffId, buffLayerCount)
+            if bHasBuff then
+                return true
+            end
+        end
+    elseif conditionType == AttackConditionType.Condition_TargetHasBuff then
+        ---@type BattleCharacter
+        local target = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.findRootId)
+        if target ~= nil then
+            local buffId = conditionParam[2] or 0
+            buffId = tonumber(buffId)
+            local buffLayerCount = conditionParam[3] or 0
+            buffLayerCount = tonumber(buffLayerCount)
+            if buffId ~= nil and buffLayerCount > 0 then
+                local bHasBuff = target:GetLogicHandle():CheckHasBuff(buffId, buffLayerCount)
+                if bHasBuff then
+                    return
+                end
+            end
+        end
+    elseif conditionType == AttackConditionType.Condition_A_Dis then
+        ---@type BattleCharacter
+        local target = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.findRootId)
+        if target ~= nil then
+            local attType = conditionParam[2] or 0
+            attType = tonumber(attType)
+            return attType == target:GetConfigData().range
+        end
+    elseif conditionType == AttackConditionType.Condition_CastHasBuffId then
+        local buffId = conditionParam[2] or 0
+        local buffLayerCount = conditionParam[3] or 0
+        buffLayerCount = tonumber(buffLayerCount)
+        if buffId ~= nil and buffLayerCount > 0 then
+            local bHasBuff = self.hostCharacter:GetLogicHandle():CheckHasBuffId(buffId, buffLayerCount)
+            if bHasBuff then
+                return true
+            end
+        end
+    elseif conditionType == AttackConditionType.Condition_TargetHasBuffId then
+        ---@type BattleCharacter
+        local target = self.hostCharacter:GetBattleContext():GetCharacterManager():GetCharacterById(self.findRootId)
+        if target ~= nil then
+            local buffId = conditionParam[2] or 0
+            local buffLayerCount = conditionParam[3] or 0
+            buffLayerCount = tonumber(buffLayerCount)
+            if buffId ~= nil and buffLayerCount > 0 then
+                local bHasBuff = target:GetLogicHandle():CheckHasBuffId(buffId, buffLayerCount)
+                if bHasBuff then
+                    return true
+                end
+            end
+        end
+    else
+        BattleLogger.log_error(" to do 新的step 选择类型 : ", conditionType)
+    end
+
+    return false
+end
+
+return M

@@ -1,0 +1,10 @@
+---@class GuideStepInfoShootingGameShowMonsters:GuideStepBaseInfo 是否完成雷达引导
+local GuideStepInfoShootingGameShowMonsters = class("GuideStepInfoShootingGameShowMonsters", require("GameLogic.NewGuide.Model.GuideStepBaseInfo"))
+local M = GuideStepInfoShootingGameShowMonsters
+
+function M:onParse(params)
+  
+end
+
+
+return M

@@ -1,0 +1,282 @@
+---@class UICombineWatermelonAwardLayer : UIWidget UICombineWatermelonMainView 界面里的【获取奖励】界面
+local UICombineWatermelonAwardLayer = class("UICombineWatermelonAwardLayer", UIWidget)
+local M = UICombineWatermelonAwardLayer
+
+local SGAwardDayItem = require "GameLogic.CoinBattle.CoinBattleMain.Item.SGAwardDayItem"
+local SGScoreItem = require "GameLogic.CoinBattle.CoinBattleMain.Item.SGScoreItem"
+local SGRankItem = require "GameLogic.CoinBattle.CoinBattleMain.Item.SGRankItem"
+local BtnType = {
+    ---参与奖励
+    Daily = "Daily",
+    ---积分奖励
+    Score = "Score",
+    ---排名奖励
+    Rank = "Rank",
+}
+local grayColor = Color(147/255, 140/255, 121/255, 1)
+local lightColor = Color(169/255, 158/255, 116/255, 1)
+
+function M:autoWrapInjectObject()
+    return true
+end
+
+function M:onParse(params)
+    if params then
+
+    end
+end
+
+function M:onAddListener()
+    self._awardTipsBtn:addEventListener(ButtonEvent.CLICK, self.onClickTips, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GetDailyAward, self.onRefreshDailyTask, self)
+    BroadcastEvent.subscribe(CombineWatermelonModel.Event_GetAward, self.onRefreshTask, self)
+
+    BroadcastEvent.subscribe(SGAwardDayItem.EventOnClickGet, self.onDailyRewardGet, self)
+    BroadcastEvent.subscribe(SGAwardDayItem.EventOnClickGoto, self.onDailyRewardGoto, self)
+    BroadcastEvent.subscribe(SGScoreItem.EventOnClickGet, self.onScoreRewardGet, self)
+    BroadcastEvent.subscribe(SGScoreItem.EventOnClickGoto, self.onScoreRewardGoto, self)
+end
+function M:onRemoveListener()
+    self._awardTipsBtn:removeEventListener(ButtonEvent.CLICK, self.onClickTips, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GetDailyAward, self.onRefreshDailyTask, self)
+    BroadcastEvent.unsubscribe(CombineWatermelonModel.Event_GetAward, self.onRefreshTask, self)
+
+    BroadcastEvent.unsubscribe(SGAwardDayItem.EventOnClickGet, self.onDailyRewardGet, self)
+    BroadcastEvent.unsubscribe(SGAwardDayItem.EventOnClickGoto, self.onDailyRewardGoto, self)
+    BroadcastEvent.unsubscribe(SGScoreItem.EventOnClickGet, self.onScoreRewardGet, self)
+    BroadcastEvent.unsubscribe(SGScoreItem.EventOnClickGoto, self.onScoreRewardGoto, self)
+end
+
+function M:onCreate()
+    self.dailyItem = {}
+    self.scoreItem = {}
+    self.rankItem = {}
+    self.refreshDailyIsOk = true --表示每日任务item是否创建完毕。（原因在于，协议回调也会刷新itme，多次连续调用，还没有创建完可能会有冲突。下同。）
+    self.refreshScoreIsOk = true
+    --btn声明
+    self.curType = nil
+    self.tabBtns = {}
+    self.tabBtns[BtnType.Daily] = {}
+    self.tabBtns[BtnType.Daily].btn = self._btn1
+    self.tabBtns[BtnType.Daily].line = self._awardBtnLine1
+    self.tabBtns[BtnType.Score] = {}
+    self.tabBtns[BtnType.Score].btn = self._btn2
+    self.tabBtns[BtnType.Score].line = self._awardBtnLine2
+    self.tabBtns[BtnType.Rank] = {}
+    self.tabBtns[BtnType.Rank].btn = self._btn3
+    self.tabBtns[BtnType.Rank].line = self._awardBtnLine3
+    for i, v in pairs(self.tabBtns) do
+        v.btn:addEventListener(ButtonEvent.CLICK, self.onClickTabBtn, self, i)
+    end
+    self:initBtn()
+    
+    self.content = UIWidget.new()
+    self.content:bind(self._content)
+    self:onClickTabBtn(BtnType.Daily)
+end
+
+function M:initBtn()
+    self.tabBtns[BtnType.Daily].btn:setText(GameGlobal.GameEntry.Localization:GetString("5505022")) --参与奖励
+    self.tabBtns[BtnType.Daily].line:SetActiveEx(false)
+    self.tabBtns[BtnType.Score].btn:setText(GameGlobal.GameEntry.Localization:GetString("5505023")) --积分奖励
+    self.tabBtns[BtnType.Score].line:SetActiveEx(false)
+    self.tabBtns[BtnType.Rank].btn:setText(GameGlobal.GameEntry.Localization:GetString("5505024")) --排名奖励
+    self.tabBtns[BtnType.Rank].line:SetActiveEx(false)
+end
+
+function M:onClickTabBtn(btnType)
+    if self.curType == btnType then
+        return
+    end
+    if self.curType then
+        self.tabBtns[self.curType].btn:setTextColor(grayColor)
+        self.tabBtns[self.curType].line:SetActiveEx(false)
+    end
+    self.tabBtns[btnType].btn:setTextColor(lightColor)
+    self.tabBtns[btnType].line:SetActiveEx(true)
+    self.curType = btnType
+
+    if self.curType == BtnType.Daily then
+        self._awardDesLabel.text = GameGlobal.GameEntry.Localization:GetString("5600335")
+        self._awardTipsBtn:hide()
+        self:refreshDailyItem()
+    elseif self.curType == BtnType.Score then
+        self._awardDesLabel.text = GameGlobal.GameEntry.Localization:GetString("5505031", CombineWatermelonModel.getMyScore())
+        self._awardTipsBtn:hide()
+        self:refreshScoreItem()
+    elseif self.curType == BtnType.Rank then
+        self._awardDesLabel.text = GameGlobal.GameEntry.Localization:GetString("5505032", CombineWatermelonModel.getMyRank())
+        self._awardTipsBtn:show()
+        self:refreshRankItem()
+    end
+    
+end
+
+function M:refreshDailyItem()
+    for _, v in ipairs(self.scoreItem) do
+        v:hide()
+    end
+    for _, v in ipairs(self.rankItem) do
+        v:hide()
+    end
+    self.refreshDailyIsOk = false
+    local dailyTasks = CombineWatermelonModel.getDailyTask()
+    local index = #dailyTasks
+    local decreaseF = function()
+        index = index - 1
+        if index == 0 then
+            self.refreshDailyIsOk = true
+        end
+    end
+    if index == 0 then
+        self.refreshDailyIsOk = true
+    end
+    for i, v in ipairs(dailyTasks) do
+        ---@type SGAwardDayItem
+        local ui
+        if self.dailyItem[i] then
+            ui = self.dailyItem[i]
+            ui:onParse(v)
+            ui:onRefreshData()
+            ui:setParentScrollRect(self._awardScrollView)
+            ui:show()
+            decreaseF()
+        else
+            ui = SGAwardDayItem.new(v)
+            ui:load(nil, function()
+                ui:setParentScrollRect(self._awardScrollView)
+                decreaseF()
+            end)
+            ui:setParent(self.content)
+            table.insert(self.dailyItem, ui)
+        end
+    end
+end
+
+function M:refreshScoreItem()
+    for _, v in ipairs(self.dailyItem) do
+        v:hide()
+    end
+    for _, v in ipairs(self.rankItem) do
+        v:hide()
+    end
+
+    self.refreshScoreIsOk = false
+    local scoreTasks = CombineWatermelonModel.getScoreTask()
+    local index = #scoreTasks
+    local decreaseF = function()
+        index = index - 1
+        if index == 0 then
+            self.refreshScoreIsOk = true
+        end
+    end
+    if index == 0 then
+        self.refreshScoreIsOk = true
+    end
+    
+    
+    for i, v in ipairs(scoreTasks) do
+        ---@type SGScoreItem
+        local ui
+        if self.scoreItem[i] then
+            ui = self.scoreItem[i]
+            ui:onParse(v)
+            ui:onRefreshData()
+            ui:show()
+            decreaseF()
+        else
+            ui = SGScoreItem.new(v)
+            ui:load(nil, function()
+                decreaseF()
+            end)
+            ui:setParent(self.content)
+            table.insert(self.scoreItem, ui)
+        end
+    end
+end
+function M:refreshRankItem()
+    for _, v in ipairs(self.dailyItem) do
+        v:hide()
+    end
+    for _, v in ipairs(self.scoreItem) do
+        v:hide()
+    end
+    local rankTasks = CombineWatermelonModel.getRankTask()
+    for i, v in ipairs(rankTasks.rank) do
+        local data = {}
+        data.rank = v
+        data.reward = rankTasks.reward[i]
+        ---@type SGRankItem
+        local ui
+        if self.rankItem[i] then
+            ui = self.rankItem[i]
+            ui:onParse(data)
+            ui:onRefreshData()
+            ui:show()
+        else
+            ui = SGRankItem.new(data)
+            ui:load()
+            ui:setParent(self.content)
+            table.insert(self.rankItem, ui)
+        end
+    end
+end
+
+---刷新每日任务
+function M:onRefreshDailyTask()
+    if self.curType == BtnType.Daily and self.refreshDailyIsOk then
+        self:refreshDailyItem()
+    end
+end
+
+---刷新任务（积分奖励 排名奖励）
+function M:onRefreshTask()
+    if self.curType == BtnType.Score and self.refreshScoreIsOk then
+        self:refreshScoreItem()
+    end
+end
+
+function M:onDailyRewardGet(taskId)
+    local isSelfServer = true
+    if GameGlobal.GameEntry.Data.Player.CrossFightSrcServerId > 0 then
+        isSelfServer = GameGlobal.GameEntry.Data.Player.CrossFightSrcServerId == GameGlobal.GameEntry.Data.Player.SelfServerId
+    end
+    if not isSelfServer then
+        CS.UIUtils.ShowMessage(GameGlobal.GameEntry.Localization:GetString("87010077"))
+        return
+    end
+    CombineWatermelonModel.GetDailyTaskRewardCommand(taskId)
+
+end
+
+function M:onDailyRewardGoto()
+    BroadcastEvent.dispatch(CombineWatermelonModel.Event_OpenMainViewRule)
+end
+
+function M:onScoreRewardGet(scoreTaskIndex)
+    local isSelfServer = true
+    if GameGlobal.GameEntry.Data.Player.CrossFightSrcServerId > 0 then
+        isSelfServer = GameGlobal.GameEntry.Data.Player.CrossFightSrcServerId == GameGlobal.GameEntry.Data.Player.SelfServerId
+    end
+    if not isSelfServer then
+        CS.UIUtils.ShowMessage(GameGlobal.GameEntry.Localization:GetString("87010077"))
+        return
+    end
+    CombineWatermelonModel.GetTaskRewardCommand(1, scoreTaskIndex)
+end
+
+function M:onScoreRewardGoto()
+    BroadcastEvent.dispatch(CombineWatermelonModel.Event_OpenMainViewRule)
+end
+
+function M:onClickTips()
+    CS.UIPreAdd.OpenUICommonHelpTips("5505036")
+end
+
+function M:onDispose()
+    for i, v in pairs(self.tabBtns) do
+        v.btn:removeEventListener(ButtonEvent.CLICK, self.onClickTabBtn, self, i)
+    end
+end
+
+return M

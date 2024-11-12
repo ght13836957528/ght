@@ -1,0 +1,49 @@
+---@class FixedCalculateHandler
+FixedCalculateHandler = {}
+local isHandleFixed = false
+local ratio = 1000
+local u_ratio = 0.001
+local floor = math.floor   -- 向负无穷取整
+local ceil = math.ceil     -- 向正无穷取整
+local modf = math.modf     -- 向0 取整
+
+local round_off = floor    
+-- 加法
+function FixedCalculateHandler:add(a,b)
+    if isHandleFixed then
+        return round_off((round_off(a * ratio) + round_off(b * ratio)) * u_ratio)
+    else
+        return a + b
+    end
+end
+-- 乘法
+function FixedCalculateHandler:mul(a,b)
+    if isHandleFixed then
+        return round_off((round_off(a * ratio) * round_off(b * ratio)) * u_ratio * u_ratio)
+    else
+        return a * b
+    end
+end
+
+-- 乘法
+function FixedCalculateHandler:sub(a,b)
+    if isHandleFixed then
+        return round_off((round_off(a * ratio) - round_off(b * ratio)) * u_ratio )
+    else
+        return a - b
+    end
+end
+
+-- 除法
+function FixedCalculateHandler:div(a,b)
+    if isHandleFixed then
+        return round_off(round_off(a * ratio) // round_off(b * ratio))
+    else
+        return a / b
+    end
+end
+-- 
+function FixedCalculateHandler:keepPoint(num,len)
+  return round_off(num *(10 ^ len)) * (0.1 ^ len)
+end
+
