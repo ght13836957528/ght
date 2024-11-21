@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/firebase_database_url,@string/gcm_defaultSenderId,@string/google_storage_bucket,@string/project_id,@string/google_api_key,@string/google_crash_reporting_api_key,@string/google_app_id,@string/default_web_client_id,@string/default_android_client_id">
+  <string name="firebase_database_url" translatable="false">https://day-z-survival-42378625.firebaseio.com</string>
+  <string name="gcm_defaultSenderId" translatable="false">311901324408</string>
+  <string name="google_storage_bucket" translatable="false">day-z-survival-42378625.appspot.com</string>
+  <string name="project_id" translatable="false">day-z-survival-42378625</string>
+  <string name="google_api_key" translatable="false">AIzaSyBn3bdM34af6pxDEq2cC5GbiDzRy3uf_lQ</string>
+  <string name="google_crash_reporting_api_key" translatable="false">AIzaSyBn3bdM34af6pxDEq2cC5GbiDzRy3uf_lQ</string>
+  <string name="google_app_id" translatable="false">1:311901324408:android:69bd42363c03daa2</string>
+  <string name="default_web_client_id" translatable="false">311901324408-82mctenn8dul1dkc0nvc4k78h7kngoi7.apps.googleusercontent.com</string>
+  <string name="default_android_client_id" translatable="false">311901324408-7m97000a7hu21pqcev1iva147dusigi6.apps.googleusercontent.com</string>
+</resources>
