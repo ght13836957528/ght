@@ -339,7 +339,7 @@ namespace OnePStudio.SpineToUnity5
 		}
 		
 	}
-	public static class AnimationCurveUtility : System.Object
+	public static class AnimationCurveUtility 
 	{
 		public enum TangentMode
 		{

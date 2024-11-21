@@ -74,7 +74,7 @@ namespace Framework
                 {
 
                 }
-                if(!loadWWW.error.IsNullOrEmpty())
+                if(!string.IsNullOrEmpty(loadWWW.error))
                     return null;
                 return loadWWW.bytes;
             }
@@ -91,7 +91,7 @@ namespace Framework
             {
                 WWW loadWWW = new WWW(filepath);
                 while (!loadWWW.isDone) { }
-                if(!loadWWW.error.IsNullOrEmpty())
+                if(!string.IsNullOrEmpty(loadWWW.error))
                     return "";
                 return loadWWW.text;
             }
