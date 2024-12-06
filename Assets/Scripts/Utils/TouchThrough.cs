@@ -75,3 +75,6 @@ public class TouchThrough : MonoBehaviour, IPointerClickHandler
             PassEvent (eventData, ExecuteEvents.pointerClickHandler);
         }
     }
+
+///其实就是继承了接口IPointerClickHandler，重写方法OnPointerClick。具体做法就是，射线照射，
+/// 然后从得到的结果中，找当前脚本挂的gameObject，然后如果找到了，那么就取它下面第一个gameObjct，然后对他执行ExecuteEvents.Execute方法
