@@ -93,7 +93,7 @@ namespace Main.Scripts.Editor.Resource
 
             foreach (var targetPath in _addModelList)
             {
-                // Log.Info("FBXAnimationTools.Process"+ targetPath);
+                // Debug.Log("FBXAnimationTools.Process"+ targetPath);
                 // FBXAnimationTools.Process(targetPath);
             }
 
