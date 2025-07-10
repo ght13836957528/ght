@@ -56,13 +56,13 @@ public class LuaModule : GameBaseSingletonModule<LuaModule>
     public LuaAction OnLaunchStateUpdate => m_OnLaunchStateUpdate;
     public LuaAction OnLaunchStateExit => m_OnLaunchStateExit;
 
-    // public int Memory
-    // {
-    //     get
-    //     {
-    //         return (int)m_LuaEnv?.Memory;
-    //     }
-    // }
+    public int Memory
+    {
+        get
+        {
+            return (int)m_LuaEnv?.Memory;
+        }
+    }
 
     public LuaGame luaGame
     {
